@@ -32,13 +32,17 @@ jobs:
           path: artifacts/core-performance-baseline.json
           if-no-files-found: error
       - name: Verify benchmark left source tree clean
-        run: test -z "$(git status --porcelain --untracked-files=normal)"
+        run: |
+          git status --short --untracked-files=normal
+          test -z "$(git status --porcelain --untracked-files=normal)"
       - name: Package extension
         run: npm run package:dev
       - name: Verify clean package
         run: npm run verify:package
       - name: Verify source tree stayed clean
-        run: test -z "$(git status --porcelain --untracked-files=normal)"
+        run: |
+          git status --short --untracked-files=normal
+          test -z "$(git status --porcelain --untracked-files=normal)"
       - name: Upload clean CEP artifact
         uses: actions/upload-artifact@v4
         with:
