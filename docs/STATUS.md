@@ -57,7 +57,21 @@ This preserves After Effects compositing order at all overlap times.
 - Undo-group contract checks;
 - self-contained dependency checks.
 
-## Implemented — Phase 0C\n\n- deterministic package builder from an explicit source allowlist;\n- SHA-256 BUILD_MANIFEST.json for packaged files;\n- package integrity verifier;\n- mocked AE host execution tests for snapshot/select/move/trim/Undo;\n- mocked CEP adapter tests for argument validation and host-error propagation;\n- CI packaging and artifact upload;\n- clean per-user macOS/Windows development installer;\n- stale FSTR Line CEP cache/log cleanup only;\n- duplicate system-extension detection;\n- unsigned CSXS 11/12 development-mode setup;\n- final automated code/security audit fixes: package verification before install, stale per-user bundle cleanup, no-op Undo prevention, sync bridge-error recovery.\n\n## Implemented — Phase 0D
+## Implemented — Phase 0C
+
+- deterministic package builder from an explicit source allowlist;
+- SHA-256 BUILD_MANIFEST.json for packaged files;
+- package integrity verifier;
+- mocked AE host execution tests for snapshot/select/move/trim/Undo;
+- mocked CEP adapter tests for argument validation and host-error propagation;
+- CI packaging and artifact upload;
+- clean per-user macOS/Windows development installer;
+- stale FSTR Line CEP cache/log cleanup only;
+- duplicate system-extension detection;
+- unsigned CSXS 11/12 development-mode setup;
+- final automated code/security audit fixes: package verification before install, stale per-user bundle cleanup, no-op Undo prevention, sync bridge-error recovery.
+
+## Implemented — Phase 0D
 
 - real-After-Effects runtime smoke JSX;
 - clean-project safety gate;
@@ -66,7 +80,8 @@ This preserves After Effects compositing order at all overlap times.
 - rejected-trim non-mutation check;
 - save/reopen Layer.id persistence check;
 - automatic test-project close without saving;
-- macOS runner that refuses a pre-existing AE session and retrieves the structured result without requiring file-write permission;\n- macOS startup retry + DoScriptFile fallback to DoScript/$.evalFile for AE automation robustness.
+- macOS runner that refuses a pre-existing AE session and retrieves the structured result without requiring file-write permission;
+- macOS startup retry + DoScriptFile fallback to DoScript/$.evalFile for AE automation robustness.
 
 ## Implemented — Phase 0E
 
@@ -100,6 +115,31 @@ This preserves After Effects compositing order at all overlap times.
 - AE memory-in-use baseline around 10–1000 layer stress;
 - one-command clean install + runtime smoke through npm run validate:ae.
 
+## Implemented — Phase 0J
+
+- generated Build Identity embedded during packaging;
+- Build ID includes version, exact Git commit and clean/dirty source state;
+- browser and After Effects host receive metadata from the same package run;
+- Diagnostics compares browser/host Build ID and commit;
+- dirty packages are rejected by clean verification;
+- CI checks exact head commit and verifies source tree cleanliness before/after packaging.
+
+## Latest Level 1 Evidence
+
+Test Run ID: GitHub Actions `36424829531`
+
+- Git commit: `98f94a87457db4d7d093b4a18d06596a2165d516`
+- Build ID: `FSTR-Line@0.0.1+98f94a87457d.clean.cep`
+- Git state: `clean`
+- BUILD_MANIFEST SHA-256: `59f31d4b50e4a221a10b58aba60d14894301cb224a8dbdd7e88181edb7e62da0`
+- GitHub CEP artifact digest: `sha256:8822be7b25024d2c52a0c103eaa3dfdf7bc52d0bab63f33d4369c07a4a4fb448`
+- automated tests: `38 PASS / 0 FAIL`
+- Core benchmark sanity: PASS
+- clean package verification: PASS
+- runtime Build Identity inside real After Effects: NOT RUN
+
+Evidence scope: this confirms source/package identity and automated behavior covered by the test suite. It does not confirm real After Effects runtime behavior or platform compatibility.
+
 ## Not yet claimed
 
 The CEP panel has not yet completed a clean real-After-Effects runtime run.
@@ -123,4 +163,4 @@ Therefore these are still unverified:
 
 ## Next gate
 
-Next: run the automated macOS real-AE smoke gate on an installed After Effects build, then capture real profiling. Drag/trim gesture UX comes only after the host bridge is proven stable.
+Next: execute the identified clean artifact through the automated real-AE validation gate on an available After Effects installation, verify runtime Build ID, then capture host/UI profiling. Drag/trim gesture UX comes only after the host bridge is proven stable.
