@@ -6,6 +6,8 @@
 
 ## Current development baseline
 
+Direct Timeline change notifications (AE 25.6): **BLOCKED**, no verified event source from reviewed public documentation; target-version headers/native probe pending. Research: `docs/EVENT_SYNC_RESEARCH.md`. CEP transport support does not imply Timeline event support.
+
 | Component | Configuration | Status | Evidence / limitation |
 | --- | --- | --- | --- |
 | Timeline Core | Node.js `v24.13.1`, TypeScript toolchain, macOS development host | **PASS** | Build и 13 pure Core/FakeHostAdapter tests PASS; это не проверка After Effects |

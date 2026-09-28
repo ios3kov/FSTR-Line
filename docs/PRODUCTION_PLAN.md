@@ -2,6 +2,8 @@
 
 ## Current Development Status
 
+**Priority gate: direct AE-originated Timeline notifications — BLOCKED pending verified API.** User rejected periodic full-layer reads as the final synchronization design. Public CEP/AEGP documentation review did not establish complete change events for AE 25.6; target SDK headers/native probe remain NOT RUN. See `docs/EVENT_SYNC_RESEARCH.md`. Existing Auto Sync prototype is not acceptance evidence for this requirement. Next step: obtain target SDK and verify callback coverage, or seek Adobe API clarification.
+
 **Milestone: CEP read/refresh PoC и panel lifecycle — implementation complete, local verification PASS.**
 
 Реализованы без зависимости от After Effects:

@@ -331,6 +331,10 @@ NoComposition
 
 ## Performance Rules
 
+### Direct host notifications gate
+
+Native Timeline synchronization must be based on verified AE-originated notifications to satisfy the user's requirement. Existing Auto Sync (2s) is an opt-in polling experiment, not the accepted architecture. CEP event transport alone does not supply change detection; AEGP idle/menu hooks do not establish complete Timeline notifications. Selection of an event source/native adapter is BLOCKED pending target SDK evidence. Coverage matrix and research: `docs/EVENT_SYNC_RESEARCH.md`. No migration to native code is approved solely on an assumption of better event support.
+
 Запрещено:
 - full project polling каждые 100–200 ms;
 - host call на каждый mousemove;
