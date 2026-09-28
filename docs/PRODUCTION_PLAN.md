@@ -44,6 +44,26 @@ type
 2. строит компактное визуальное представление;
 3. переводит пользовательские жесты в обычные операции AE.
 
+### Normalized snapshot
+
+Панель получает snapshot активной композиции пакетно. Snapshot включает `compositionId`, параметры времени, `currentTime`, массив layer snapshots и `revision`.
+
+`revision` используется для проверки, что команда рассчитана на всё ещё актуальное состояние. Snapshot является краткоживущим read model, а не второй копией проекта.
+
+Каждый пользовательский intent проходит цепочку:
+
+```text
+snapshot + intent
+    → Core validation
+    → local preview
+    → semantic command
+    → Host preflight
+    → one AE operation / one Undo Group
+    → refresh
+```
+
+Если preconditions больше не выполняются, команда отклоняется без частичного применения.
+
 ---
 
 ## 3. Core Feature — Track Packing
@@ -75,6 +95,8 @@ V2 |     BBBBBB
 Packing никогда не должен менять реальный порядок композиции.
 
 Если два слоя пересекаются во времени, их визуальное положение обязано сохранять тот же compositing order, что и `Layer.index` в After Effects.
+
+Алгоритм не должен зависеть от случайного порядка входной коллекции. Для проверки использовать staggered-overlap cases, где A пересекается с B, B пересекается с C, а A и C не пересекаются. Простое greedy-размещение не считается достаточным доказательством корректности.
 
 ---
 
@@ -136,6 +158,26 @@ getCurrentTime()
 setCurrentTime()
 ```
 
+Контракт должен также определять:
+
+- normalized snapshot schema;
+- `compositionId` и `revision`;
+- semantic command types;
+- preflight/validation result;
+- structured operation result;
+- коды ошибок для stale snapshot, missing layer, locked layer, wrong composition и host failure.
+
+Adapter принимает сериализуемую команду с известным типом. UI не передаёт ExtendScript или произвольный код.
+
+Для одной пользовательской операции adapter выполняет:
+
+1. проверку composition и revision;
+2. полную preflight-проверку всех targets;
+3. одну Undo Group;
+4. операцию или атомарный набор изменений;
+5. структурированный результат;
+6. targeted refresh.
+
 CEP реализует контракт через ExtendScript / `evalScript()`.
 
 После появления полноценного AE UXP API создаётся второй адаптер без переписывания Core.
@@ -165,6 +207,18 @@ manual refresh
 
 Live preview можно добавить позже с throttling.
 
+### Invalidation rules
+
+Во время preview snapshot становится недействительным при:
+
+- смене active composition;
+- удалении или reorder target layer;
+- изменении timing/switches извне;
+- lock target layer;
+- закрытии проекта или потере host connection.
+
+В этом случае commit не выполняется, preview сбрасывается, а интерфейс показывает refresh/conflict result.
+
 ---
 
 ## 7. Undo
@@ -182,6 +236,8 @@ app.endUndoGroup();
 - trim = один Undo;
 - multi-move = один Undo.
 
+Undo Group закрывается через `try/finally` после успешного открытия. Ошибка, ранний выход и отмена не должны оставлять незакрытую группу. Поведение при невозможности применить часть multi-layer операции определяется как failure до начала изменения; частичный silent success запрещён.
+
 ---
 
 ## 8. Phase 0 — Technical Proof of Concept
@@ -198,6 +254,8 @@ app.endUndoGroup();
 7. trim in/out;
 8. Undo;
 9. refresh состояния.
+
+До UI polish сначала доказать работу pure Core на fixtures и FakeHostAdapter. Реальный AE smoke test обязателен для подтверждения host bridge, selection, move/trim и Undo; mock-тест не заменяет AE-проверку.
 
 ### Gate
 
@@ -224,6 +282,11 @@ app.endUndoGroup();
 - negative start;
 - разные FPS;
 - большое количество пересечений.
+- staggered overlaps;
+- stable/deterministic output при перестановке входного массива;
+- цепочки ограничений A↔B↔C;
+- zero-duration и out-of-comp ranges;
+- одинаковые timestamps с разным AE Z-order.
 
 Основной invariant:
 
@@ -322,6 +385,14 @@ UI должен быть максимально лёгким и не дубли�
 
 Все операции должны быть frame-safe.
 
+Core использует integer frame/tick coordinates. Конвертация в seconds выполняется только на границе Host Adapter. Отдельно проверяются:
+
+- negative start time;
+- sub-frame values, если они разрешены целевой версией AE;
+- округление in/out при move и trim;
+- drop-frame отображение;
+- сохранение frame identity после save/reopen.
+
 ---
 
 ## 14. Clean Validation Rule
@@ -387,6 +458,11 @@ v1 считается production-ready только когда:
 8. отсутствует собственная копия проекта;
 9. Core не зависит от CEP;
 10. миграция на UXP требует нового HostAdapter, а не переписывания продукта.
+11. stale snapshot не приводит к применению операции к изменённому layer;
+12. multi-layer операция либо проходит preflight целиком, либо не меняет проект;
+13. packing детерминированно сохраняет порядок всех пересекающихся layers;
+14. semantic commands и normalized snapshot имеют зафиксированный versioned contract;
+15. ошибки host/API диагностируемы и не скрываются как успешная операция.
 
 ---
 
