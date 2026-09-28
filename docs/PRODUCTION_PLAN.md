@@ -19,7 +19,7 @@
 
 Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`, `docs/TEST_RECORDS/CEP-POC-2026-09-28.md`.
 
-В AE 25.6.0 (Build 101) пользователь подтвердил открытие панели, чтение композиции и Refresh после смены композиции/добавления слоя. Evidence: `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`. Полный integration gate остаётся открытым: контролируемый packing, точность полей snapshot, docking, restart/save/reopen, runtime Build ID, Undo Group и визуальное совпадение с native Timeline ещё не проверены.
+В AE 25.6.0 (Build 101) пользователь подтвердил открытие панели, чтение композиции и Refresh после смены композиции/добавления слоя. Скриншот следующего теста подтверждает объединение двух последовательных слоёв в одну дорожку и docking. Evidence: `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`, `docs/TEST_RECORDS/CEP-PACKING-AE25-2026-09-28.md`. Полный integration gate остаётся открытым: остальные packing-сценарии, точность полей snapshot, restart/save/reopen, runtime Build ID, Undo Group и визуальное совпадение с native Timeline ещё не проверены.
 
 ## 1. Product Definition
 

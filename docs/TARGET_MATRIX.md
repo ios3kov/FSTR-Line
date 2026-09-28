@@ -10,13 +10,15 @@
 | --- | --- | --- | --- |
 | Timeline Core | Node.js `v24.13.1`, TypeScript toolchain, macOS development host | **PASS** | Build и 13 pure Core/FakeHostAdapter tests PASS; это не проверка After Effects |
 | After Effects host | AE 25.6.0.101, macOS 26.6.2 | **PASS (limited smoke)** | Panel open/read/refresh подтверждены пользователем; см. runtime evidence ниже |
-| CEP | Bundled CEPHtmlEngine 12.0.1.2 | **PASS (limited smoke)** | Открытие панели и read/refresh; docking/lifecycle ещё не проверены |
+| CEP | Bundled CEPHtmlEngine 12.0.1.2 | **PASS (limited smoke)** | Открытие панели, read/refresh и docking; restart/save/reopen ещё не проверены |
 | ExtendScript | AE 25.6 host | **PASS (read smoke only)** | Snapshot read через CEP; editing/Undo и полная точность snapshot не проверены |
 | UXP | Future adapter | **UNTESTED** | Не считается поддержанным без подтверждения AE-specific API |
 | Windows | Not available in current environment | **BLOCKED** | Нужен Windows test host |
 | Apple Silicon / Intel | Apple M1 Pro, 16 GB RAM / Intel unavailable | **PASS (M1 Pro limited smoke) / UNTESTED (Intel)** | Только open/read/refresh на M1 Pro |
 
 Runtime evidence (2026-09-28): `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`. Installed Build ID: `fstr-cep-aaa6da96ab91`; runtime identity independently unverified. Успешный smoke test не закрывает полный compatibility gate.
+
+Дополнительный screenshot smoke (2026-09-28): последовательные слои на одной дорожке и docking — PASS. Evidence: `docs/TEST_RECORDS/CEP-PACKING-AE25-2026-09-28.md`, тот же установленный artifact.
 
 ## Required before CEP milestone
 
