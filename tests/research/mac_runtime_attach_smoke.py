@@ -17,7 +17,7 @@ def main():
         src.write_text(
             '#include <unistd.h>\n'
             'extern "C" __attribute__((noinline)) void fstr_runtime_candidate(){}\n'
-            'int main(){for(int i=0;i<200;i++){fstr_runtime_candidate(); usleep(20000);} return 0;}\n'
+            'int main(){for(int i=0;i<2000;i++){fstr_runtime_candidate(); usleep(20000);} return 0;}\n'
         )
         binary=t/'fstr-runtime-fixture'
         subprocess.run(['xcrun','clang++','-g','-O0',str(src),'-o',str(binary)],check=True,timeout=60)
