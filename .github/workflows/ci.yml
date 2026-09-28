@@ -12,9 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Verify clean Git state
+        run: test -z "$(git status --porcelain --untracked-files=normal)"
       - name: Syntax check
         run: npm run check
       - name: Unit tests
@@ -31,6 +35,8 @@ jobs:
         run: npm run package:dev
       - name: Verify clean package
         run: npm run verify:package
+      - name: Verify source tree stayed clean
+        run: test -z "$(git status --porcelain --untracked-files=normal)"
       - name: Upload clean CEP artifact
         uses: actions/upload-artifact@v4
         with:

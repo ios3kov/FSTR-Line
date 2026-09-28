@@ -45,3 +45,20 @@ test("clean installer verifies package before deleting installed copies", () => 
   assert.ok(verifyIndex < targetDeleteIndex);
   assert.match(installer, /perUserDuplicates/);
 });
+
+test("Build Identity is exposed by host, adapter, panel and package flow", () => {
+  const adapter = fs.readFileSync("host/cep/cep-adapter.js", "utf8");
+  const panel = fs.readFileSync("ui/panel.js", "utf8");
+  const packager = fs.readFileSync("scripts/package-extension.mjs", "utf8");
+  const verifier = fs.readFileSync("scripts/verify-package.mjs", "utf8");
+
+  assert.match(host, /api\.getBuildInfo/);
+  assert.match(adapter, /getBuildInfo/);
+  assert.match(html, /diagnostics-toggle/);
+  assert.match(panel, /buildIdentityMismatch/);
+  assert.match(panel, /Browser\/host Build Identity mismatch/);
+  assert.match(packager, /gitState/);
+  assert.match(packager, /generated\/build-info\.json/);
+  assert.match(verifier, /Refusing milestone\/test package from dirty Git state/);
+  assert.match(verifier, /Build Identity mismatch between manifest and generated metadata/);
+});
