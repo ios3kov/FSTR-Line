@@ -6,32 +6,30 @@
 
 Есть typed Core, versioned snapshot/commands/guards, усиленные host-операции, проверяемый CEP-пакет и визуальные read-only клипы. Это НЕ готовый редактор. Editing UI остаётся закрытым до реальной проверки timing, ключей/stretch/remapping, Undo/Redo и восстановления после ошибок в AE.
 
-**SYNC-001 обязателен: полный прямой источник уведомлений от AE**, включая native UI, ExtendScript и другие plugins, timing, создание/удаление/порядок слоёв, selection/switches, composition/project, playhead и Undo/Redo. Один канал не обязателен: допустим проверенный набор каналов с полным совместным покрытием. Polling/revision/idle/focus/self-events не заменяют требование.
+**SYNC-001 обязателен: полный прямой источник уведомлений от AE**, включая native UI, ExtendScript и другие plugins, timing, создание/удаление/порядок слоёв, selection/switches, composition/project, playhead и Undo/Redo. Допустим проверенный набор каналов с полным совместным покрытием. Polling/revision/idle/focus/self-events не заменяют требование.
 
 В DEVELOPMENT_RULES.md нет категорического запрета на изолированное private-hook research. Найденный внутренний вызов сам по себе не доказывает готовность механизма к production. Источник ещё НЕ найден и НЕ реализован; это не доказательство невозможности.
 
 ## Подтверждённые предыдущие этапы
 
-13ea401d51f3636e2cf8eaa1e029b166c0d9f738: 45 исходных + 34 host/UI/package/logger + 14 Python тестов = 93 PASS; build/package/clean identity проверки PASS. Push run 36477096159, PR run 36477147748. Это Level 1 без настоящего AE. Детали и финальный hash сохранены в PR #2; новые commits требуют своих проверок.
+13ea401d51f3636e2cf8eaa1e029b166c0d9f738: 93 tests PASS, build/package/clean identity PASS. Усилены откат и блокировка неопределённых записей, исключён повторный сдвиг in/out в модели связанных setter-ов, добавлен независимый JSON и сохранение STALE-проекции. Историческое ошибочное чтение priority=0 у command probe исправлено отдельным erratum, старые логи сохранены. Это Level 1 без настоящего AE.
 
-Усилены откат и блокировка неопределённых записей, исключён повторный сдвиг in/out в модели связанных setter-ов, добавлен независимый JSON и сохранение STALE-проекции при повторных ошибках. Историческое ошибочное чтение priority=0 у command probe исправлено отдельным erratum, старые логи не переписаны.
+7b21e50b64df2f7599e65c9d91795629e7c890a0: Linux/macOS CI PASS; точный collector ZIP на нашем Mach-O, сравнение UUID с dwarfdump, 3/3 вызова нашей контрольной программы через настоящий LLDB. f9090f57de4ded26aa09f7a4602f3444ae2b6778: Linux/macOS CI PASS для явного выбора .app и подробной диагностики отказов. Результаты и hashes сохранены в PR #2. Эти тесты подтвердили инструменты в своём scope, не корректность предположения об идентификаторе настоящего AE.
 
-7b21e50b64df2f7599e65c9d91795629e7c890a0: Linux/macOS CI PASS; 33 Python tests, точный collector ZIP на нашем Mach-O, сравнение UUID с dwarfdump, 3/3 ожидаемых вызова нашей контрольной программы через настоящий LLDB. Это проверка инструментов, не After Effects. Evidence/hashes сохранены в PR #2 и COLLECTOR-NATIVE-CONTROL-2026-09-28.md.
+## Текущий этап: исправлен ошибочный ожидаемый Bundle ID
 
-## Текущий этап: устранение отказа поиска приложения
+Новый пользовательский отчёт FSTR-AE-Static-20260928T212314Z-35fa34495692.zip показал точную причину: выбранный Adobe After Effects 2025.app сообщает com.adobe.AfterEffects.application, 25.6.0, build 25.6.0.101, executable After Effects. Сборщик ошибочно ожидал com.adobe.AfterEffects. Приложение было выбрано, но отвергнуто до чтения модулей. Это дефект сборщика, не ошибка выбора пользователя.
 
-Пользователь прислал FSTR-AE-Static-20260928T210957Z-8858e0b53bef.zip. Отчёт содержит только BLOCKED: No unique AE 25.6 installation found. Ни одного модуля/символа/трассы, даже метаданных приложения, в нём нет. Это НЕ доказательство отсутствия AE. Точную причину старый сборщик не сохранял. Подтверждена идентичность сборщика 7b21e50, не причина отказа.
+Исправлена точная проверка Bundle ID; версия, путь, symlink и read-only ограничения сохранены. Добавлен независимый metadata fixture из отчёта и 7 regression-тестов. Старый collector воспроизводит FAIL, исправленный проходит 7/7 локальных проверок. Ранние тесты повторяли неверный идентификатор из кода; их fixtures также исправлены.
 
-Collect-AE.command теперь предлагает явно выбрать установленный .app через системный диалог; --app остаётся без диалога. Автопоиск различает отсутствие принятого кандидата, несколько установок и неполный поиск. При отказе выбранного приложения сохраняются четыре allowlisted поля Info.plist и конкретная причина. Проверки версии, bundle identity, symlink и read-only scope не ослаблены. Отмена не запускает анализ. AE, проекты, plugins/preferences/security не изменяются.
+macOS smoke теперь проверяет точный ZIP с наблюдаемыми метаданными и именем After Effects на НАШЕМ скомпилированном Mach-O, включая UUID/SHA и настоящий LLDB положительный контроль. Отдельная проверка ошибочной версии требует именно version-error. Полный Linux/macOS CI нового commit должен пройти отдельно; старый PASS автоматически не переносится.
 
-Добавлены 14 regression-тестов выбора/отказов, macOS-проверка точного пакета на отклонённом приложении с сохранением metadata и компиляция AppleScript. Все предыдущие Linux/macOS/LLDB gates повторяются на новом commit; их результат фиксируется в CI/PR, не предполагается заранее. Живое взаимодействие человека с диалогом не автоматизировано и NOT RUN; это отдельно от проверки синтаксиса и протестированного пути --app.
+Подробности, hash входного отчёта и критерии: [Bundle ID regression](TEST_RECORDS/COLLECTOR-BUNDLE-ID-2026-09-28.md). История первого отказа без metadata: [Discovery failure](TEST_RECORDS/COLLECTOR-DISCOVERY-FAILURE-2026-09-28.md).
 
-Детали входного отчёта, hash, ограничений и scoped fix: [Collector discovery failure](TEST_RECORDS/COLLECTOR-DISCOVERY-FAILURE-2026-09-28.md). Инструкция диагностического комплекта: ../research/ae-notifications/README.txt. Инструменты не входят в CEP-пакет.
+## Следующий шаг и открытые проверки
 
-## Что ещё не проверено
+Нужен отчёт исправленного read-only сборщика с выбранной установленной AE 25.6, уже содержащий реальные модули. Далее — анализ symbols/strings/связей функций, AE-specific положительный контроль и проверка полных native/script/plugin origins, post-commit delivery, пропусков/дубликатов, стабильности и нагрузки. Только после конкретного кандидата — отдельный diagnostic probe. В текущем отчёте модулей и notification evidence нет.
 
-Реальные бинарники AE и авторизованный процесс на Mac недоступны из текущей сессии. Анализ внутренних AE-вызовов, полный источник уведомлений, post-commit coverage и нагрузка на настоящий AE — BLOCKED/NOT RUN. Настоящая LLDB-проверка нашей контрольной программы не меняет этот статус.
+Сборщик ничего не устанавливает, не запускает AE/отладчик и не меняет проекты/plugins/preferences/security; инструменты не входят в CEP-пакет. Инструкция: ../research/ae-notifications/README.txt.
 
-Следующий шаг: получить отчёт с явно выбранной установленной AE 25.6; исследовать реальные модули/связи функций; проверить AE-specific положительный контроль, все источники изменений, пропуски/дубликаты и post-commit семантику; только после конкретного кандидата делать отдельный diagnostic probe.
-
-Остаются адаптация donor installer/runtime/performance harness, полноценная UI/gesture реализация, subframe timing, реальная совместимость Windows/Intel и signing/release приёмка. Детали сохранены в DONOR_INTEGRATION.md и research/ae-notifications/coverage.json. Main, пользовательская установка и продуктовый release этим этапом не затрагиваются.
+Остаются адаптация donor installer/runtime/performance harness, полноценный editing UI/gestures, subframe timing, реальная совместимость Windows/Intel и signing/release. Детали: DONOR_INTEGRATION.md и research/ae-notifications/coverage.json. Main, пользовательская установка и продуктовый release этим этапом не затрагиваются.

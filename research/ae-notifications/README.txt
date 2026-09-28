@@ -9,11 +9,14 @@ The entire path must point to the application bundle, not its parent folder.
 The Python CLI also supports --non-interactive automatic discovery: failure
 reports retain accepted/rejected AE candidates and the precise validation reason.
 An explicit/selected app always reports its allowlisted plist metadata on rejection,
-without relaxing the target-version, bundle-identity or symlink checks.
+without relaxing the target-version or symlink checks.
 The chooser times out after 180 seconds; --app works without a GUI.
 
-This update responds to a discovery failure, not evidence that AE is absent.
-The earlier failure report had no module data and cannot establish its cause.
+The expected bundle ID is com.adobe.AfterEffects.application, as observed in the
+user's AE 25.6.0.101 report. Earlier kits incorrectly expected the shorter
+com.adobe.AfterEffects ID and rejected that installation before reading modules.
+This corrects the exact ID; it does not accept arbitrary Adobe prefixes or claim
+code-signature authenticity. Metadata and runtime identity remain distinct.
 
 Output: ~/Desktop/FSTR-AE-Research/FSTR-AE-Static-<unique run>.zip plus SHA-256.
 Share the ZIP report, NOT the Adobe application or SDK. Inspect it before sharing.

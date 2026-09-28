@@ -5,6 +5,7 @@ from pathlib import Path
 import plistlib
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -20,19 +21,22 @@ def main():
     output = ROOT / 'dist/notification-evidence'
     output.mkdir(parents=True, exist_ok=True)
     packaged = ROOT / 'dist/notification-collector' / commit / 'FSTR-AE-Collector.zip'
+    observed = json.loads((ROOT / 'tests/research/fixtures/ae-25.6-observed-metadata.json').read_text())
     with tempfile.TemporaryDirectory(prefix='fstr-owned-native-') as temporary:
         directory = Path(temporary)
         with zipfile.ZipFile(packaged) as archive:
             archive.extractall(directory / 'unpacked')  # our allowlisted builder output
         kit = directory / 'unpacked/FSTR-AE-Collector'
-        app = directory / 'Fixture.app'
-        binary = app / 'Contents/MacOS/fstr-owned-fixture'
-        binary.parent.mkdir(parents=True)
+        app = directory / observed['appName']
+        # Actual metadata is from a report, but BOTH executable copies are OUR
+        # compiled control. This does not make the fixture an Adobe installation.
+        binary = directory / 'fstr-owned-fixture'
+        app_binary = app / 'Contents/MacOS' / observed['metadata']['CFBundleExecutable']
+        app_binary.parent.mkdir(parents=True)
         subprocess.run(['xcrun', 'clang++', '-g', '-O0', '-std=c++17',
                         str(ROOT / 'tests/research/native_control.cpp'), '-o', str(binary)], check=True, timeout=60)
-        meta = dict(CFBundleIdentifier='com.adobe.AfterEffects', CFBundleShortVersionString='25.6.0',
-                    CFBundleVersion='SYNTHETIC-PLIST-NOT-AE', CFBundleExecutable=binary.name)
-        (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(meta))
+        shutil.copyfile(binary, app_binary)
+        (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(observed['metadata']))
         before = hashlib.sha256(binary.read_bytes()).hexdigest()
         completed = subprocess.run(['bash', str(kit / 'Collect-AE.command'), '--app', str(app),
                                     '--output', str(directory / 'reports')], capture_output=True,
@@ -46,8 +50,12 @@ def main():
             report = json.loads(archive.read('report.json'))
         assert report['collectionStatus'] == 'PASS' and report['SYNC-001'] == 'NOT RUN'
         assert report['collectorBuild']['sourceCommit'] == commit
+        assert report['selection']['candidate']['metadata'] == observed['metadata']
+        assert report['modules'][0]['relativePath'] == 'Contents/MacOS/After Effects'
+        assert report['application']['runtimeIdentityVerified'] is False
+        assert report['application']['exactBuild101Verified'] is False
         inspected = report['modules'][0]['inspection']
-        assert inspected['sha256'] == before == hashlib.sha256(binary.read_bytes()).hexdigest()
+        assert inspected['sha256'] == before == hashlib.sha256(app_binary.read_bytes()).hexdigest()
         ids = {s['uuid'].lower() for s in inspected['slices'] if s['uuid']}
         actual_uuid_output = subprocess.check_output(['xcrun', 'dwarfdump', '--uuid', str(binary)], text=True)
         actual_ids = {s.lower() for s in re.findall(r'UUID: ([A-Fa-f0-9-]{36})', actual_uuid_output)}
@@ -71,7 +79,9 @@ def main():
         assert control_result['moduleUUID'].lower() in ids
         evidence = dict(status='PASS', sourceCommit=commit,
             kitSha256=hashlib.sha256(packaged.read_bytes()).hexdigest(),
-            scope='Exact collector ZIP on compiled Mach-O fixture and real LLDB. NOT an AE test.',
+            scope='Exact collector ZIP on compiled Mach-O fixture with observed AE metadata, and real LLDB. NOT an AE test.',
+            observedMetadataReportSha256=observed['reportSha256'],
+            observedMetadataAcceptance='PASS',
             staticCollection='PASS', uuidComparedWithDwarfdump='PASS',
             control=control_result, actualAE='NOT RUN', **{'SYNC-001': 'NOT RUN'})
         (output / 'mac-native-smoke.json').write_text(json.dumps(evidence, indent=2) + '\n')

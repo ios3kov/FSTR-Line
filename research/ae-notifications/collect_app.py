@@ -95,7 +95,8 @@ def identity(app):
     bundle = values.get('CFBundleIdentifier')
     version = values.get('CFBundleShortVersionString')
     executable = values.get('CFBundleExecutable')
-    if bundle != 'com.adobe.AfterEffects':
+    # Exact identifier observed in the user's AE 25.6.0.101 report; no prefix match.
+    if bundle != 'com.adobe.AfterEffects.application':
         raise Blocked('Bundle identifier does not match the expected After Effects identifier; see selection metadata')
     if not isinstance(version, str) or not re.match(r'^25\.6(?:\.|$)', version):
         raise Blocked('Application version does not match the 25.6 collection target; see selection metadata')

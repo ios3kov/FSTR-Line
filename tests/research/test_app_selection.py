@@ -17,7 +17,7 @@ spec.loader.exec_module(collector)
 def fixture(root, name='Adobe After Effects.app', **metadata):
     app = root / name
     (app / 'Contents/MacOS').mkdir(parents=True)
-    values = dict(CFBundleIdentifier='com.adobe.AfterEffects', CFBundleShortVersionString='25.6.0',
+    values = dict(CFBundleIdentifier='com.adobe.AfterEffects.application', CFBundleShortVersionString='25.6.0',
                   CFBundleVersion='SYNTHETIC-NOT-ADOBE', CFBundleExecutable='Test')
     values.update(metadata)
     (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(values))

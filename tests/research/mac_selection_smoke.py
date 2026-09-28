@@ -28,7 +28,7 @@ def main():
         # never scanned or mistaken for a missing installation.
         app = temp / 'Тест ; $(echo no)/Adobe After Effects 2025.app'
         (app / 'Contents').mkdir(parents=True)
-        metadata = dict(CFBundleIdentifier='com.adobe.AfterEffects', CFBundleShortVersionString='26.0',
+        metadata = dict(CFBundleIdentifier='com.adobe.AfterEffects.application', CFBundleShortVersionString='26.0',
                         CFBundleVersion='SYNTHETIC-SELECTION-NOT-ADOBE', CFBundleExecutable='NeverLaunched')
         (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(metadata))
         done = subprocess.run(['bash', str(kit / 'Collect-AE.command'), '--app', str(app),
@@ -42,6 +42,8 @@ def main():
             report = json.loads(z.read('report.json'))
         if report['collectionStatus'] != 'BLOCKED' or report['selection']['candidate']['metadata'] != metadata:
             raise RuntimeError('Selected application rejection metadata was lost')
+        if 'version' not in report['reason']:
+            raise RuntimeError('Rejected for an unexpected reason instead of version mismatch')
         if report.get('modules') or report['collectorBuild']['sourceCommit'] != commit:
             raise RuntimeError('Wrong scope or build identity')
         evidence = dict(status='PASS', sourceCommit=commit, chooserSyntax='PASS',
