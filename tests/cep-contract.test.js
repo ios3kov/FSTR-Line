@@ -62,3 +62,15 @@ test("Build Identity is exposed by host, adapter, panel and package flow", () =>
   assert.match(verifier, /Refusing milestone\/test package from dirty Git state/);
   assert.match(verifier, /Build Identity mismatch between manifest and generated metadata/);
 });
+
+test("clean installer does not change CEP security settings or unknown duplicates", () => {
+  const installer = fs.readFileSync("scripts/install-dev.mjs", "utf8");
+
+  assert.doesNotMatch(installer, /defaults", \["write"/);
+  assert.doesNotMatch(installer, /"reg", \[\s*"add"/);
+  assert.match(installer, /PlayerDebugMode/);
+  assert.match(installer, /will not change PlayerDebugMode automatically/);
+  assert.match(installer, /unexpectedDuplicates/);
+  assert.match(installer, /will not be deleted automatically/);
+  assert.match(installer, /fstr-line-install-backup-/);
+});

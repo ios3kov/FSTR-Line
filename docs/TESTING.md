@@ -109,3 +109,12 @@ The runner uses JXA because it is the practical automation bridge on macOS.
 It retries AE startup/automation connection failures and first attempts `DoScriptFile`. If that fails, it falls back to `DoScript` with `$.evalFile(...)`. This avoids depending on one macOS automation path only.
 
 macOS may still show the operating-system Automation permission prompt the first time Terminal controls After Effects. That permission is owned by macOS and is not bypassed by FSTR Line.
+
+
+### Security-setting boundary
+
+The installer does not enable Adobe `PlayerDebugMode`.
+
+If unsigned CEP development is disabled, installation stops with `BLOCKED`. Enabling that setting requires explicit permission, or the project must use a signed CEP package.
+
+The installer never terminates an already-running After Effects process.
