@@ -146,7 +146,11 @@
   function renderTimeline(snapshot) {
     if (!snapshot) {
       renderEmpty();
-      setStatus("Open a composition in After Effects.", false);
+      if (state.buildIdentityMismatch) {
+        setStatus("Build Identity mismatch — open Diagnostics.", true);
+      } else {
+        setStatus("Open a composition in After Effects.", false);
+      }
       return;
     }
 
