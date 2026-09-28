@@ -100,6 +100,7 @@ def stream_filtered(args,regex,timeout=90,max_input=MAX_NM_INPUT,max_hits=MAX_NM
         selector.close()
         if proc.poll() is None:
             _stop_owned(proc)
+        proc.stdout.close()
 
 def sha256(path):
     h=hashlib.sha256()

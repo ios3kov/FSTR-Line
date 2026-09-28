@@ -23,7 +23,36 @@ def main():
             plan={'runId':'fixture','pid':process.pid,'executable':str(binary),
                   'modules':[{'key':'fixture','path':str(binary),'sha256':digest,'uuid':uid}],
                   'breakpoints':[{'label':'fixture-event','module':'fixture',
-                                  'regex':'^fstr_runtime_candidate\\(\\)$','minLocations':1,'maxLocations':2}],
+                                  'regex':'^fstr_runtime_candidate,'minLocations':1,'maxLocations':2}],
+                  'phases':[{'offsetSeconds':0,'label':'owned-fixture','instruction':'fixture'}],
+                  'durationSeconds':2,'maxEvents':500,'tracePath':str(t/'trace.jsonl'),'resultPath':str(t/'result.json')}
+            (t/'plan.json').write_text(json.dumps(plan))
+            call='script runtime_control.run(lldb.debugger, '+json.dumps(str(t/'plan.json'))+')'
+            done=subprocess.run(['xcrun','lldb','--batch','--no-lldbinit',
+                '-o','command script import '+str(kit/'trace_callback.py'),
+                '-o','command script import '+str(kit/'runtime_control.py'),'-o',call],
+                capture_output=True,text=True,timeout=30)
+            if not (t/'result.json').exists():
+                raise RuntimeError('No result: '+done.stdout+done.stderr)
+            result=json.loads((t/'result.json').read_text())
+            if result['status']!='PASS':
+                raise RuntimeError(json.dumps(result)+'\n'+done.stdout+done.stderr)
+            rows=[json.loads(x) for x in (t/'trace.jsonl').read_text().splitlines()]
+            hits=[r for r in rows if r['kind']=='candidate-hit']
+            if not hits: raise RuntimeError('No owned-fixture breakpoint hits')
+            if any(r['isNotificationProven'] or r['commitPhase']!='UNKNOWN' for r in hits):
+                raise RuntimeError('Observer overclaimed semantics')
+            evidence={'status':'PASS','scope':'attach to owned fixture only, NOT AE',
+                      'hits':len(hits),'sourceCommit':commit,'SYNC-001':'NOT RUN'}
+            out=ROOT/'dist/notification-evidence/runtime-attach-smoke.json'; out.parent.mkdir(parents=True,exist_ok=True)
+            out.write_text(json.dumps(evidence,indent=2)+'\n'); print(json.dumps(evidence))
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try: process.wait(timeout=2)
+                except subprocess.TimeoutExpired: process.kill(); process.wait()
+if __name__=='__main__': main()
+,'minLocations':1,'maxLocations':2}],
                   'phases':[{'offsetSeconds':0,'label':'owned-fixture','instruction':'fixture'}],
                   'durationSeconds':2,'maxEvents':500,'tracePath':str(t/'trace.jsonl'),'resultPath':str(t/'result.json')}
             (t/'plan.json').write_text(json.dumps(plan))
