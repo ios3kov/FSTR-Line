@@ -48,4 +48,37 @@ Interactive SDK Console access was also attempted: see `docs/TEST_RECORDS/SDK-AC
 
 Obtain an official SDK applicable to AE 25.6 through Adobe Developer Console; record version/hash and inspect registration suites/headers/samples. If a candidate callback exists, create an isolated read-only native probe: timestamp callback delivery and affected IDs, without scanning layers on idle. Exercise every matrix row, including Undo/Redo and script-originated edits. Record missed/duplicate notifications, main-thread cost, idle calls and playback latency. Only then select native-to-CEP transport and targeted snapshot invalidation. If headers expose no candidate, request Adobe developer clarification with this coverage matrix; do not silently substitute polling.
 
+## Next research stage: internal AE behavior
+
+Because the supported public API has not provided a complete source, the next
+research stage may investigate whether AE 25.6 contains an internal event path.
+This stage is exploratory evidence only and does not change the product
+architecture or satisfy SYNC-001 by itself.
+
+Planned sequence:
+
+1. Preserve the AE 25.6 binary identity and create a separate test run with a
+   disposable project and unique logs.
+2. Inspect available binary metadata and strings for project, Timeline,
+   selection, undo/redo, and event-dispatch terminology without modifying the
+   installed AE application.
+3. Observe function activity with a debugger or equivalent read-only tracing
+   during isolated operations: native layer edits, playhead changes,
+   selection/switches, project changes, Undo/Redo, ExtendScript edits, and
+   plugin-originated edits.
+4. Identify whether there is one common delivery point or several required
+   channels, and whether delivery is before or after the state commit.
+5. If a concrete candidate is identified, build a separate diagnostic probe
+   that records only timestamps, event identity, and safe correlation data. It
+   must not mutate projects, scan state on idle, or alter production FSTR code.
+6. Accept a candidate only after the complete coverage matrix, missed/duplicate
+   event behavior, restart behavior, crash/hang behavior, and performance
+   impact are recorded.
+
+Private or undocumented behavior is not a production solution merely because
+it can be observed. Any candidate that is version-fragile, requires unsafe
+memory assumptions, or cannot cover all required origins and state changes is
+recorded as research evidence and rejected for SYNC-001. No private hook will
+be shipped without a separate compatibility, safety, and maintenance decision.
+
 This research stage changes documentation only. No runtime compatibility or performance PASS follows from it.
