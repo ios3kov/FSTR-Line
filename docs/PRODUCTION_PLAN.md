@@ -1,5 +1,23 @@
 # Production Plan
 
+## Current Development Status
+
+**Milestone: Pure Timeline Core — implementation complete, local verification PASS.**
+
+Реализованы без зависимости от After Effects:
+
+- versioned normalized snapshot contract;
+- integer-frame time conversion и half-open range overlap;
+- deterministic packing с сохранением AE Z-order;
+- semantic move/trim/switch/select commands;
+- snapshot composition/revision guards;
+- FakeHostAdapter для проверки preflight и stale-command rejection;
+- pure Core test fixtures.
+
+Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`.
+
+Ограничение: CEP bridge, ExtendScript, реальный After Effects, Undo Group и визуальное совпадение с native Timeline пока не проверены. Следующий gate — target matrix и минимальный CEP read/refresh proof of concept.
+
 ## 1. Product Definition
 
 FSTR Line — альтернативное визуальное представление существующего After Effects Timeline.

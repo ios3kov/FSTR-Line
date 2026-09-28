@@ -78,6 +78,15 @@ Core не должен зависеть от CEP. Это позволит зам
 
 ## Статус
 
-**Этап 0: документация / подготовка Technical Proof of Concept.**
+**Этап 0: документация завершена; pure Timeline Core реализован и проверен локальными unit-тестами.**
 
-Следующий технический gate: dockable CEP-панель, которая читает активную композицию, упаковывает реальные AE layers в Premiere-like tracks и поддерживает move/trim/undo без изменения визуального результата композиции.
+Реализованы и проверены без After Effects:
+
+- normalized composition/layer snapshot;
+- integer-frame time model;
+- deterministic packing с сохранением AE Z-order;
+- semantic move/trim/switch commands;
+- snapshot guards и stale-command rejection;
+- FakeHostAdapter contract checks.
+
+Следующий технический gate: dockable CEP-панель, которая читает активную композицию, упаковывает реальные AE layers в Premiere-like tracks и поддерживает move/trim/undo без изменения визуального результата композиции. Pure Core не является доказательством работы CEP или After Effects.
