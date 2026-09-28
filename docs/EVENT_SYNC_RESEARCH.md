@@ -39,6 +39,8 @@ Focus events, keyboard/mouse interception, menu hooks, a timer sending custom CS
 
 ## Unblock procedure
 
+Interactive SDK Console access was also attempted: see `docs/TEST_RECORDS/SDK-ACCESS-2026-09-28.md`. Download controls did not load; target SDK remains unavailable. A precise Adobe clarification draft is prepared in `docs/ADOBE_NOTIFICATION_API_REQUEST.md` (not submitted).
+
 Obtain an official SDK applicable to AE 25.6 through Adobe Developer Console; record version/hash and inspect registration suites/headers/samples. If a candidate callback exists, create an isolated read-only native probe: timestamp callback delivery and affected IDs, without scanning layers on idle. Exercise every matrix row, including Undo/Redo and script-originated edits. Record missed/duplicate notifications, main-thread cost, idle calls and playback latency. Only then select native-to-CEP transport and targeted snapshot invalidation. If headers expose no candidate, request Adobe developer clarification with this coverage matrix; do not silently substitute polling.
 
 This research stage changes documentation only. No runtime compatibility or performance PASS follows from it.
