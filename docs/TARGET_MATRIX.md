@@ -26,6 +26,8 @@ Save/reopen и restart AE с повторным Refresh: два слоя, две
 
 ## Required before CEP milestone
 
+New diagnostics artifact `fstr-cep-92fd5e97d2fa`: runtime UI/Host MATCH and manual Refresh — PASS by screenshot; initial automatic read — FAIL (empty response, unresolved). Evidence: `docs/TEST_RECORDS/CEP-DIAGNOSTICS-RUNTIME-2026-09-28.md`. Earlier artifact smoke tests do not override this failure.
+
 Перед первым CEP artifact нужно зафиксировать:
 
 - минимальную и целевую версию After Effects;
