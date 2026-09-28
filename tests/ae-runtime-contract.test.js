@@ -47,3 +47,10 @@ test("real-AE smoke profiles host scaling to 1000 layers", () => {
   assert.match(smoke, /selectBottomMicroseconds/);
   assert.match(smoke, /moveBottomMicroseconds/);
 });
+
+test("mac runner retries AE startup and falls back from DoScriptFile", () => {
+  assert.match(runner, /attempt < 20/);
+  assert.match(runner, /helper\.delay\(0\.5\)/);
+  assert.match(runner, /ae\.doscriptfile\(smokePath\)/);
+  assert.match(runner, /\$\.evalFile\(new File/);
+});

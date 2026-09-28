@@ -94,3 +94,12 @@ The runner chooses the newest After Effects application under /Applications. Ove
     FSTR_AE_APP="/Applications/.../Adobe After Effects 2026.app" npm run smoke:ae
 
 The runtime JSX is platform-independent. Automated launcher support for Windows remains a separate compatibility task.
+
+
+### macOS launcher robustness
+
+The runner uses JXA because it is the practical automation bridge on macOS.
+
+It retries AE startup/automation connection failures and first attempts `DoScriptFile`. If that fails, it falls back to `DoScript` with `$.evalFile(...)`. This avoids depending on one macOS automation path only.
+
+macOS may still show the operating-system Automation permission prompt the first time Terminal controls After Effects. That permission is owned by macOS and is not bypassed by FSTR Line.

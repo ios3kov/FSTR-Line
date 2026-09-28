@@ -66,7 +66,7 @@ This preserves After Effects compositing order at all overlap times.
 - rejected-trim non-mutation check;
 - save/reopen Layer.id persistence check;
 - automatic test-project close without saving;
-- macOS runner that refuses a pre-existing AE session and retrieves the structured result without requiring file-write permission.
+- macOS runner that refuses a pre-existing AE session and retrieves the structured result without requiring file-write permission;\n- macOS startup retry + DoScriptFile fallback to DoScript/$.evalFile for AE automation robustness.
 
 ## Implemented — Phase 0E
 
