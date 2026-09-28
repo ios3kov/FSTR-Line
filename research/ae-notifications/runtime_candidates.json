@@ -1,9 +1,11 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "protocolVersion": 2,
   "aeBundleId": "com.adobe.AfterEffects.application",
   "aeShortVersion": "25.6.0",
   "aeBundleVersion": "25.6.0.101",
   "sourceFocusedReportSha256": "0609b3de91f67f56e942708438f575f1d89fb46440e9bf0b95f98f3bf4165e93",
+  "sourceRuntimeReportSha256": "569fd656d255a481c438fc934177f1ef6d83b80fbb6ffc5c58965b70949b2144",
   "modules": {
     "BEE": {
       "relativePath": "Contents/Frameworks/BEE.dylib",
@@ -17,25 +19,32 @@
     }
   },
   "breakpoints": [
-    {"label":"undo-completed","module":"BEE","regex":"^BEE_UndoContext::OnUndoCommandCompleted\\(\\)$","minLocations":1,"maxLocations":2},
-    {"label":"undo","module":"BEE","regex":"^BEE_Undo\\(BEE_UndoContext&\\)$","minLocations":1,"maxLocations":2},
-    {"label":"redo","module":"BEE","regex":"^BEE_Redo\\(BEE_UndoContext&\\)$","minLocations":1,"maxLocations":2},
-    {"label":"selection-command","module":"BEE","regex":"^BEE_CmdModifySelection\\(","minLocations":1,"maxLocations":4},
-    {"label":"select-layer","module":"BEE","regex":"^BEE_SelectLayer\\(","minLocations":1,"maxLocations":4},
-    {"label":"param-changed","module":"BEE","regex":"::CmdParamChanged\\(","minLocations":1,"maxLocations":32},
-    {"label":"param-pre-change","module":"BEE","regex":"::CmdPreParamChange\\(","minLocations":1,"maxLocations":32},
-    {"label":"project-settings-post","module":"AfterFXLib","regex":"PostMessageToUIThread.*MessageNameForProjectSettingsChangedMessage","minLocations":1,"maxLocations":8}
+    {"label":"undo-command","module":"BEE","fileAddress":"0x645958","minLocations":1,"maxLocations":1},
+    {"label":"redo-command","module":"BEE","fileAddress":"0x645f24","minLocations":1,"maxLocations":1},
+    {"label":"undo-starting","module":"BEE","fileAddress":"0x649c28","minLocations":1,"maxLocations":1},
+    {"label":"undo-completed","module":"BEE","fileAddress":"0x649c6c","minLocations":1,"maxLocations":1},
+    {"label":"set-executing-undo","module":"BEE","fileAddress":"0x649db0","minLocations":1,"maxLocations":1},
+    {"label":"set-executing-redo","module":"BEE","fileAddress":"0x649ebc","minLocations":1,"maxLocations":1},
+    {"label":"select-layer","module":"BEE","fileAddress":"0x302a8","minLocations":1,"maxLocations":1},
+    {"label":"selection-add","module":"BEE","fileAddress":"0x51de8","minLocations":1,"maxLocations":1},
+    {"label":"selection-remove","module":"BEE","fileAddress":"0x51bcc","minLocations":1,"maxLocations":1},
+    {"label":"selection-remove-all","module":"BEE","fileAddress":"0x51cb8","minLocations":1,"maxLocations":1},
+    {"label":"selection-cache-current","module":"BEE","fileAddress":"0x561dc","minLocations":1,"maxLocations":1},
+    {"label":"avlayer-param-changed","module":"BEE","fileAddress":"0x1d2374","minLocations":1,"maxLocations":1},
+    {"label":"layerselection-set","module":"AfterFXLib","fileAddress":"0x36a750","minLocations":1,"maxLocations":1},
+    {"label":"realtime-needle","module":"AfterFXLib","fileAddress":"0x166140","minLocations":1,"maxLocations":1},
+    {"label":"realtime-needle-v2","module":"AfterFXLib","fileAddress":"0x9b3fbc","minLocations":1,"maxLocations":1}
   ],
   "phases": [
-    {"offsetSeconds":0,"label":"idle-control","instruction":"Do nothing."},
-    {"offsetSeconds":8,"label":"native-layer-timing","instruction":"Move or trim one layer in Timeline."},
-    {"offsetSeconds":20,"label":"native-selection","instruction":"Change layer selection."},
-    {"offsetSeconds":30,"label":"native-switches","instruction":"Toggle visibility, solo, lock or audio."},
-    {"offsetSeconds":42,"label":"native-undo","instruction":"Undo the last edit once."},
-    {"offsetSeconds":52,"label":"native-redo","instruction":"Redo once."},
-    {"offsetSeconds":62,"label":"native-playhead","instruction":"Scrub the playhead."},
-    {"offsetSeconds":72,"label":"idle-after","instruction":"Do nothing."}
+    {"offsetSeconds":0,"label":"idle-control","instruction":"Do nothing for 10 seconds."},
+    {"offsetSeconds":10,"label":"native-layer-timing","instruction":"Perform exactly one move OR trim on a normal AV layer, then stop touching AE."},
+    {"offsetSeconds":30,"label":"native-selection","instruction":"Click exactly one different layer to change selection, then stop touching AE."},
+    {"offsetSeconds":45,"label":"native-switches","instruction":"Toggle exactly one visibility, solo, lock or audio switch, then stop touching AE."},
+    {"offsetSeconds":60,"label":"native-undo","instruction":"Press Undo exactly once, then stop touching AE."},
+    {"offsetSeconds":75,"label":"native-redo","instruction":"Press Redo exactly once, then stop touching AE."},
+    {"offsetSeconds":90,"label":"native-playhead","instruction":"Scrub the playhead once for about two seconds, then stop touching AE."},
+    {"offsetSeconds":105,"label":"idle-after","instruction":"Do nothing until the observer finishes."}
   ],
-  "durationSeconds": 80,
-  "acceptance": "Observation only. Hits are candidates, not notification proof; post-commit and full SYNC-001 remain separate gates."
+  "durationSeconds": 120,
+  "acceptance": "Observation only. Exact-address hits are candidates, not notification proof; post-commit and full SYNC-001 remain separate gates."
 }

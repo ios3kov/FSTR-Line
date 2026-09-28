@@ -8,51 +8,25 @@ Typed Core, versioned commands/guards, усиленный host, проверяе
 
 SYNC-001 остаётся обязательным: полный прямой поток AE-originated изменений для native UI, ExtendScript и других plugins, включая timing, layer add/delete/reorder, selection/switches, project/comp, playhead и Undo/Redo. Polling/revision/idle/focus/self-events не заменяют требование.
 
-## Реальное статическое Evidence с AE 25.6.0.101
+## Реальные AE evidence
 
-Пользовательский отчёт `FSTR-AE-Static-20260928T213703Z-cd1461c05b83.zip` идентифицировал AE 25.6.0.101 и успешно прочитал 256 реальных Mach-O модулей. Общий collection status BLOCKED только из-за заранее заданного module/time/byte budget; это не полный scan приложения.
+Статический этап на AE 25.6.0.101 подтвердил точные SHA/UUID BEE.dylib и AfterFXLib и внутренние BEE/Undo/Selection/AfterFX symbols.
 
-Главные leads:
-- `BEE.dylib` SHA-256 `817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca`, UUID `161300f3-73f8-3ebc-a751-959df40a073b`.
-- `AfterFXLib` SHA-256 `ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a`, UUID `edc800d6-9e4b-3a03-9bbb-8239f3f6eea5`.
+Первый настоящий runtime trace получен: `FSTR-AE-Runtime-20260928T221042Z-f348ac55b6db.zip`, SHA-256 `569fd656d255a481c438fc934177f1ef6d83b80fbb6ffc5c58965b70949b2144`. Observer из clean commit `039025fbed28518d8f8dc65d5843221ea816f6d2` успешно attached к AE, записал 392 hits и clean-detached.
 
-Пользовательский focused-report `FSTR-AE-Focused-20260928T215138Z-3561b71586d7.zip`, SHA-256 `0609b3de91f67f56e942708438f575f1d89fb46440e9bf0b95f98f3bf4165e93`, подтвердил LLDB identity BEE и AfterFXLib и дал адресуемые internal функции:
-- `BEE_UndoContext::OnUndoCommandCompleted()` — BEE file address `0x649c6c`.
-- `BEE_UndoContext::GetUndoCommandCompletedSignal()` — `0x64a6fc`.
-- `BEE_Undo(BEE_UndoContext&)` — `0x645958`.
-- `BEE_Redo(BEE_UndoContext&)` — `0x645f24`.
-- `BEE_CmdModifySelection(...)` — `0x5580c`.
-- `BEE_SelectLayer(...)` — `0x302a8`.
-- несколько derived `::CmdParamChanged(...)` / `::CmdPreParamChange(...)`.
-- AfterFXLib ссылается на `BEE_UndoContext::GetUndoCommandCompletedSignal` и содержит `PostMessageToUIThread<...MessageNameForProjectSettingsChangedMessage...>`.
+Подтверждено в runtime:
+- `BEE_Undo` вызывается, но шумный: 22 hits, включая 17 во время live timing edit. Это не уникальное Undo notification.
+- `BEE_Redo`: 2 hits вокруг реального Redo; command marker, не общий change source.
+- `BEE_SelectLayer`: 6 hits вокруг selection-related UI; кандидат пути selection, не post-change proof.
+- `OnUndoCommandCompleted`, `BEE_CmdModifySelection`, project-settings post: 0 hits в текущей матрице.
+- широкие `CmdParamChanged/Pre` breakpoints признаны невалидными: они попадали в unrelated function на `0x5c70`.
 
-Focused report имеет общий status BLOCKED, потому что дополнительный raw-Mach-O-name lookup в BEE завершал LLDB с code 1 после уже успешного regex lookup. Исторический FAIL сохранён; это не отменяет конкретные адреса/UUID из успешной части отчёта. Инструмент исправлен: raw nlist spelling больше не считается callable LLDB name, а большой nm output обрабатывается потоково.
+SYNC-001 всё ещё NOT RUN: runtime hits не доказывают post-commit state, полное coverage или production subscription.
 
-Это **реальные private static leads**, но ещё не production notification source. Статика не доказывает направление callbacks, post-commit состояние, полноту coverage, ABI stability или возможность безопасной подписки.
+## Текущий gate
 
-## Текущий gate: наблюдательный runtime probe
+Runtime observer v2 переводится на точные module file-address breakpoints. Цели: AVLayer timing change, Undo state transitions, concrete selection mutation, AfterFX layer-selection update и RealtimeNeedle/playhead. Action windows расширены; один action на фазу.
 
-Подготовлен attach-only runtime observer, pinned к exact AE 25.6.0.101 и указанным SHA/UUID. Он:
-- не запускает и не завершает AE;
-- не вызывает private функции;
-- не использует EvaluateExpression;
-- не читает target variables / project contents;
-- не пишет target memory;
-- ставит только regex breakpoints на уже подтверждённые internal functions;
-- логирует timestamp/thread/function/module UUID/file address;
-- каждый hit сохраняет как `commitPhase=UNKNOWN`, `isNotificationProven=false`.
+Перед handoff обязательны: unit/integration, exact packages, real macOS LLDB controls, exact-address attach smoke с реальным hit и clean detach, clean source и artifact identity. Затем нужен второй AE runtime trace.
 
-Начальный native-UI matrix: idle → timing move/trim → selection → switches → Undo → Redo → playhead → idle. Phase markers нужны только для correlation. ExtendScript и other-plugin origins, post-commit oracle, layer add/delete/reorder, context changes, duplicates/misses и performance остаются отдельными обязательными gates.
-
-MacOS CI уже подтвердил, что LLDB может attach/detach owned fixture и разрешает breakpoint location; несколько исторических smoke defects в test harness (fixture regex, setter return semantics, syntax corruption) сохранены в TEST_RECORDS и исправлены без ослабления production candidate rules. Финальный exact-commit gate должен пройти полностью перед передачей runtime artifact пользователю.
-
-## Что остаётся
-
-SYNC-001 = NOT RUN до настоящего AE runtime trace и полной матрицы происхождений/изменений. Никакой private hook пока не интегрирован в продукт. Main, установленный AE и production не менялись.
-
-После runtime observation:
-1. отвергнуть/оставить кандидаты по реальным hits;
-2. добавить независимый post-commit state oracle;
-3. проверить native UI + ExtendScript + other-plugin origins и полный SYNC-001;
-4. только затем рассматривать способ production subscription и compatibility strategy;
-5. параллельно остаются donor installer/runtime/performance harness, editing UI/gestures, subframe timing, Windows/Intel и signing/release.
+После этого: post-commit oracle, ExtendScript + other-plugin origins, structural layer/context changes, duplicates/misses/restart/performance. Private hook в продукт ещё не интегрирован.

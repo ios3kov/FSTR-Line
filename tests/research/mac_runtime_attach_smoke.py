@@ -3,6 +3,15 @@ import hashlib,json,re,subprocess,sys,tempfile,time,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 
+def _symbol_file_address(binary,name):
+    text=subprocess.check_output(['xcrun','nm','-nm',str(binary)],text=True,timeout=30)
+    for line in text.splitlines():
+        if line.rstrip().endswith(' '+name):
+            match=re.match(r'^([0-9A-Fa-f]+)\s',line)
+            if match:
+                return int(match.group(1),16)
+    raise RuntimeError('Fixture symbol address unavailable: '+name)
+
 def main():
     if sys.platform!='darwin':
         raise SystemExit('BLOCKED')
@@ -27,6 +36,7 @@ def main():
             raise RuntimeError('Fixture UUID unavailable')
         uid=match.group(1)
         digest=hashlib.sha256(binary.read_bytes()).hexdigest()
+        file_address=_symbol_file_address(binary,'_fstr_runtime_candidate')
         process=subprocess.Popen([str(binary)])
         try:
             time.sleep(0.1)
@@ -34,7 +44,7 @@ def main():
                 'runId':'fixture','pid':process.pid,'executable':str(binary),
                 'modules':[{'key':'fixture','path':str(binary),'sha256':digest,'uuid':uid}],
                 'breakpoints':[{'label':'fixture-event','module':'fixture',
-                                'regex':'^fstr_runtime_candidate$','minLocations':1,'maxLocations':2}],
+                                'fileAddress':hex(file_address),'minLocations':1,'maxLocations':1}],
                 'phases':[{'offsetSeconds':0,'label':'owned-fixture','instruction':'fixture'}],
                 'durationSeconds':2,'maxEvents':500,
                 'tracePath':str(t/'trace.jsonl'),'resultPath':str(t/'result.json')
@@ -59,11 +69,15 @@ def main():
                 raise RuntimeError('No owned-fixture breakpoint hits')
             if any(r['isNotificationProven'] or r['commitPhase']!='UNKNOWN' for r in hits):
                 raise RuntimeError('Observer overclaimed semantics')
+            bp=result['breakpoints'][0]
+            if bp.get('fileAddress')!=hex(file_address) or bp.get('resolvedFileAddress')!=hex(file_address):
+                raise RuntimeError('Exact file-address breakpoint identity was not preserved')
             if not result.get('detached'):
                 raise RuntimeError('Observer did not confirm detach')
             evidence={
-                'status':'PASS','scope':'attach to owned fixture only, NOT AE',
-                'hits':len(hits),'sourceCommit':commit,'detached':True,'SYNC-001':'NOT RUN'
+                'status':'PASS','scope':'exact-address attach to owned fixture only, NOT AE',
+                'hits':len(hits),'sourceCommit':commit,'detached':True,
+                'fileAddress':hex(file_address),'SYNC-001':'NOT RUN'
             }
             out=ROOT/'dist/notification-evidence/runtime-attach-smoke.json'
             out.parent.mkdir(parents=True,exist_ok=True)

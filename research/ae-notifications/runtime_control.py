@@ -22,6 +22,19 @@ def _module_by_path(target,path):
             pass
     return None
 
+def _create_breakpoint(target,module,module_name,item):
+    if 'fileAddress' in item:
+        file_address=int(str(item['fileAddress']),0)
+        address=module.ResolveFileAddress(file_address)
+        if not address.IsValid() or address.GetFileAddress()!=file_address:
+            raise RuntimeError('Could not resolve exact file address: '+item['label'])
+        bp=target.BreakpointCreateBySBAddress(address)
+        return bp,{'fileAddress':hex(file_address),'resolvedFileAddress':hex(address.GetFileAddress())}
+    if 'regex' in item:
+        bp=target.BreakpointCreateByRegex(item['regex'],module_name)
+        return bp,{'regex':item['regex']}
+    raise RuntimeError('Breakpoint has neither fileAddress nor regex: '+item['label'])
+
 def run(debugger,plan_name):
     plan=json.loads(Path(plan_name).read_text(encoding='utf-8'))
     result_path=Path(plan['resultPath']); trace_path=Path(plan['tracePath'])
@@ -40,6 +53,7 @@ def run(debugger,plan_name):
             _write(result_path,result); return
         attached=True
         module_map={}
+        modules={}
         module_names={}
         for item in plan['modules']:
             module=_module_by_path(target,item['path'])
@@ -50,17 +64,18 @@ def run(debugger,plan_name):
             if actual_uuid!=expected:
                 raise RuntimeError('Loaded module UUID mismatch: '+item['key'])
             module_map[actual_uuid]=item['sha256']
+            modules[item['key']]=module
             module_names[item['key']]=Path(item['path']).name
         for item in plan['breakpoints']:
-            bp=target.BreakpointCreateByRegex(item['regex'],module_names[item['module']])
+            key=item['module']
+            if key not in modules:
+                raise RuntimeError('Unknown breakpoint module: '+key)
+            bp,identity=_create_breakpoint(target,modules[key],module_names[key],item)
             count=bp.GetNumLocations()
-            row={'id':bp.GetID(),'label':item['label'],'module':item['module'],
-                 'regex':item['regex'],'locations':count}
+            row={'id':bp.GetID(),'label':item['label'],'module':key,'locations':count,**identity}
             result['breakpoints'].append(row)
             if count<int(item['minLocations']) or count>int(item['maxLocations']):
                 raise RuntimeError('Breakpoint location count outside declared bounds: '+item['label'])
-            # LLDB's Python binding may return None on success; callback delivery is
-            # verified by actual breakpoint hits, not by this setter's return value.
             bp.SetScriptCallbackFunction('trace_callback.on_breakpoint')
         trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
                                      max_events=int(plan.get('maxEvents',5000)),
