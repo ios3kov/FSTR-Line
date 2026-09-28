@@ -4,6 +4,7 @@ const fs = require("node:fs");
 
 const smoke = fs.readFileSync("tests/ae/runtime-smoke.jsx", "utf8");
 const runner = fs.readFileSync("scripts/run-ae-smoke.mjs", "utf8");
+const installedVerifier = fs.readFileSync("scripts/installed-payload.mjs", "utf8");
 
 test("real-AE smoke refuses non-clean projects", () => {
   assert.match(
@@ -77,11 +78,13 @@ test("real-AE smoke is bound to the installed Build Identity", () => {
   assert.doesNotMatch(smoke, /parent\.parent\.parent/);
 
   assert.match(runner, /verifyInstalledPayload/);
-  assert.match(runner, /BUILD_MANIFEST\.json/);
+  assert.match(runner, /installed-payload\.mjs/);
+  assert.match(installedVerifier, /BUILD_MANIFEST\.json/);
   assert.match(runner, /runtime-smoke-runner\.jsx/);
   assert.match(runner, /testRunId/);
   assert.match(runner, /Runtime report Test Run ID mismatch/);
-  assert.match(runner, /Installed payload hash mismatch/);
+  assert.match(installedVerifier, /Installed payload hash mismatch/);
+  assert.match(installedVerifier, /Installed payload file set mismatch/);
 });
 
 test("real-AE runner writes immutable Test Run evidence records", () => {
