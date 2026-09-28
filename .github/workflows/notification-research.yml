@@ -1,0 +1,41 @@
+name: Notification research tools
+on:
+  push:
+    branches: ['integration/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac-research:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Toolchain identity
+        run: |
+          sw_vers
+          python3 --version
+          xcrun clang++ --version
+          xcrun lldb --version
+      - name: Research unit regression
+        run: python3 -B -m unittest discover -s tests/research -p 'test_*.py'
+      - name: Build exact clean diagnostic kit
+        run: python3 -B scripts/package-notification-collector.py
+      - name: Packaged collector and actual LLDB positive control (not AE)
+        run: python3 -B tests/research/mac_native_smoke.py
+      - name: Clean source gate
+        run: |
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=normal)"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: FSTR-AE-Static-Collector-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            dist/notification-collector/**/*.zip
+            dist/notification-collector/**/SHA256.txt
+            dist/notification-evidence/*.json
+          if-no-files-found: error
