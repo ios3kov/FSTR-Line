@@ -196,3 +196,30 @@ button:disabled {
 .is-busy {
   cursor: progress;
 }
+
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.diagnostics {
+  flex: 0 0 auto;
+  max-height: 180px;
+  overflow: auto;
+  padding: 8px 9px;
+  border-bottom: 1px solid var(--border);
+  background: #1d1d1d;
+}
+
+.diagnostics[hidden] {
+  display: none;
+}
+
+.diagnostics pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

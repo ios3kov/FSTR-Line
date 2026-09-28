@@ -3,7 +3,10 @@
 
   var state = {
     snapshot: null,
-    busy: false
+    busy: false,
+    buildIdentityMismatch: false,
+    browserBuildInfo: null,
+    hostBuildInfo: null
   };
 
   var nodes = {};
@@ -22,6 +25,71 @@
   function setStatus(message, isError) {
     nodes.status.textContent = message || "";
     nodes.status.classList.toggle("is-error", !!isError);
+  }
+
+  function buildInfoText(info) {
+    if (!info) {
+      return "unavailable";
+    }
+
+    return [
+      "Build ID: " + info.buildId,
+      "Version: " + info.version,
+      "Commit: " + info.gitCommit,
+      "Git state: " + info.gitState,
+      "Artifact: " + info.artifactType
+    ].join("\n");
+  }
+
+  function renderDiagnostics() {
+    var lines = [
+      "Browser",
+      buildInfoText(state.browserBuildInfo),
+      "",
+      "After Effects host",
+      buildInfoText(state.hostBuildInfo),
+      "",
+      "Identity match: " + (state.buildIdentityMismatch ? "NO" : "YES")
+    ];
+
+    nodes.diagnosticsText.textContent = lines.join("\n");
+  }
+
+  function loadBuildIdentity() {
+    state.browserBuildInfo = root.FSTRLineBuildInfo || null;
+
+    return root.FSTRLineCEPAdapter.getBuildInfo()
+      .then(function (hostInfo) {
+        state.hostBuildInfo = hostInfo;
+        state.buildIdentityMismatch =
+          !state.browserBuildInfo ||
+          !state.hostBuildInfo ||
+          state.browserBuildInfo.buildId !== state.hostBuildInfo.buildId ||
+          state.browserBuildInfo.gitCommit !== state.hostBuildInfo.gitCommit;
+
+        renderDiagnostics();
+
+        if (state.browserBuildInfo) {
+          console.log(
+            "[FSTR Line] " +
+            state.browserBuildInfo.buildId +
+            " commit=" +
+            state.browserBuildInfo.gitCommit +
+            " state=" +
+            state.browserBuildInfo.gitState
+          );
+        }
+
+        if (state.buildIdentityMismatch) {
+          console.error("[FSTR Line] Browser/host Build Identity mismatch.");
+        }
+      })
+      .catch(function (error) {
+        state.hostBuildInfo = null;
+        state.buildIdentityMismatch = true;
+        renderDiagnostics();
+        console.error("[FSTR Line] Build Identity check failed:", error);
+      });
   }
 
   function firstSelectedLayer(snapshot) {
@@ -159,7 +227,11 @@
       delete nodes.editor.dataset.layerId;
     }
 
-    setStatus("Synced with After Effects.", false);
+    if (state.buildIdentityMismatch) {
+      setStatus("Build Identity mismatch — open Diagnostics.", true);
+    } else {
+      setStatus("Synced with After Effects.", false);
+    }
   }
 
   function applySnapshot(snapshot) {
@@ -253,12 +325,19 @@
     nodes.timeline = document.getElementById("timeline");
     nodes.selection = document.getElementById("selection");
     nodes.editor = document.getElementById("editor");
+    nodes.diagnostics = document.getElementById("diagnostics");
+    nodes.diagnosticsText = document.getElementById("diagnostics-text");
 
+    document.getElementById("diagnostics-toggle").addEventListener("click", function () {
+      nodes.diagnostics.hidden = !nodes.diagnostics.hidden;
+    });
     document.getElementById("refresh").addEventListener("click", refresh);
     nodes.timeline.addEventListener("click", onTimelineClick);
     nodes.editor.addEventListener("click", onEditClick);
 
-    refresh();
+    loadBuildIdentity().then(function () {
+      refresh();
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);
