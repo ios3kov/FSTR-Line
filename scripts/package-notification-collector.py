@@ -35,9 +35,12 @@ def main():
         manifest['files'][name] = hashlib.sha256(source.read_bytes()).hexdigest()
     (kit / 'build-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     archive = output / 'FSTR-AE-Collector.zip'
-    with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_DEFLATED) as package:
+    with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_STORED) as package:
         for name in (*NAMES, 'build-manifest.json'):
-            package.write(kit / name, 'FSTR-AE-Collector/' + name)
+            entry = zipfile.ZipInfo('FSTR-AE-Collector/' + name, (1980, 1, 1, 0, 0, 0))
+            entry.create_system = 3
+            entry.external_attr = (0o100755 if name.endswith('.command') else 0o100644) << 16
+            package.writestr(entry, (kit / name).read_bytes())
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     (output / 'SHA256.txt').write_text(digest + '  ' + archive.name + '\n', encoding='utf-8')
     if git('status', '--porcelain'):

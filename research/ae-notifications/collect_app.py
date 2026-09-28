@@ -98,7 +98,9 @@ def discover(roots):
 def scan_files(app, main, max_files):
     yield main
     count = 0
-    for directory, dirs, files in os.walk(app / 'Contents', followlinks=False):
+    def unreadable_directory(error):
+        raise Blocked('An application directory could not be enumerated') from error
+    for directory, dirs, files in os.walk(app / 'Contents', followlinks=False, onerror=unreadable_directory):
         dirs[:] = sorted(d for d in dirs if not (Path(directory) / d).is_symlink())
         for name in sorted(files):
             count += 1
@@ -149,7 +151,7 @@ def collect(app, inspector=inspect_module, max_files=20000, max_modules=256,
     report = {'schemaVersion': 1, 'collectionStatus': 'PASS', 'application': meta,
         'scope': 'On-disk modules inside selected app only; not the loaded-process module set',
         'runtimeTrace': 'NOT RUN', 'SYNC-001': 'NOT RUN', 'notificationCandidate': None,
-        'modules': [], 'limits': [], 'bytesInspected': 0,
+        'modules': [], 'limits': [], 'bytesBudgetCharged': 0,
         'environment': {'system': platform.system(), 'release': platform.release(),
                         'machine': platform.machine(), 'python': platform.python_version()}}
     started = time.monotonic()
@@ -158,9 +160,11 @@ def collect(app, inspector=inspect_module, max_files=20000, max_modules=256,
             remaining = max_seconds - (time.monotonic() - started)
             _, before = regular_read(binary, app, 4)
             if (remaining <= 0 or len(report['modules']) >= max_modules or before.st_size > MAX_FILE or
-                    report['bytesInspected'] + before.st_size > max_bytes):
+                    report['bytesBudgetCharged'] + before.st_size > max_bytes):
                 raise Blocked('Module/time/byte budget reached; collection is incomplete')
             item = {'relativePath': binary.relative_to(app).as_posix()}
+            # Reserve the full input even if its worker fails or times out.
+            report['bytesBudgetCharged'] += before.st_size
             try:
                 with tempfile.TemporaryDirectory(prefix='fstr-static-worker-') as directory:
                     item['inspection'] = inspector(binary, Path(directory), max(0.1, min(30, remaining)))
@@ -168,10 +172,10 @@ def collect(app, inspector=inspect_module, max_files=20000, max_modules=256,
                 require((before.st_ino, before.st_size, before.st_mtime_ns) ==
                         (after.st_ino, after.st_size, after.st_mtime_ns), 'Module changed during collection')
                 item['status'] = 'PASS'
-                report['bytesInspected'] += before.st_size
             except subprocess.TimeoutExpired:
                 item.update(status='BLOCKED', reason='Inspector timeout; only owned worker stopped')
-                report['collectionStatus'] = 'BLOCKED'
+                if report['collectionStatus'] != 'FAIL':
+                    report['collectionStatus'] = 'BLOCKED'
             except (OSError, ValueError):
                 item.update(status='FAIL', reason='Module inspection failed; no absence conclusion allowed')
                 report['collectionStatus'] = 'FAIL'
