@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | Timeline Core | Node.js `v24.13.1`, TypeScript toolchain, macOS development host | **PASS** | Build и 13 pure Core/FakeHostAdapter tests PASS; это не проверка After Effects |
 | After Effects host | AE 25.6.0.101, macOS 26.6.2 | **PASS (limited smoke)** | Panel open/read/refresh подтверждены пользователем; см. runtime evidence ниже |
-| CEP | Bundled CEPHtmlEngine 12.0.1.2 | **PASS (limited smoke)** | Открытие панели, read/refresh и docking; restart/save/reopen ещё не проверены |
+| CEP | Bundled CEPHtmlEngine 12.0.1.2 | **PASS (limited smoke)** | Открытие панели, read/refresh, docking; restart/save/reopen подтверждены пользователем для тестового проекта |
 | ExtendScript | AE 25.6 host | **PASS (read smoke only)** | Snapshot read через CEP; editing/Undo и полная точность snapshot не проверены |
 | UXP | Future adapter | **UNTESTED** | Не считается поддержанным без подтверждения AE-specific API |
 | Windows | Not available in current environment | **BLOCKED** | Нужен Windows test host |
@@ -21,6 +21,8 @@ Runtime evidence (2026-09-28): `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-
 Дополнительный screenshot smoke (2026-09-28): последовательные слои на одной дорожке и docking — PASS. Evidence: `docs/TEST_RECORDS/CEP-PACKING-AE25-2026-09-28.md`, тот же установленный artifact.
 
 Переход с одной на две дорожки после создания overlap в native Timeline и Refresh — PASS по подтверждению пользователя. Evidence: `docs/TEST_RECORDS/CEP-OVERLAP-AE25-2026-09-28.md`, тот же установленный artifact.
+
+Save/reopen и restart AE с повторным Refresh: два слоя, две дорожки и прежние layer IDs — PASS по подтверждению пользователя. Evidence: `docs/TEST_RECORDS/CEP-RESTART-AE25-2026-09-28.md`, тот же установленный artifact. Полная точность snapshot и runtime Build ID остаются непроверенными.
 
 ## Required before CEP milestone
 

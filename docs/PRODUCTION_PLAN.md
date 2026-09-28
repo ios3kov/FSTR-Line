@@ -19,9 +19,9 @@
 
 Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`, `docs/TEST_RECORDS/CEP-POC-2026-09-28.md`.
 
-В AE 25.6.0 (Build 101) пользователь подтвердил открытие панели, чтение композиции и Refresh после смены композиции/добавления слоя. Скриншот следующего теста подтверждает объединение двух последовательных слоёв в одну дорожку и docking. Evidence: `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`, `docs/TEST_RECORDS/CEP-PACKING-AE25-2026-09-28.md`. Полный integration gate остаётся открытым: остальные packing-сценарии, точность полей snapshot, restart/save/reopen, runtime Build ID, Undo Group и визуальное совпадение с native Timeline ещё не проверены.
+В AE 25.6.0 (Build 101) пользователь подтвердил открытие панели, чтение композиции и Refresh после смены композиции/добавления слоя. Скриншот следующего теста подтверждает объединение двух последовательных слоёв в одну дорожку и docking. Evidence: `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`, `docs/TEST_RECORDS/CEP-PACKING-AE25-2026-09-28.md`. Полный integration gate остаётся открытым: остальные packing-сценарии, точность полей snapshot, runtime Build ID, Undo Group и визуальное совпадение с native Timeline ещё не проверены.
 
-Дополнительный smoke test: пользователь подтвердил переход `2 layers, 1 tracks` → `2 layers, 2 tracks` после создания пересечения в native Timeline и Refresh. Evidence: `docs/TEST_RECORDS/CEP-OVERLAP-AE25-2026-09-28.md`. Следующая ручная проверка — сохранение тестового проекта, restart AE и повторное чтение композиции.
+Дополнительные smoke tests: пользователь подтвердил переход `2 layers, 1 tracks` → `2 layers, 2 tracks` после создания пересечения в native Timeline и Refresh, а затем сохранение counts и layer IDs после save/reopen и restart AE. Evidence: `docs/TEST_RECORDS/CEP-OVERLAP-AE25-2026-09-28.md`, `docs/TEST_RECORDS/CEP-RESTART-AE25-2026-09-28.md`. Следующий этап — диагностика runtime identity и проверка полей snapshot для закрытия read/refresh integration gate перед editing UI.
 
 ## 1. Product Definition
 
