@@ -124,43 +124,92 @@ This preserves After Effects compositing order at all overlap times.
 - dirty packages are rejected by clean verification;
 - CI checks exact head commit and verifies source tree cleanliness before/after packaging.
 
-## Latest Level 1 Evidence
+## Implemented — Phase 0K
 
-Test Run ID: GitHub Actions `36424829531`
+Automated pre-AE hardening added after Build Identity:
 
-- Git commit: `98f94a87457db4d7d093b4a18d06596a2165d516`
-- Build ID: `FSTR-Line@0.0.1+98f94a87457d.clean.cep`
-- Git state: `clean`
-- BUILD_MANIFEST SHA-256: `59f31d4b50e4a221a10b58aba60d14894301cb224a8dbdd7e88181edb7e62da0`
-- GitHub CEP artifact digest: `sha256:8822be7b25024d2c52a0c103eaa3dfdf7bc52d0bab63f33d4369c07a4a4fb448`
-- automated tests: `38 PASS / 0 FAIL`
-- Core benchmark sanity: PASS
-- clean package verification: PASS
-- runtime Build Identity inside real After Effects: NOT RUN
+- safe installer boundaries: no automatic PlayerDebugMode/security mutation and no termination of a pre-existing AE process;
+- unknown duplicate CEP bundles cause BLOCKED instead of deletion;
+- rollback-capable replacement of the identified FSTR Line per-user target;
+- runtime smoke is bound to the installed CEP Build ID and exact installed file hashes;
+- unique Test Run ID and isolated runtime workspace;
+- structured PASS / FAIL / BLOCKED runtime test records;
+- exact installed payload file-set validation, including stale-file and path-traversal rejection;
+- Undo exception/recovery and repeated-execution coverage;
+- panel lifecycle/double-action/Build Identity mismatch coverage;
+- automated static code/security audit;
+- GitHub Actions pinned to immutable commit SHAs;
+- third-party source/license notices recorded.
 
-Evidence scope: this confirms source/package identity and automated behavior covered by the test suite. It does not confirm real After Effects runtime behavior or platform compatibility.
+## Current verification state
 
-## Not yet claimed
+### PASS — automated scope
 
-The CEP panel has not yet completed a clean real-After-Effects runtime run.
+The current branch has automated coverage for:
 
-Therefore these are still unverified:
+- syntax/static checks;
+- Timeline Core packing and timing matrix;
+- deterministic randomized packing invariants;
+- host bridge snapshot/select/move/trim behavior in the mock host;
+- Undo Group closure on exceptions and repeated operations;
+- CEP adapter argument/error handling;
+- panel no-comp lifecycle and accidental double-action suppression;
+- Build Identity generation and browser/host identity contract;
+- clean package and SHA-256 verification;
+- exact installed-payload verifier behavior;
+- safe installer contract;
+- real-AE runner contract for macOS and Windows;
+- unique Test Run ID and structured Evidence record contract;
+- static security/code audit;
+- Core performance sanity benchmark through 1000 layers.
 
-- actual dock/install behavior in the current AE build;
-- native timeline ↔ snapshot equality on real projects;
-- Undo behavior inside AE;
-- save/reopen Layer.id persistence in the PoC;
-- performance/profiling inside AE;
-- compatibility matrix entries.
+The exact current Build ID, artifact digest and Level-1 run are recorded outside this source document in CI/PR Evidence, because changing this document itself creates a new Git commit and therefore a new Build ID.
 
-## Documentation audit
+### BLOCKED — requires an actual After Effects runtime
 
-- README synchronized with executable PoC;
-- Architecture synchronized with actual .js/.jsx module paths;
-- planned-but-unimplemented modules explicitly separated from current code;
-- no TODO/FIXME/HACK markers found in repository audit;
-- stale literal newline escapes removed.
+The following required Phase 0 runtime checks are not claimed as PASS because the current tool environment has no accessible installed/licensed After Effects instance:
+
+- actual clean CEP installation/load in After Effects;
+- runtime Build ID read from the code actually loaded by AE;
+- dock/floating panel behavior;
+- native Timeline ↔ FSTR snapshot equality;
+- real select / Move / Trim In / Trim Out;
+- real Undo / Redo;
+- save/reopen Layer.id persistence;
+- close/reopen/reload/restart lifecycle;
+- panel resize / small-size / HiDPI / Retina behavior;
+- cold/warm runtime behavior;
+- real host-call latency and UI responsiveness;
+- real memory/idle-load behavior;
+- 10 / 50 / 200 / 500 / 1000 layer stress profiling inside AE;
+- macOS and Windows compatibility rows.
+
+Unblock condition: execute the identified clean CEP artifact with the automated validation runner on a machine that has the target After Effects version and the required CEP loading permission. If unsigned CEP development is disabled, explicit permission or a signed package is required; the installer will not alter the security setting automatically.
+
+### N/A — Phase 0 CEP panel
+
+These render/effect checks do not apply to the current CEP panel because it does not implement an After Effects pixel/render effect or render callback:
+
+- GPU render path;
+- MFR;
+- Smart Render;
+- ROI;
+- 8/16/32-bpc pixel processing;
+- Linear/OCIO/HDR pixel correctness;
+- CPU/GPU pixel parity;
+- aerender render-output correctness.
+
+UXP sandbox checks are also N/A for Phase 0 because the current implementation is CEP. They become required if/when a real AE UXP adapter is introduced.
+
+Signing/public-distribution validation is outside the current internal Phase 0 PoC and remains required before a distributable release.
+
+## Evidence policy
+
+- CI/mock Evidence proves only its stated automated scope.
+- Static audit/hash Evidence proves security/identity properties, not real AE behavior.
+- A successful runtime smoke on one configuration will verify only that recorded configuration and scope, not all supported platforms.
+- Historical FAIL runs are retained as Evidence of issues found and corrected; they are not rewritten as PASS.
 
 ## Next gate
 
-Next: execute the identified clean artifact through the automated real-AE validation gate on an available After Effects installation, verify runtime Build ID, then capture host/UI profiling. Drag/trim gesture UX comes only after the host bridge is proven stable.
+Run the automated installed-artifact validation in real After Effects, persist its Test Run record, then perform the remaining runtime/UI/Undo/performance checks required by the Phase 0 gate. Drag/trim gesture UX remains after host-bridge runtime validation.

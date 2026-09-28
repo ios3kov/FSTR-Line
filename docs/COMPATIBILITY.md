@@ -1,25 +1,25 @@
 # Compatibility Matrix
 
-Only actually tested configurations are marked as supported.
+Only real runtime-tested configurations are marked verified/supported.
 
-| After Effects | OS | CPU | GPU | Status |
-|---|---|---|---|---|
-| 22+ | macOS | Apple Silicon | not measured | Not runtime-tested yet |
-| 22+ | macOS | Intel | not measured | Not runtime-tested yet |
-| 22+ | Windows | x64 | not measured | Not runtime-tested yet |
+| Configuration | Verified Build ID | Scope | Date | Result | Known limitations |
+|---|---|---|---|---|---|
+| AE 22+ / macOS / Apple Silicon | — | Not run | — | untested | real AE runtime unavailable in current tool environment |
+| AE 22+ / macOS / Intel | — | Not run | — | untested | real AE runtime unavailable in current tool environment |
+| AE 22+ / Windows x64 | — | Not run | — | untested | real AE runtime unavailable in current tool environment |
 
 ## Current technical floor
 
-The CEP manifest intentionally targets After Effects 22.0+ because FSTR Line uses persistent `Layer.id`. Adobe's integration matrix places AE 18.4+ on CEP 11 and AE 25+ on CEP 12, so CSXS 11 is the compatibility floor.
+The CEP manifest targets After Effects 22.0+ because FSTR Line uses persistent Layer.id.
 
-Minimum CEP runtime target: CSXS 11. This covers the AE 22+ floor while remaining loadable by newer CEP hosts.
-
-No platform is considered supported until the clean-install AE validation gate has passed on that exact configuration.
-
+Minimum CEP runtime target: CSXS 11. Actual compatibility is not claimed until tested.
 
 ## Automated validation launchers
 
-- macOS: JXA controls a clean After Effects instance and reads the structured runtime result.
-- Windows: `AfterFX.exe -r` runs the same JSX; `app.exitCode` and `app.exitAfterLaunchAndEval` provide process-level pass/fail.
+- macOS runner: launches a clean AE instance through JXA and executes the unique test wrapper.
+- Windows runner: launches AfterFX.exe with -r and the unique wrapper path.
+- Before launch, the runner validates the exact installed CEP file set and hashes.
+- Inside AE, the smoke requires the loaded host Build ID and Git commit to match the installed artifact.
+- Every invocation has a unique Test Run ID and structured Evidence record.
 
-These launchers do not mark a platform supported by themselves. A real successful run is still required for each compatibility row.
+Launcher implementation/tests do not mark a platform supported by themselves. A real successful run on the specific configuration is required.
