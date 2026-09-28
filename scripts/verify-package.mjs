@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { DIST_DIR } from "./package-extension.mjs";
 
 const REQUIRED_FILES = [
@@ -41,48 +42,62 @@ async function digest(relativePath) {
   };
 }
 
-const manifestPath = path.join(DIST_DIR, "BUILD_MANIFEST.json");
-const buildManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-const actualFiles = await listFiles(DIST_DIR);
-const expectedFiles = buildManifest.files.map(function (entry) {
-  return entry.path;
-}).sort();
-const packageFiles = actualFiles.filter(function (file) {
-  return file !== "BUILD_MANIFEST.json";
-});
+export async function verifyPackage() {
+  const manifestPath = path.join(DIST_DIR, "BUILD_MANIFEST.json");
+  const buildManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  const actualFiles = await listFiles(DIST_DIR);
+  const expectedFiles = buildManifest.files.map(function (entry) {
+    return entry.path;
+  }).sort();
+  const packageFiles = actualFiles.filter(function (file) {
+    return file !== "BUILD_MANIFEST.json";
+  });
 
-if (JSON.stringify(packageFiles) !== JSON.stringify(expectedFiles)) {
-  throw new Error("Package contains files not represented by BUILD_MANIFEST.json.");
-}
-
-for (const required of REQUIRED_FILES) {
-  if (!packageFiles.includes(required)) {
-    throw new Error("Missing required packaged file: " + required);
+  if (JSON.stringify(packageFiles) !== JSON.stringify(expectedFiles)) {
+    throw new Error("Package contains files not represented by BUILD_MANIFEST.json.");
   }
-}
 
-for (const forbiddenPrefix of [".git/", ".github/", "tests/", "scripts/", "docs/", "dist/"]) {
-  if (packageFiles.some(function (file) { return file.startsWith(forbiddenPrefix); })) {
-    throw new Error("Development-only path leaked into package: " + forbiddenPrefix);
+  for (const required of REQUIRED_FILES) {
+    if (!packageFiles.includes(required)) {
+      throw new Error("Missing required packaged file: " + required);
+    }
   }
-}
 
-for (const entry of buildManifest.files) {
-  const actual = await digest(entry.path);
-  if (actual.sha256 !== entry.sha256 || actual.size !== entry.size) {
-    throw new Error("Hash mismatch for packaged file: " + entry.path);
+  for (const forbiddenPrefix of [".git/", ".github/", "tests/", "scripts/", "docs/", "dist/"]) {
+    if (packageFiles.some(function (file) { return file.startsWith(forbiddenPrefix); })) {
+      throw new Error("Development-only path leaked into package: " + forbiddenPrefix);
+    }
   }
+
+  for (const entry of buildManifest.files) {
+    const actual = await digest(entry.path);
+    if (actual.sha256 !== entry.sha256 || actual.size !== entry.size) {
+      throw new Error("Hash mismatch for packaged file: " + entry.path);
+    }
+  }
+
+  const manifestXml = await fs.readFile(path.join(DIST_DIR, "CSXS", "manifest.xml"), "utf8");
+  if (!/Host Name="AEFT" Version="\[22\.0,99\.9\]"/.test(manifestXml)) {
+    throw new Error("Packaged manifest has the wrong After Effects range.");
+  }
+  if (!/<RequiredRuntime Name="CSXS" Version="11\.0"\/>/.test(manifestXml)) {
+    throw new Error("Packaged manifest has the wrong CSXS compatibility floor.");
+  }
+  if (/enable-nodejs|CEFCommandLine/i.test(manifestXml)) {
+    throw new Error("Packaged manifest unexpectedly enables privileged CEF options.");
+  }
+
+  return { files: packageFiles.length };
 }
 
-const manifestXml = await fs.readFile(path.join(DIST_DIR, "CSXS", "manifest.xml"), "utf8");
-if (!/Host Name="AEFT" Version="\[22\.0,99\.9\]"/.test(manifestXml)) {
-  throw new Error("Packaged manifest has the wrong After Effects range.");
+const currentFile = fileURLToPath(import.meta.url);
+if (process.argv[1] && path.resolve(process.argv[1]) === currentFile) {
+  verifyPackage()
+    .then(function (result) {
+      console.log("Verified clean package: " + result.files + " files");
+    })
+    .catch(function (error) {
+      console.error(error.stack || error);
+      process.exitCode = 1;
+    });
 }
-if (!/<RequiredRuntime Name="CSXS" Version="11\.0"\/>/.test(manifestXml)) {
-  throw new Error("Packaged manifest has the wrong CSXS compatibility floor.");
-}
-if (/enable-nodejs|CEFCommandLine/i.test(manifestXml)) {
-  throw new Error("Packaged manifest unexpectedly enables privileged CEF options.");
-}
-
-console.log("Verified clean package: " + packageFiles.length + " files");

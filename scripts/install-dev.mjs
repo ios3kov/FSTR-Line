@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { DIST_DIR, packageExtension } from "./package-extension.mjs";
+import { DIST_DIR, packageExtension } from "./package-extension.mjs";\nimport { verifyPackage } from "./verify-package.mjs";
 
 const BUNDLE_ID = "com.fstr.line";
 const EXTENSION_ID = "com.fstr.line.panel";

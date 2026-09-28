@@ -104,3 +104,25 @@ test("normalization converts timing to frame coordinates without mutating input"
   assert.equal(normalized.layers[0].startFrame, 13);
   assert.equal(snapshot.layers[0].inFrame, undefined);
 });
+test("packing invariant holds across deterministic randomized timelines", () => {
+  let seed = 0x5f3759df;
+
+  function random() {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  }
+
+  for (let scenario = 0; scenario < 200; scenario += 1) {
+    const layers = [];
+    const count = 10 + Math.floor(random() * 90);
+
+    for (let index = 1; index <= count; index += 1) {
+      const inFrame = Math.floor(random() * 500) - 100;
+      const duration = 1 + Math.floor(random() * 100);
+      layers.push(layer(index, index, inFrame, inFrame + duration));
+    }
+
+    const packed = core.packLayers(layers);
+    assert.deepEqual(core.validatePacking(packed), { ok: true });
+  }
+});
