@@ -1,0 +1,13 @@
+{
+  "name": "fstr-line",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Premiere-like compact track view for native After Effects layers",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check core/timeline-core.js && node --check tests/timeline-core.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
