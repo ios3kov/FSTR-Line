@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SMOKE_SCRIPT = path.join(ROOT, "tests", "ae", "runtime-smoke.jsx");
+const EVIDENCE_ROOT = path.join(ROOT, "artifacts", "ae-runtime");
 
 function command(commandName, args, options) {
   return spawnSync(commandName, args, {
@@ -199,12 +200,16 @@ function verifyReport(report, expected) {
   }
 }
 
-async function createTestWorkspace(installed) {
-  const testRunId =
+function createTestRunId() {
+  return (
     "ae-smoke-" +
     Date.now() +
     "-" +
-    crypto.randomBytes(6).toString("hex");
+    crypto.randomBytes(6).toString("hex")
+  );
+}
+
+async function createTestWorkspace(installed, testRunId) {
   const workspace = path.join(os.tmpdir(), "fstr-line-ae-smoke", testRunId);
   await fs.rm(workspace, { recursive: true, force: true });
   await fs.mkdir(workspace, { recursive: true });
@@ -228,6 +233,71 @@ async function createTestWorkspace(installed) {
 
   await fs.writeFile(wrapperPath, wrapper, "utf8");
   return { testRunId, workspace, wrapperPath, config };
+}
+
+async function writeTestRecord(args) {
+  const evidenceDir = path.join(EVIDENCE_ROOT, args.testRunId);
+  await fs.mkdir(evidenceDir, { recursive: true });
+
+  const record = {
+    schemaVersion: 1,
+    testRunId: args.testRunId,
+    assertion: "Installed FSTR Line CEP runtime smoke",
+    status: args.status,
+    buildId: args.installed && args.installed.buildInfo
+      ? args.installed.buildInfo.buildId
+      : null,
+    gitCommit: args.installed && args.installed.buildInfo
+      ? args.installed.buildInfo.gitCommit
+      : null,
+    artifactManifestSha256: args.installed
+      ? args.installed.manifestSha256
+      : null,
+    environment: {
+      runnerPlatform: process.platform,
+      runnerArch: process.arch,
+      node: process.version,
+      afterEffectsVersion: args.report ? args.report.aeVersion : null,
+      afterEffectsOs: args.report ? args.report.os : null
+    },
+    initialState: {
+      afterEffectsWasRunning: !!args.afterEffectsWasRunning,
+      installedPayloadHashesVerified: !!args.installed
+    },
+    expected: {
+      runtimeBuildIdMatchesInstalledArtifact: true,
+      runtimeGitCommitMatchesInstalledArtifact: true,
+      smokePass: true
+    },
+    actual: {
+      runtimeBuildInfo: args.report ? args.report.runtimeBuildInfo : null,
+      smokePass: args.report ? !!args.report.pass : false,
+      checks: args.report ? args.report.checks : [],
+      timings: args.report ? args.report.timings : [],
+      scale: args.report ? args.report.scale : [],
+      memory: args.report ? args.report.memory : null
+    },
+    error: args.error
+      ? {
+          message: args.error.message || String(args.error)
+        }
+      : null,
+    limitations: [
+      "This record covers the scripted installed-host smoke scenario only.",
+      "CEP browser-panel docking/rendering is not proven by this smoke alone."
+    ],
+    createdAt: new Date().toISOString()
+  };
+
+  const outputPath = path.join(evidenceDir, "test-record.json");
+  await fs.writeFile(
+    outputPath,
+    JSON.stringify(record, null, 2) + "\n",
+    "utf8"
+  );
+
+  console.log("Test record: artifacts/ae-runtime/" + args.testRunId + "/test-record.json");
+  return outputPath;
 }
 
 function jxaString(value) {
@@ -335,42 +405,83 @@ async function runMacSmoke(appPath, test) {
 }
 
 async function main() {
-  if (aeIsRunning()) {
-    throw new Error(
-      "BLOCKED: After Effects is already running. " +
-      "The smoke runner will not terminate a process that may contain unsaved work."
-    );
-  }
-
-  const extensionRoot =
-    process.env.FSTR_EXTENSION_ROOT ||
-    path.join(userExtensionRoot(), "FSTR-Line");
-  const installed = await verifyInstalledPayload(extensionRoot);
-  installed.extensionRoot = extensionRoot;
-
-  const test = await createTestWorkspace(installed);
-
-  console.log("Test Run ID: " + test.testRunId);
-  console.log("Expected Build ID: " + installed.buildInfo.buildId);
-  console.log("Expected commit: " + installed.buildInfo.gitCommit);
-  console.log("Installed BUILD_MANIFEST SHA-256: " + installed.manifestSha256);
+  const testRunId = createTestRunId();
+  let installed = null;
+  let test = null;
+  let report = null;
+  let recordWritten = false;
+  const alreadyRunning = aeIsRunning();
 
   try {
-    let report;
+    if (alreadyRunning) {
+      const error = new Error(
+        "BLOCKED: After Effects is already running. " +
+        "The smoke runner will not terminate a process that may contain unsaved work."
+      );
+      await writeTestRecord({
+        testRunId,
+        status: "BLOCKED",
+        installed: null,
+        report: null,
+        error,
+        afterEffectsWasRunning: true
+      });
+      recordWritten = true;
+      throw error;
+    }
+
+    const extensionRoot =
+      process.env.FSTR_EXTENSION_ROOT ||
+      path.join(userExtensionRoot(), "FSTR-Line");
+    installed = await verifyInstalledPayload(extensionRoot);
+    installed.extensionRoot = extensionRoot;
+
+    test = await createTestWorkspace(installed, testRunId);
+
+    console.log("Test Run ID: " + test.testRunId);
+    console.log("Expected Build ID: " + installed.buildInfo.buildId);
+    console.log("Expected commit: " + installed.buildInfo.gitCommit);
+    console.log("Installed BUILD_MANIFEST SHA-256: " + installed.manifestSha256);
 
     if (process.platform === "darwin") {
       report = await runMacSmoke(await discoverMacApp(), test);
     } else if (process.platform === "win32") {
       report = await runWindowsSmoke(await discoverWindowsExe(), test);
     } else {
-      throw new Error("Automated runtime smoke supports macOS and Windows only.");
+      throw new Error("BLOCKED: automated runtime smoke supports macOS and Windows only.");
     }
 
     verifyReport(report, test.config);
+
+    await writeTestRecord({
+      testRunId,
+      status: "PASS",
+      installed,
+      report,
+      error: null,
+      afterEffectsWasRunning: false
+    });
+    recordWritten = true;
+
     console.log(JSON.stringify(report, null, 2));
     console.log("After Effects runtime smoke PASS for Test Run ID: " + test.testRunId);
+  } catch (error) {
+    if (!recordWritten) {
+      const status = /^BLOCKED:/.test(error.message || "") ? "BLOCKED" : "FAIL";
+      await writeTestRecord({
+        testRunId,
+        status,
+        installed,
+        report,
+        error,
+        afterEffectsWasRunning: alreadyRunning
+      }).catch(function () {});
+    }
+    throw error;
   } finally {
-    await fs.rm(test.workspace, { recursive: true, force: true }).catch(function () {});
+    if (test && test.workspace) {
+      await fs.rm(test.workspace, { recursive: true, force: true }).catch(function () {});
+    }
   }
 }
 

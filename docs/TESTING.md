@@ -137,3 +137,24 @@ Inside After Effects, the smoke loads `host/cep/host.jsx` from the installed ext
 A missing result, stale Test Run ID, Build ID mismatch, Git commit mismatch or installed-file hash mismatch is FAIL, never PASS.
 
 The test workspace and temporary project belong to the Test Run and are deleted by the external runner after AE exits.
+
+
+## Test records
+
+Each real-AE runner invocation writes a new record to:
+
+    artifacts/ae-runtime/<Test Run ID>/test-record.json
+
+The record contains:
+
+- PASS / FAIL / BLOCKED status;
+- Test Run ID;
+- Build ID and Git commit when the installed payload could be verified;
+- installed BUILD_MANIFEST SHA-256;
+- runner and AE environment;
+- initial-state facts;
+- expected vs actual runtime identity;
+- checks, timings, stress-scale measurements and memory data returned by AE;
+- failure reason and explicit limitations.
+
+A pre-existing/running After Effects instance produces BLOCKED, not PASS. Every invocation receives a new Test Run ID, so a previous PASS file cannot satisfy a later run.

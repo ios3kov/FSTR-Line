@@ -83,3 +83,13 @@ test("real-AE smoke is bound to the installed Build Identity", () => {
   assert.match(runner, /Runtime report Test Run ID mismatch/);
   assert.match(runner, /Installed payload hash mismatch/);
 });
+
+test("real-AE runner writes immutable Test Run evidence records", () => {
+  assert.match(runner, /EVIDENCE_ROOT/);
+  assert.match(runner, /test-record\.json/);
+  assert.match(runner, /status: "PASS"/);
+  assert.match(runner, /status: "BLOCKED"/);
+  assert.match(runner, /Installed FSTR Line CEP runtime smoke/);
+  assert.match(runner, /artifactManifestSha256/);
+  assert.match(runner, /CEP browser-panel docking\/rendering is not proven/);
+});
