@@ -5,12 +5,14 @@ export interface RefreshScheduler {
   cancel(handle: unknown): void;
 }
 
-/** Bounded startup/context discovery, not a continuous timeline synchronization loop. */
+/** Serialized context discovery and optional slow active-composition monitoring. */
 export class AutoRefresh {
   private timer: unknown;
   private pending = false;
   private disposed = false;
   private remaining = 0;
+  private continuous = false;
+  private suspended = false;
 
   constructor(
     private readonly refresh: () => Promise<PanelState>,
@@ -20,12 +22,20 @@ export class AutoRefresh {
 
   request(): void {
     if (this.disposed || this.pending || !this.visible()) return;
+    this.suspended = false;
     this.clearTimer();
     this.remaining = 15;
     void this.run();
   }
 
+  setContinuous(enabled: boolean): void {
+    this.continuous = enabled;
+    if (!enabled) this.suspend();
+    else this.request();
+  }
+
   suspend(): void {
+    this.suspended = true;
     this.remaining = 0;
     this.clearTimer();
   }
@@ -47,7 +57,11 @@ export class AutoRefresh {
     this.pending = true;
     try {
       const state = await this.refresh();
-      if (!this.disposed && this.visible() && this.remaining > 0 && state.status === "no-composition") {
+      if (!this.disposed && !this.suspended && this.visible() && this.continuous &&
+          (state.status === "ready" || state.status === "no-composition")) {
+        this.remaining = 1;
+        this.timer = this.scheduler.schedule(() => { void this.run(); }, 2000);
+      } else if (!this.disposed && this.visible() && this.remaining > 0 && state.status === "no-composition") {
         this.timer = this.scheduler.schedule(() => { void this.run(); }, 2000);
       }
     } catch {

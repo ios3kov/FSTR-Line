@@ -82,6 +82,9 @@ function createView(): PanelView {
         return;
       }
       if (state.status === "error") {
+        const toggle = document.getElementById("auto-sync");
+        if (toggle instanceof HTMLInputElement) toggle.checked = false;
+        autoRefresh?.setContinuous(false);
         setStatus(state.message, true);
         renderTracks([]);
         return;
@@ -108,6 +111,10 @@ const autoRefresh = controller ? new AutoRefresh(() => controller.refresh(), {
   schedule: (callback, delay) => window.setTimeout(callback, delay),
   cancel: (handle) => window.clearTimeout(handle as number),
 }, () => !document.hidden) : undefined;
+const autoSync = document.getElementById("auto-sync");
+autoSync?.addEventListener("change", () => {
+  if (autoSync instanceof HTMLInputElement) autoRefresh?.setContinuous(autoSync.checked);
+});
 refreshButton?.addEventListener("click", () => {
   autoRefresh?.request();
   void updateBuildStatus();

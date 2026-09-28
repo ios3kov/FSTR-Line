@@ -7,6 +7,39 @@ import { snapshot } from "./fixtures.js";
 
 const tick = async () => { await Promise.resolve(); await Promise.resolve(); };
 
+test("continuous sync schedules after completion and disabling cancels it", async () => {
+  let callback: (() => void) | undefined;
+  let calls = 0;
+  const auto = new AutoRefresh(async () => { calls++; return { status: "ready", snapshot: snapshot([]), tracks: [] }; }, {
+    schedule(fn, delay) { assert.equal(delay, 2000); callback = fn; return 1; },
+    cancel() { callback = undefined; },
+  }, () => true);
+  auto.setContinuous(true); await tick();
+  assert.equal(calls, 1);
+  const fn = callback; callback = undefined; fn?.(); await tick();
+  assert.equal(calls, 2);
+  auto.setContinuous(false);
+  assert.equal(callback, undefined);
+});
+
+test("suspending during a continuous read prevents rescheduling", async () => {
+  let finish: (() => void) | undefined;
+  const auto = new AutoRefresh(async () => {
+    await new Promise<void>((resolve) => { finish = resolve; });
+    return { status: "no-composition" };
+  }, { schedule() { throw new Error("unexpected schedule"); }, cancel() {} }, () => true);
+  auto.setContinuous(true); auto.suspend(); finish?.(); await tick();
+});
+
+test("continuous sync stops on errors", async () => {
+  let scheduled = false;
+  const auto = new AutoRefresh(async () => ({ status: "error", message: "host unavailable" }), {
+    schedule() { scheduled = true; return 1; }, cancel() {},
+  }, () => true);
+  auto.setContinuous(true); await tick();
+  assert.equal(scheduled, false);
+});
+
 test("startup discovery is bounded and stops on disposal", async () => {
   let callback: (() => void) | undefined;
   let calls = 0;

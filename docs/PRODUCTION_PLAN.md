@@ -33,6 +33,8 @@ Automatic composition discovery: пользователь подтвердил �
 
 ## 1. Product Definition
 
+Auto Sync prototype: opt-in active-composition reads, 2 seconds after each completed read, hidden-panel suspension and error stop. 45 local tests PASS. Native edits → panel refresh requires runtime verification; large-project profiling and targeted/diff refresh remain pending. This is read-only AE → UI synchronization, not editing or full bidirectional sync. See `cep/README.md` for scope.
+
 FSTR Line — альтернативное визуальное представление существующего After Effects Timeline.
 
 Продукт **не должен**:
