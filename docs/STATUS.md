@@ -92,6 +92,14 @@ This preserves After Effects compositing order at all overlap times.
 - identical In/Out stacking regression;
 - very long frame-range regression.
 
+## Implemented — Phase 0I
+
+- Windows real-AE launcher via documented AfterFX.exe -r execution;
+- process exit-code contract using app.exitCode;
+- automatic Windows exit after external smoke via app.exitAfterLaunchAndEval;
+- AE memory-in-use baseline around 10–1000 layer stress;
+- one-command clean install + runtime smoke through npm run validate:ae.
+
 ## Not yet claimed
 
 The CEP panel has not yet completed a clean real-After-Effects runtime run.

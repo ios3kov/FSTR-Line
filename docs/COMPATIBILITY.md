@@ -15,3 +15,11 @@ The CEP manifest intentionally targets After Effects 22.0+ because FSTR Line use
 Minimum CEP runtime target: CSXS 11. This covers the AE 22+ floor while remaining loadable by newer CEP hosts.
 
 No platform is considered supported until the clean-install AE validation gate has passed on that exact configuration.
+
+
+## Automated validation launchers
+
+- macOS: JXA controls a clean After Effects instance and reads the structured runtime result.
+- Windows: `AfterFX.exe -r` runs the same JSX; `app.exitCode` and `app.exitAfterLaunchAndEval` provide process-level pass/fail.
+
+These launchers do not mark a platform supported by themselves. A real successful run is still required for each compatibility row.

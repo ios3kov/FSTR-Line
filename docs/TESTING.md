@@ -70,7 +70,7 @@ FSTR Line requires AE 22+ because it uses persistent Layer.id.
 The minimum runtime is CSXS 11. Adobe's integration matrix shows After Effects 18.4 on CEP 11 and After Effects 25 on CEP 12, which allows an AE 22+ floor without requiring CEP 12.
 
 
-## Automated real-After-Effects smoke — macOS
+## Automated real-After-Effects smoke — macOS / Windows
 
 Adobe documents sending JSX to After Effects, and the macOS runner uses JXA to execute the smoke file and then read its structured global result.
 
@@ -93,7 +93,13 @@ The runner chooses the newest After Effects application under /Applications. Ove
 
     FSTR_AE_APP="/Applications/.../Adobe After Effects 2026.app" npm run smoke:ae
 
-The runtime JSX is platform-independent. Automated launcher support for Windows remains a separate compatibility task.
+On Windows the runner discovers `AfterFX.exe`, launches it with Adobe's documented `-r` script mode, and the smoke sets `app.exitAfterLaunchAndEval` plus `app.exitCode` so the process can terminate with a machine-readable pass/fail code.
+
+The smoke also records `app.memoryInUse` before and after the 10–1000 layer scale run.
+
+For a one-command clean package/install + runtime smoke:
+
+    npm run validate:ae
 
 
 ### macOS launcher robustness

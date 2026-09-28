@@ -54,3 +54,17 @@ test("mac runner retries AE startup and falls back from DoScriptFile", () => {
   assert.match(runner, /ae\.doscriptfile\(smokePath\)/);
   assert.match(runner, /\$\.evalFile\(new File/);
 });
+
+test("runtime smoke exposes process exit code and memory baseline", () => {
+  assert.match(smoke, /app\.exitCode = report\.pass \? 0 : 1/);
+  assert.match(smoke, /app\.exitAfterLaunchAndEval = true/);
+  assert.match(smoke, /startBytes: app\.memoryInUse/);
+  assert.match(smoke, /scaleDeltaBytes/);
+});
+
+test("runtime launcher supports Windows AfterFX -r", () => {
+  assert.match(runner, /discoverWindowsExe/);
+  assert.match(runner, /AfterFX\.exe/);
+  assert.match(runner, /\["-r", SMOKE_SCRIPT\]/);
+  assert.match(runner, /process\.platform === "win32"/);
+});

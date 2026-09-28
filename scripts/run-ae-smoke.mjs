@@ -9,7 +9,7 @@ const SMOKE_SCRIPT = path.join(ROOT, "tests", "ae", "runtime-smoke.jsx");
 function command(command, args, options) {
   return spawnSync(command, args, {
     encoding: "utf8",
-    timeout: 180000,
+    timeout: 300000,
     ...options
   });
 }
@@ -76,6 +76,91 @@ async function discoverMacApp() {
 
 function jxaString(value) {
   return JSON.stringify(value);
+}
+
+async function discoverWindowsExe() {
+  if (process.env.FSTR_AE_EXE) {
+    return process.env.FSTR_AE_EXE;
+  }
+
+  const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+  const adobeRoot = path.join(programFiles, "Adobe");
+  const entries = await fs.readdir(adobeRoot, { withFileTypes: true });
+  const candidates = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !/^Adobe After Effects/i.test(entry.name)) {
+      continue;
+    }
+
+    const executable = path.join(adobeRoot, entry.name, "Support Files", "AfterFX.exe");
+    try {
+      await fs.access(executable);
+      candidates.push(executable);
+    } catch {
+    }
+  }
+
+  candidates.sort(function (a, b) {
+    return naturalVersion(b) - naturalVersion(a) || b.localeCompare(a);
+  });
+
+  if (candidates.length === 0) {
+    throw new Error(
+      "After Effects was not found under Program Files/Adobe. " +
+      "Set FSTR_AE_EXE to AfterFX.exe."
+    );
+  }
+
+  return candidates[0];
+}
+
+function parseRuntimeMarker(output) {
+  const lines = String(output || "").split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const marker = "FSTR_LINE_RUNTIME_RESULT=";
+    const index = lines[i].indexOf(marker);
+    if (index !== -1) {
+      try {
+        return JSON.parse(lines[i].slice(index + marker.length));
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+async function runWindowsSmoke() {
+  const executable = await discoverWindowsExe();
+  const result = command(executable, ["-r", SMOKE_SCRIPT], { timeout: 300000 });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const output = [result.stdout || "", result.stderr || ""].join("\n");
+  const report = parseRuntimeMarker(output);
+
+  if (report && report.tempProject) {
+    await fs.rm(report.tempProject, { force: true }).catch(function () {});
+  }
+
+  if (report) {
+    console.log(JSON.stringify(report, null, 2));
+  } else if (output.trim()) {
+    console.log(output.trim());
+  }
+
+  if (result.status !== 0) {
+    throw new Error(
+      "After Effects runtime smoke failed with exit code " +
+      result.status +
+      (output.trim() ? ": " + output.trim() : "")
+    );
+  }
+
+  console.log("After Effects runtime smoke passed on Windows.");
 }
 
 async function runMacSmoke() {
@@ -182,10 +267,12 @@ async function main() {
     return;
   }
 
-  throw new Error(
-    "Automated runtime-smoke launching is currently implemented for macOS only. " +
-    "The JSX test itself is platform-independent."
-  );
+  if (process.platform === "win32") {
+    await runWindowsSmoke();
+    return;
+  }
+
+  throw new Error("Automated runtime smoke supports macOS and Windows only.");
 }
 
 main().catch(function (error) {

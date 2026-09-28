@@ -6,7 +6,14 @@
         name: "FSTR Line AE Runtime Smoke",
         pass: false,
         aeVersion: app.version,
+        os: $.os,
         startedAt: (new Date()).toUTCString(),
+        memory: {
+            startBytes: app.memoryInUse,
+            beforeScaleBytes: null,
+            afterScaleBytes: null,
+            scaleDeltaBytes: null
+        },
         checks: [],
         timings: [],
         scale: [],
@@ -119,6 +126,12 @@
     }
 
     var tempFile = null;
+
+    try {
+        if ($.os.indexOf("Windows") !== -1) {
+            app.exitAfterLaunchAndEval = true;
+        }
+    } catch (ignoreExitAfterLaunch) {}
 
     try {
         addCheck(
@@ -326,6 +339,8 @@
         app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
         addCheck("Performance project created", app.newProject() !== null);
 
+        report.memory.beforeScaleBytes = app.memoryInUse;
+
         var scaleCounts = [10, 50, 200, 500, 1000];
         var scaleIndex;
         for (scaleIndex = 0; scaleIndex < scaleCounts.length; scaleIndex += 1) {
@@ -401,6 +416,10 @@
             } catch (ignorePerfSourceCleanup) {}
         }
 
+        report.memory.afterScaleBytes = app.memoryInUse;
+        report.memory.scaleDeltaBytes =
+            report.memory.afterScaleBytes - report.memory.beforeScaleBytes;
+
         report.pass = true;
     } catch (error) {
         report.error = {
@@ -412,6 +431,9 @@
         closeWithoutSaving();
         cleanupTempFile(tempFile);
         report.finishedAt = (new Date()).toUTCString();
+        try {
+            app.exitCode = report.pass ? 0 : 1;
+        } catch (ignoreExitCode) {}
         $._fstrRuntimeResult = JSON.stringify(report);
         $.writeln("FSTR_LINE_RUNTIME_RESULT=" + $._fstrRuntimeResult);
     }
