@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "requirement": "SYNC-001",
+  "target": "After Effects 25.6.0.101 / macOS Apple Silicon",
+  "status": "BLOCKED",
+  "blockedReason": "Exact AE binaries and an authorized isolated AE runtime/debugger are unavailable in the current execution environment.",
+  "requiredOrigins": ["native-ui", "extendscript", "other-plugin"],
+  "requiredChanges": ["move-start-in-out", "trim-in", "trim-out", "layer-add", "layer-delete", "layer-reorder", "selection", "enabled", "solo", "locked", "audio-enabled", "active-comp", "project-open-close-switch", "playhead-scrub-playback", "undo", "redo"],
+  "controls": ["instrumentation-positive-control", "no-change-idle-negative-control", "panel-closed", "coalesced-batch", "rapid-successive-edits", "error-and-cancel", "save-reopen", "restart", "uninstrumented-performance-baseline"],
+  "candidate": null,
+  "coverageResults": [],
+  "acceptance": {
+    "fullAEOriginatedCoverage": true,
+    "multipleChannelsAllowed": true,
+    "postCommitAvailabilityMustBeProven": true,
+    "pollingAccepted": false,
+    "revisionOrIdlePollingAccepted": false,
+    "focusOrSelfEventsAccepted": false,
+    "staticNamesAreEvidenceOfEvents": false,
+    "privateResearchCategoricallyBanned": false,
+    "privateProductionIntegrationApproved": false
+  }
+}
