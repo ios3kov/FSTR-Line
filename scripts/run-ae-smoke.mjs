@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { verifyInstalledPayload } from "./installed-payload.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SMOKE_SCRIPT = path.join(ROOT, "tests", "ae", "runtime-smoke.jsx");
@@ -51,39 +52,6 @@ function naturalVersion(name) {
   }
   const value = match[match.length - 1];
   return Number(value.replace(".", "")) || 0;
-}
-
-async function sha256(filePath) {
-  const data = await fs.readFile(filePath);
-  return crypto.createHash("sha256").update(data).digest("hex");
-}
-
-async function verifyInstalledPayload(extensionRoot) {
-  const manifestPath = path.join(extensionRoot, "BUILD_MANIFEST.json");
-  const buildInfoPath = path.join(extensionRoot, "generated", "build-info.json");
-  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-  const buildInfo = JSON.parse(await fs.readFile(buildInfoPath, "utf8"));
-
-  if (
-    !manifest.buildIdentity ||
-    manifest.buildIdentity.buildId !== buildInfo.buildId ||
-    manifest.buildIdentity.gitCommit !== buildInfo.gitCommit
-  ) {
-    throw new Error("Installed Build Identity metadata is inconsistent.");
-  }
-
-  for (const entry of manifest.files || []) {
-    const installedPath = path.join(extensionRoot, ...entry.path.split("/"));
-    const actual = await sha256(installedPath);
-    if (actual !== entry.sha256) {
-      throw new Error("Installed payload hash mismatch: " + entry.path);
-    }
-  }
-
-  return {
-    buildInfo,
-    manifestSha256: await sha256(manifestPath)
-  };
 }
 
 async function discoverMacApp() {
