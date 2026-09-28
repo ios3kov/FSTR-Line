@@ -60,12 +60,13 @@ def main():
             json.dumps(str(binary)), json.dumps(str(result_path)), json.dumps(str(ROOT)))
         completed = subprocess.run(['xcrun', 'lldb', '--batch', '--no-lldbinit',
             '-o', 'script import sys; sys.dont_write_bytecode = True',
+            '-o', 'command script import ' + shlex.quote(str(ROOT / 'research/ae-notifications/trace_callback.py')),
             '-o', 'command script import ' + shlex.quote(str(control)), '-o', call],
             capture_output=True, text=True, timeout=90)
         if completed.returncode or not result_path.is_file():
             raise RuntimeError('LLDB control did not PASS: ' + completed.stdout + completed.stderr)
         control_result = json.loads(result_path.read_text())
-        assert control_result['status'] == 'PASS'
+        assert control_result['status'] == 'PASS', json.dumps(control_result)
         assert control_result['fixtureSha256'] == before
         assert control_result['moduleUUID'].lower() in ids
         evidence = dict(status='PASS', sourceCommit=commit,
