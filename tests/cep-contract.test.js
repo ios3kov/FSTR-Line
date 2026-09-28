@@ -18,11 +18,14 @@ test("manifest does not enable Node or remote networking", () => {
   assert.match(html, /connect-src 'none'/);
 });
 
-test("mutating host commands use native AE undo groups", () => {
-  assert.match(host, /beginUndoGroup\("FSTR Line: Move Clip"\)/);
-  assert.match(host, /beginUndoGroup\("FSTR Line: Trim In"\)/);
-  assert.match(host, /beginUndoGroup\("FSTR Line: Trim Out"\)/);
-  assert.match(host, /finally\s*\{\s*app\.endUndoGroup\(\)/);
+test("mutating host commands use one native AE undo wrapper", () => {
+  assert.match(
+    host,
+    /function withUndo\(label, fn\)\s*\{[\s\S]*?app\.beginUndoGroup\(label\);[\s\S]*?finally\s*\{\s*app\.endUndoGroup\(\);/
+  );
+  assert.match(host, /withUndo\("FSTR Line: Move Clip"/);
+  assert.match(host, /withUndo\("FSTR Line: Trim In"/);
+  assert.match(host, /withUndo\("FSTR Line: Trim Out"/);
 });
 
 test("panel load path is self-contained", () => {
