@@ -57,7 +57,7 @@ This preserves After Effects compositing order at all overlap times.
 - Undo-group contract checks;
 - self-contained dependency checks.
 
-## Not yet claimed
+## Implemented — Phase 0C\n\n- deterministic package builder from an explicit source allowlist;\n- SHA-256 BUILD_MANIFEST.json for packaged files;\n- package integrity verifier;\n- CI packaging and artifact upload;\n- clean per-user macOS/Windows development installer;\n- stale FSTR Line CEP cache/log cleanup only;\n- duplicate system-extension detection;\n- unsigned CSXS 11/12 development-mode setup.\n\n## Not yet claimed
 
 The CEP panel has not yet completed a clean real-After-Effects runtime run.
 
@@ -72,4 +72,4 @@ Therefore these are still unverified:
 
 ## Next gate
 
-Phase 0C — automated packaging + clean AE validation harness where possible, followed by the minimum real AE runtime validation needed for host-only behavior. Drag/trim gesture UX comes after the bridge is proven stable.
+Next: complete the clean real-AE runtime gate. Drag/trim gesture UX comes only after the host bridge is proven stable.
