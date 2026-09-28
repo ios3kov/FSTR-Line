@@ -9,6 +9,7 @@
         startedAt: (new Date()).toUTCString(),
         checks: [],
         timings: [],
+        scale: [],
         warnings: [],
         error: null,
         tempProject: null
@@ -321,6 +322,84 @@
             reopenedSnapshot.layers.length === 3 &&
             reopenedSnapshot.comp.id === reopenedComp.id
         );
+
+        app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
+        addCheck("Performance project created", app.newProject() !== null);
+
+        var scaleCounts = [10, 50, 200, 500, 1000];
+        var scaleIndex;
+        for (scaleIndex = 0; scaleIndex < scaleCounts.length; scaleIndex += 1) {
+            var count = scaleCounts[scaleIndex];
+            var perfComp = app.project.items.addComp(
+                "__FSTR_LINE_SCALE_" + count + "__",
+                640,
+                360,
+                1,
+                20,
+                25
+            );
+            var perfSeed = perfComp.layers.addSolid(
+                [0.5, 0.5, 0.5],
+                "P1",
+                16,
+                16,
+                1,
+                20
+            );
+            var perfSource = perfSeed.source;
+
+            perfSeed.startTime = 0;
+            perfSeed.inPoint = 0;
+            perfSeed.outPoint = 5;
+
+            var layerIndex;
+            for (layerIndex = 2; layerIndex <= count; layerIndex += 1) {
+                var duplicate = perfSeed.duplicate();
+                var offsetFrames = layerIndex % 50;
+                duplicate.name = "P" + layerIndex;
+                duplicate.startTime = offsetFrames * perfComp.frameDuration;
+                duplicate.inPoint = duplicate.startTime;
+                duplicate.outPoint = duplicate.startTime + 5;
+            }
+
+            perfComp.openInViewer();
+
+            $.hiresTimer;
+            var scaleSnapshot = parseHost($._fstr.getSnapshot());
+            var snapshotUs = $.hiresTimer;
+
+            addCheck(
+                "Snapshot scale " + count,
+                scaleSnapshot.layers.length === count
+            );
+
+            var bottomLayerId = scaleSnapshot.layers[scaleSnapshot.layers.length - 1].id;
+
+            $.hiresTimer;
+            parseHost($._fstr.selectLayer(bottomLayerId, false));
+            var selectBottomUs = $.hiresTimer;
+
+            $.hiresTimer;
+            parseHost($._fstr.moveLayerFrames(bottomLayerId, 1));
+            var moveBottomUs = $.hiresTimer;
+
+            report.scale.push({
+                layers: count,
+                snapshotMicroseconds: snapshotUs,
+                snapshotMilliseconds: snapshotUs / 1000,
+                selectBottomMicroseconds: selectBottomUs,
+                selectBottomMilliseconds: selectBottomUs / 1000,
+                moveBottomMicroseconds: moveBottomUs,
+                moveBottomMilliseconds: moveBottomUs / 1000
+            });
+
+            perfComp.remove();
+            try {
+                if (perfSource) {
+                    perfSource.remove();
+                }
+            } catch (ignorePerfSourceCleanup) {}
+        }
 
         report.pass = true;
     } catch (error) {

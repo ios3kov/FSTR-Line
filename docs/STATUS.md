@@ -76,6 +76,14 @@ This preserves After Effects compositing order at all overlap times.
 - real-AE smoke timing instrumentation using ExtendScript high-resolution timing;
 - measurement policy documented before optimization.
 
+## Implemented — Phase 0F
+
+- real-AE host stress harness for 10/50/200/500/1000 layers;
+- snapshot + serialization timing at each scale;
+- bottom-layer worst-case selection lookup timing;
+- bottom-layer move + refresh timing;
+- recorded Core baseline shows no current need for a more complex packing algorithm.
+
 ## Not yet claimed
 
 The CEP panel has not yet completed a clean real-After-Effects runtime run.

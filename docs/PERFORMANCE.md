@@ -62,3 +62,28 @@ Inside real After Effects:
 - large-project UI virtualization profiling.
 
 No compatibility/performance configuration is marked supported until measured.
+
+
+## Recorded Core baseline — commit 6863b51
+
+GitHub Actions / Node 22 baseline, p95:
+
+| Layers | Sequential | Full overlap | Mixed |
+|---:|---:|---:|---:|
+| 10 | 0.005 ms | 0.007 ms | 0.008 ms |
+| 50 | 0.106 ms | 0.109 ms | 0.007 ms |
+| 200 | 0.059 ms | 0.083 ms | 0.037 ms |
+| 500 | 0.218 ms | 0.383 ms | 0.308 ms |
+| 1000 | 0.902 ms | 1.216 ms | 1.395 ms |
+
+Decision: do not complicate the current packing algorithm yet. The current Core cost is already low at the v1 stress target; actual After Effects host/UI cost is the next measurement target.
+
+## AE host scaling captured by the runtime smoke
+
+The real-AE smoke now creates isolated 10 / 50 / 200 / 500 / 1000-layer compositions and records:
+
+- full snapshot + JSON serialization time;
+- worst-case bottom-layer selection lookup;
+- worst-case bottom-layer move lookup + edit + snapshot.
+
+The stress project is unsaved and closed without saving.

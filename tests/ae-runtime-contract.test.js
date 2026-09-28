@@ -40,3 +40,10 @@ test("mac runner refuses to reuse a running AE session", () => {
   assert.match(runner, /ae\.doscriptfile/);
   assert.match(runner, /ae\.doscript\('\$\._fstrRuntimeResult;'\)/);
 });
+
+test("real-AE smoke profiles host scaling to 1000 layers", () => {
+  assert.match(smoke, /var scaleCounts = \[10, 50, 200, 500, 1000\]/);
+  assert.match(smoke, /snapshotMicroseconds/);
+  assert.match(smoke, /selectBottomMicroseconds/);
+  assert.match(smoke, /moveBottomMicroseconds/);
+});
