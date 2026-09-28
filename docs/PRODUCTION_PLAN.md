@@ -29,6 +29,8 @@ Empty-response recovery: bounded snapshot/identity retries and a 20-entry bridge
 
 Composition discovery update: typed NO_ACTIVE_COMP handling, bounded startup discovery and focus/visibility refresh implemented. 42 local tests PASS; new artifact runtime test pending. Previous artifact screenshot showed empty/empty/NO_ACTIVE_COMP then MATCH; user confirmed manual Refresh restored layers. This establishes transport recovery, not automatic composition discovery or the empty-response root cause.
 
+Automatic composition discovery: пользователь подтвердил появление слоёв без Refresh после инструкции перезапуска/открытия композиции. Installed candidate `fstr-cep-3c6a6297b9b4`; MATCH этого запуска отдельно не подтверждён. Evidence: `docs/TEST_RECORDS/CEP-DISCOVERY-RUNTIME-2026-09-28.md`. Постоянная синхронизация и editing остаются следующим объёмом работ, не подтверждённым этим smoke test.
+
 ## 1. Product Definition
 
 FSTR Line — альтернативное визуальное представление существующего After Effects Timeline.
