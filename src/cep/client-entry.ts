@@ -1,5 +1,4 @@
-import { packLayers } from "../core/packing.js";
-import type { PackedTrack } from "../core/types.js";
+import { PanelController, type PanelState, type PanelView } from "./panel-controller.js";
 import { CEPAdapter, type EvalScriptBridge } from "../host/cep/bridge.js";
 
 interface CEPWindow extends Window {
@@ -18,7 +17,7 @@ function setStatus(message: string, isError = false): void {
   status.dataset.state = isError ? "error" : "ready";
 }
 
-function renderTracks(tracks: readonly PackedTrack[]): void {
+function renderTracks(tracks: readonly { trackIndex: number; layerIds: readonly number[] }[]): void {
   if (output === null) {
     return;
   }
@@ -31,27 +30,49 @@ function renderTracks(tracks: readonly PackedTrack[]): void {
   }
 }
 
-async function refresh(): Promise<void> {
+function createView(): PanelView {
+  return {
+    render(state: PanelState): void {
+      if (state.status === "loading") {
+        setStatus("Чтение активной композиции…");
+        return;
+      }
+      if (state.status === "refreshing") {
+        setStatus("Обновление композиции…");
+        renderTracks(state.tracks);
+        return;
+      }
+      if (state.status === "no-composition") {
+        setStatus("Нет активной композиции", true);
+        renderTracks([]);
+        return;
+      }
+      if (state.status === "error") {
+        setStatus(state.message, true);
+        if (state.tracks !== undefined) {
+          renderTracks(state.tracks);
+        }
+        return;
+      }
+      renderTracks(state.tracks);
+      setStatus(`${state.snapshot.compositionName}: ${state.snapshot.layers.length} layers, ${state.tracks.length} tracks`);
+    },
+  };
+}
+
+function createController(): PanelController | undefined {
   const Constructor = (window as CEPWindow).CSInterface;
   if (Constructor === undefined) {
     setStatus("CSInterface.js не загружен", true);
-    return;
+    return undefined;
   }
 
-  setStatus("Чтение активной композиции…");
-  try {
-    const adapter = new CEPAdapter(new Constructor());
-    const snapshot = await adapter.readSnapshot();
-    const packing = packLayers(snapshot);
-    renderTracks(packing.tracks);
-    setStatus(`${snapshot.compositionName}: ${snapshot.layers.length} layers, ${packing.tracks.length} tracks`);
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : "Не удалось прочитать композицию", true);
-  }
+  return new PanelController(new CEPAdapter(new Constructor()), createView());
 }
 
+const controller = createController();
 refreshButton?.addEventListener("click", () => {
-  void refresh();
+  void controller?.refresh();
 });
 
-void refresh();
+void controller?.refresh();

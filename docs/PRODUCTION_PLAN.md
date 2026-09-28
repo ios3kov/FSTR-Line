@@ -2,7 +2,7 @@
 
 ## Current Development Status
 
-**Milestone: Pure Timeline Core — implementation complete, local verification PASS.**
+**Milestone: CEP read/refresh PoC и panel lifecycle — implementation complete, local verification PASS.**
 
 Реализованы без зависимости от After Effects:
 
@@ -13,10 +13,13 @@
 - snapshot composition/revision guards;
 - FakeHostAdapter для проверки preflight и stale-command rejection;
 - pure Core test fixtures.
+- explicit panel lifecycle controller with no-composition/loading/ready/refreshing/error states;
+- refresh coalescing and invalidation of in-flight results;
+- preservation of the last valid projection when refresh fails.
 
-Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`.
+Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`, `docs/TEST_RECORDS/CEP-POC-2026-09-28.md`.
 
-Ограничение: реальный After Effects, Undo Group и визуальное совпадение с native Timeline пока не проверены. CEP protocol, static host syntax, package layout и client bundle проверены без AE. Следующий gate — запуск read/refresh panel в чистом After Effects.
+Ограничение: реальный After Effects, Undo Group и визуальное совпадение с native Timeline пока не проверены. CEP protocol, static host syntax, package layout, client bundle и controller lifecycle проверены без AE. Следующий gate — запуск read/refresh panel в чистом After Effects.
 
 ## 1. Product Definition
 
