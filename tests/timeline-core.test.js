@@ -126,3 +126,54 @@ test("packing invariant holds across deterministic randomized timelines", () => 
     assert.deepEqual(core.validatePacking(packed), { ok: true });
   }
 });
+
+test("full production FPS matrix is frame-roundtrip safe", () => {
+  const timingCases = [
+    ["23.976", 1001 / 24000],
+    ["24", 1 / 24],
+    ["25", 1 / 25],
+    ["29.97", 1001 / 30000],
+    ["30", 1 / 30],
+    ["50", 1 / 50],
+    ["59.94", 1001 / 60000],
+    ["60", 1 / 60]
+  ];
+  const displayStarts = [-10.5, 0, 100.25];
+  const frames = [-100000, -1000, -1, 0, 1, 1000, 100000];
+
+  for (const [name, frameDuration] of timingCases) {
+    for (const displayStart of displayStarts) {
+      for (const frame of frames) {
+        const seconds = core.frameToSeconds(frame, displayStart, frameDuration);
+        assert.equal(
+          core.secondsToFrame(seconds, displayStart, frameDuration),
+          frame,
+          name + " fps frame " + frame + " displayStart " + displayStart
+        );
+      }
+    }
+  }
+});
+
+test("identical in/out ranges preserve strict AE stacking order", () => {
+  const result = core.packLayers([
+    layer(1, 1, 0, 100),
+    layer(2, 2, 0, 100),
+    layer(3, 3, 0, 100),
+    layer(4, 4, 0, 100)
+  ]);
+
+  assert.deepEqual(result.placements.map((p) => p.track), [0, 1, 2, 3]);
+  assert.deepEqual(core.validatePacking(result), { ok: true });
+});
+
+test("very long frame ranges remain valid", () => {
+  const result = core.packLayers([
+    layer(1, 1, -10000000, 10000000),
+    layer(2, 2, 10000000, 20000000),
+    layer(3, 3, -1, 1)
+  ]);
+
+  assert.deepEqual(core.validatePacking(result), { ok: true });
+  assert.deepEqual(result.placements.map((p) => p.track), [0, 0, 1]);
+});

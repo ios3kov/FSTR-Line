@@ -84,6 +84,14 @@ This preserves After Effects compositing order at all overlap times.
 - bottom-layer move + refresh timing;
 - recorded Core baseline shows no current need for a more complex packing algorithm.
 
+## Implemented — Phase 0G
+
+- full production timing matrix tests: 23.976 / 24 / 25 / 29.97 / 30 / 50 / 59.94 / 60 fps;
+- negative display-start and large positive/negative frame roundtrips;
+- frame-safe host move/trim tests across the same FPS matrix;
+- identical In/Out stacking regression;
+- very long frame-range regression.
+
 ## Not yet claimed
 
 The CEP panel has not yet completed a clean real-After-Effects runtime run.

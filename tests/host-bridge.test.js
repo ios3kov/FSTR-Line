@@ -43,12 +43,12 @@ class CameraLayer extends BaseLayer {}
 class LightLayer extends BaseLayer {}
 
 class CompItem {
-  constructor(layers) {
+  constructor(layers, frameRate = 25) {
     this.id = 500;
     this.name = "Mock Comp";
     this.duration = 10;
-    this.frameRate = 25;
-    this.frameDuration = 1 / 25;
+    this.frameRate = frameRate;
+    this.frameDuration = 1 / frameRate;
     this.displayStartTime = 0;
     this.displayStartFrame = 0;
     this.time = 0;
@@ -71,7 +71,7 @@ class CompItem {
   }
 }
 
-function createHost() {
+function createHost(frameRate = 25) {
   const layers = [
     new AVLayer({
       id: 101,
@@ -91,7 +91,7 @@ function createHost() {
     })
   ];
 
-  const comp = new CompItem(layers);
+  const comp = new CompItem(layers, frameRate);
   const undo = [];
   const app = {
     project: { activeItem: comp },
@@ -219,4 +219,39 @@ test("no active composition returns an empty snapshot, not a bridge failure", ()
 
   const response = result(host.api.getSnapshot());
   assert.deepEqual(response, { ok: true, data: null, error: null });
+});
+
+test("host move and trims are frame-safe across the production FPS matrix", () => {
+  const frameRates = [
+    24000 / 1001,
+    24,
+    25,
+    30000 / 1001,
+    30,
+    50,
+    60000 / 1001,
+    60
+  ];
+
+  for (const frameRate of frameRates) {
+    const host = createHost(frameRate);
+    const frame = host.comp.frameDuration;
+    const tolerance = frame / 1000000;
+    const layer = host.layers[0];
+
+    let response = result(host.api.moveLayerFrames(101, 17));
+    assert.equal(response.ok, true);
+    assert.ok(Math.abs(layer.startTime - 17 * frame) <= tolerance);
+    assert.ok(Math.abs(layer.inPoint - (1 + 17 * frame)) <= tolerance);
+    assert.ok(Math.abs(layer.outPoint - (4 + 17 * frame)) <= tolerance);
+
+    response = result(host.api.trimLayerInFrames(101, 3));
+    assert.equal(response.ok, true);
+    assert.ok(Math.abs(layer.startTime - 17 * frame) <= tolerance);
+    assert.ok(Math.abs(layer.inPoint - (1 + 20 * frame)) <= tolerance);
+
+    response = result(host.api.trimLayerOutFrames(101, -5));
+    assert.equal(response.ok, true);
+    assert.ok(Math.abs(layer.outPoint - (4 + 12 * frame)) <= tolerance);
+  }
 });
