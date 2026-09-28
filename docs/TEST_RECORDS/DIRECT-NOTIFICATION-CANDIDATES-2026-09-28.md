@@ -30,6 +30,14 @@ Run: `FSTR-DIRECT-NOTIFICATION-CANDIDATES-2026-09-28-01`
 
 **Status: transport only.** CEP can dispatch and receive named events, but the public CEP API does not make AE emit native Timeline events. An event sent by FSTR reports only FSTR's own operation.
 
+## Candidate H — `AEGP_RenderQueueMonitorSuite1::AEGP_RegisterListener`
+
+**Status: rejected.** The only public `AEGP_RegisterListener` found in the
+AE 25.6 headers is scoped to the Render Queue Monitor Suite. Its callbacks
+report render jobs, render-queue items, frames, and output-module activity.
+It does not report project, comp, layer, selection, playhead, or Undo/Redo
+changes.
+
 ## Current conclusion
 
 No public, complete, push notification source for SYNC-001 was identified in AE 25.6. `AEGP_Command_ALL` remains the only plausible partial channel and requires an instrumented native probe. It cannot be combined with idle polling and still be called a full direct source.
