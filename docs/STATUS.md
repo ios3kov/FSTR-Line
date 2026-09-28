@@ -105,6 +105,14 @@ Therefore these are still unverified:
 - performance/profiling inside AE;
 - compatibility matrix entries.
 
+## Documentation audit
+
+- README synchronized with executable PoC;
+- Architecture synchronized with actual .js/.jsx module paths;
+- planned-but-unimplemented modules explicitly separated from current code;
+- no TODO/FIXME/HACK markers found in repository audit;
+- stale literal newline escapes removed.
+
 ## Next gate
 
 Next: run the automated macOS real-AE smoke gate on an installed After Effects build, then capture real profiling. Drag/trim gesture UX comes only after the host bridge is proven stable.
