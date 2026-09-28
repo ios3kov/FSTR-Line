@@ -25,6 +25,8 @@ Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`, `docs/TEST_RECORDS/CEP-POC-202
 
 Diagnostics implementation: generated UI/host Build IDs, queued host identity query, mismatch/error display and read-only snapshot JSON. Local regression: 33 tests PASS. Runtime screenshot confirms MATCH for `fstr-cep-92fd5e97d2fa` and successful manual Refresh, but initial automatic read returned an empty host response (FAIL, unresolved). Exact native field comparison remains NOT RUN. Next priority: reproduce and diagnose initial-read failure. Evidence: `docs/TEST_RECORDS/CEP-DIAGNOSTICS-RUNTIME-2026-09-28.md`.
 
+Empty-response recovery: bounded snapshot/identity retries and a 20-entry bridge attempt log implemented; 39 local tests PASS. Root cause remains unknown; new AE startup verification is required. This workaround does not close the initial-read failure gate. Retry policy and removal/review condition: `cep/README.md`.
+
 ## 1. Product Definition
 
 FSTR Line — альтернативное визуальное представление существующего After Effects Timeline.

@@ -34,3 +34,9 @@ Expand Diagnostics to see the compiled UI Build ID and the identity returned by 
 The snapshot JSON displays names, IDs, AE indices, rational FPS, integer timing frames, switches and capabilities. It includes project layer names and is displayed locally only. During loading or on error it is marked unavailable/stale. Compare inFrame/outFrame/startFrame against the native Timeline in frames; outFrame is exclusive. Exact field verification is still pending in AE.
 
 Build metadata is injected automatically into the bundled client and packaged host before payload hashes are calculated. Dirty builds have a `-dirty` suffix and are not installation candidates.
+
+## Empty-response recovery
+
+AE 25.6 returned empty startup responses in the recorded user test; manual Refresh recovered. The cause is not established. The adapter now retries only completed empty snapshot/identity reads, up to three total attempts with 500 ms and 1000 ms delays, inside the existing queue. Non-empty errors, invalid responses, timeouts and commands are never automatically replayed. This is a bounded recovery workaround, not a proven startup fix or ongoing polling. Revisit it when the startup cause is reproduced and diagnosed.
+
+Diagnostics shows the last 20 bridge attempts (operation, attempt number, duration and empty/response/transport-error). No payload or project names are included in this log. `response` means transport returned non-empty data; protocol validation can still fail. After exhaustion, the panel shows an error and manual Refresh starts a new bounded read. Runtime verification is pending.

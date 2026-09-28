@@ -1,5 +1,5 @@
 import { PanelController, type PanelState, type PanelView } from "./panel-controller.js";
-import { CEPAdapter, type EvalScriptBridge } from "../host/cep/bridge.js";
+import { CEPAdapter, type EvalScriptBridge, type BridgeAttempt } from "../host/cep/bridge.js";
 import { matchingBuilds, type BuildIdentity } from "../host/diagnostics.js";
 
 declare const FSTR_BUILD: BuildIdentity;
@@ -14,6 +14,15 @@ const refreshButton = document.getElementById("refresh");
 const buildStatus = document.getElementById("build-status");
 const snapshotOutput = document.getElementById("snapshot-diagnostics");
 let adapter: CEPAdapter | undefined;
+const bridgeLog = document.getElementById("bridge-log");
+const attempts: BridgeAttempt[] = [];
+
+function recordAttempt(attempt: BridgeAttempt): void {
+  attempts.push(attempt);
+  if (attempts.length > 20) attempts.shift();
+  if (bridgeLog) bridgeLog.textContent = attempts.map((entry) =>
+    `${entry.operation} #${entry.attempt}: ${entry.outcome} (${entry.elapsedMs} ms)`).join("\n");
+}
 
 async function updateBuildStatus(): Promise<void> {
   if (!buildStatus || !adapter) return;
@@ -89,7 +98,7 @@ function createController(): PanelController | undefined {
     return undefined;
   }
 
-  adapter = new CEPAdapter(new Constructor());
+  adapter = new CEPAdapter(new Constructor(), { onAttempt: recordAttempt });
   return new PanelController(adapter, createView());
 }
 
