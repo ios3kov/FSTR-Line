@@ -1,10 +1,17 @@
 #include "../../vendor/json2.js"
 
 (function () {
+    $._fstrRuntimeResult = null;
+
+    var config = $._fstrTestConfig || null;
     var report = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         name: "FSTR Line AE Runtime Smoke",
         pass: false,
+        testRunId: config && config.testRunId ? config.testRunId : null,
+        expectedBuildId: config && config.expectedBuildId ? config.expectedBuildId : null,
+        expectedGitCommit: config && config.expectedGitCommit ? config.expectedGitCommit : null,
+        runtimeBuildInfo: null,
         aeVersion: app.version,
         os: $.os,
         startedAt: (new Date()).toUTCString(),
@@ -19,7 +26,7 @@
         scale: [],
         warnings: [],
         error: null,
-        tempProject: null
+        tempProjectCreated: false
     };
 
     function addCheck(name, pass, detail) {
@@ -82,47 +89,12 @@
         return null;
     }
 
-    function securityAllowsFileWrites() {
-        try {
-            return app.preferences.getPrefAsLong(
-                "Main Pref Section",
-                "Pref_SCRIPTING_FILE_NETWORK_SECURITY"
-            ) === 1;
-        } catch (ignoreSecurityPref) {
-            return false;
-        }
-    }
-
     function closeWithoutSaving() {
         try {
             if (app.project) {
                 app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
             }
         } catch (ignoreClose) {}
-    }
-
-    function cleanupTempFile(file) {
-        if (!file || !file.exists) {
-            return;
-        }
-
-        if (!securityAllowsFileWrites()) {
-            report.warnings.push(
-                "Temporary .aep remains because script file access is disabled: " + file.fsName
-            );
-            return;
-        }
-
-        try {
-            if (!file.remove()) {
-                report.warnings.push("Could not remove temporary .aep: " + file.fsName);
-            }
-        } catch (removeError) {
-            report.warnings.push(
-                "Could not remove temporary .aep: " +
-                (removeError.message || String(removeError))
-            );
-        }
     }
 
     var tempFile = null;
@@ -135,6 +107,16 @@
 
     try {
         addCheck(
+            "Test Run configuration",
+            !!config &&
+            !!config.testRunId &&
+            !!config.extensionRoot &&
+            !!config.expectedBuildId &&
+            !!config.expectedGitCommit &&
+            !!config.tempProjectPath
+        );
+
+        addCheck(
             "After Effects 22+",
             parseFloat(app.version) >= 22,
             "Detected " + app.version
@@ -146,15 +128,32 @@
             "Runtime smoke refuses to touch an existing user project."
         );
 
-        var root = (new File($.fileName)).parent.parent.parent;
-        var hostFile = new File(root.fsName + "/host/cep/host.jsx");
+        var hostFile = new File(config.extensionRoot + "/host/cep/host.jsx");
 
-        addCheck("Host bridge file exists", hostFile.exists, hostFile.fsName);
+        addCheck("Installed host bridge file exists", hostFile.exists);
 
         $.evalFile(hostFile);
         addCheck(
-            "Host bridge loaded",
-            !!$._fstr && typeof $._fstr.getSnapshot === "function"
+            "Installed host bridge loaded",
+            !!$._fstr &&
+            typeof $._fstr.getSnapshot === "function" &&
+            typeof $._fstr.getBuildInfo === "function"
+        );
+
+        var runtimeBuildInfo = parseHost($._fstr.getBuildInfo());
+        report.runtimeBuildInfo = runtimeBuildInfo;
+
+        addCheck(
+            "Runtime Build ID matches installed artifact",
+            runtimeBuildInfo &&
+            runtimeBuildInfo.buildId === config.expectedBuildId,
+            runtimeBuildInfo ? runtimeBuildInfo.buildId : "unavailable"
+        );
+
+        addCheck(
+            "Runtime Git commit matches installed artifact",
+            runtimeBuildInfo &&
+            runtimeBuildInfo.gitCommit === config.expectedGitCommit
         );
 
         var compName = "__FSTR_LINE_RUNTIME_SMOKE__";
@@ -286,14 +285,14 @@
             near(layerB.outPoint, invalidBefore.outPoint, tolerance)
         );
 
-        tempFile = new File(Folder.temp.fsName + "/fstr-line-runtime-smoke.aep");
-        report.tempProject = tempFile.fsName;
+        tempFile = new File(config.tempProjectPath);
 
         timed("save-temp-project", function () {
             app.project.save(tempFile);
             return null;
         });
-        addCheck("Temporary project saved", tempFile.exists, tempFile.fsName);
+        report.tempProjectCreated = tempFile.exists;
+        addCheck("Temporary project saved", tempFile.exists);
 
         var savedIds = {
             A: ids.A,
@@ -425,11 +424,12 @@
         report.error = {
             message: error && error.message ? error.message : String(error),
             line: error && error.line ? error.line : null,
-            fileName: error && error.fileName ? error.fileName : null
+            fileName: error && error.fileName
+                ? (new File(error.fileName)).name
+                : null
         };
     } finally {
         closeWithoutSaving();
-        cleanupTempFile(tempFile);
         report.finishedAt = (new Date()).toUTCString();
         try {
             app.exitCode = report.pass ? 0 : 1;

@@ -1,4 +1,6 @@
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -6,8 +8,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SMOKE_SCRIPT = path.join(ROOT, "tests", "ae", "runtime-smoke.jsx");
 
-function command(command, args, options) {
-  return spawnSync(command, args, {
+function command(commandName, args, options) {
+  return spawnSync(commandName, args, {
     encoding: "utf8",
     timeout: 300000,
     ...options
@@ -28,6 +30,19 @@ function aeIsRunning() {
   return false;
 }
 
+function userExtensionRoot() {
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "Adobe", "CEP", "extensions");
+  }
+  if (process.platform === "win32") {
+    if (!process.env.APPDATA) {
+      throw new Error("APPDATA is not defined.");
+    }
+    return path.join(process.env.APPDATA, "Adobe", "CEP", "extensions");
+  }
+  throw new Error("Automated runtime smoke supports macOS and Windows only.");
+}
+
 function naturalVersion(name) {
   const match = name.match(/(20\d{2}|\d+(?:\.\d+)?)/g);
   if (!match || match.length === 0) {
@@ -35,6 +50,39 @@ function naturalVersion(name) {
   }
   const value = match[match.length - 1];
   return Number(value.replace(".", "")) || 0;
+}
+
+async function sha256(filePath) {
+  const data = await fs.readFile(filePath);
+  return crypto.createHash("sha256").update(data).digest("hex");
+}
+
+async function verifyInstalledPayload(extensionRoot) {
+  const manifestPath = path.join(extensionRoot, "BUILD_MANIFEST.json");
+  const buildInfoPath = path.join(extensionRoot, "generated", "build-info.json");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  const buildInfo = JSON.parse(await fs.readFile(buildInfoPath, "utf8"));
+
+  if (
+    !manifest.buildIdentity ||
+    manifest.buildIdentity.buildId !== buildInfo.buildId ||
+    manifest.buildIdentity.gitCommit !== buildInfo.gitCommit
+  ) {
+    throw new Error("Installed Build Identity metadata is inconsistent.");
+  }
+
+  for (const entry of manifest.files || []) {
+    const installedPath = path.join(extensionRoot, ...entry.path.split("/"));
+    const actual = await sha256(installedPath);
+    if (actual !== entry.sha256) {
+      throw new Error("Installed payload hash mismatch: " + entry.path);
+    }
+  }
+
+  return {
+    buildInfo,
+    manifestSha256: await sha256(manifestPath)
+  };
 }
 
 async function discoverMacApp() {
@@ -72,10 +120,6 @@ async function discoverMacApp() {
   }
 
   return candidates[0];
-}
-
-function jxaString(value) {
-  return JSON.stringify(value);
 }
 
 async function discoverWindowsExe() {
@@ -131,9 +175,67 @@ function parseRuntimeMarker(output) {
   return null;
 }
 
-async function runWindowsSmoke() {
-  const executable = await discoverWindowsExe();
-  const result = command(executable, ["-r", SMOKE_SCRIPT], { timeout: 300000 });
+function verifyReport(report, expected) {
+  if (!report) {
+    throw new Error("After Effects returned no structured runtime report.");
+  }
+  if (report.testRunId !== expected.testRunId) {
+    throw new Error("Runtime report Test Run ID mismatch.");
+  }
+  if (!report.runtimeBuildInfo) {
+    throw new Error("Runtime report has no Build Identity.");
+  }
+  if (report.runtimeBuildInfo.buildId !== expected.expectedBuildId) {
+    throw new Error("Runtime Build ID mismatch.");
+  }
+  if (report.runtimeBuildInfo.gitCommit !== expected.expectedGitCommit) {
+    throw new Error("Runtime Git commit mismatch.");
+  }
+  if (!report.pass) {
+    throw new Error(
+      "After Effects runtime smoke reported FAIL: " +
+      (report.error && report.error.message ? report.error.message : "unknown error")
+    );
+  }
+}
+
+async function createTestWorkspace(installed) {
+  const testRunId =
+    "ae-smoke-" +
+    Date.now() +
+    "-" +
+    crypto.randomBytes(6).toString("hex");
+  const workspace = path.join(os.tmpdir(), "fstr-line-ae-smoke", testRunId);
+  await fs.rm(workspace, { recursive: true, force: true });
+  await fs.mkdir(workspace, { recursive: true });
+
+  const config = {
+    schemaVersion: 1,
+    testRunId,
+    extensionRoot: installed.extensionRoot,
+    expectedBuildId: installed.buildInfo.buildId,
+    expectedGitCommit: installed.buildInfo.gitCommit,
+    tempProjectPath: path.join(workspace, "runtime-smoke.aep")
+  };
+
+  const wrapperPath = path.join(workspace, "runtime-smoke-runner.jsx");
+  const wrapper =
+    "$._fstrTestConfig = " +
+    JSON.stringify(config) +
+    ";\n$.evalFile(new File(" +
+    JSON.stringify(SMOKE_SCRIPT) +
+    "));\n";
+
+  await fs.writeFile(wrapperPath, wrapper, "utf8");
+  return { testRunId, workspace, wrapperPath, config };
+}
+
+function jxaString(value) {
+  return JSON.stringify(value);
+}
+
+async function runWindowsSmoke(executable, test) {
+  const result = command(executable, ["-r", test.wrapperPath], { timeout: 300000 });
 
   if (result.error) {
     throw result.error;
@@ -142,17 +244,7 @@ async function runWindowsSmoke() {
   const output = [result.stdout || "", result.stderr || ""].join("\n");
   const report = parseRuntimeMarker(output);
 
-  if (report && report.tempProject) {
-    await fs.rm(report.tempProject, { force: true }).catch(function () {});
-  }
-
-  if (report) {
-    console.log(JSON.stringify(report, null, 2));
-  } else if (output.trim()) {
-    console.log(output.trim());
-  }
-
-  if (result.status !== 0) {
+  if (result.status !== 0 && !report) {
     throw new Error(
       "After Effects runtime smoke failed with exit code " +
       result.status +
@@ -160,18 +252,17 @@ async function runWindowsSmoke() {
     );
   }
 
-  console.log("After Effects runtime smoke passed on Windows.");
+  return report;
 }
 
-async function runMacSmoke() {
-  const appPath = await discoverMacApp();
+async function runMacSmoke(appPath, test) {
   const appName = path.basename(appPath, ".app");
 
   const jxa = [
     "const helper = Application.currentApplication();",
     "helper.includeStandardAdditions = true;",
     "const ae = Application(" + jxaString(appName) + ");",
-    "const smokePath = " + jxaString(SMOKE_SCRIPT) + ";",
+    "const smokePath = " + jxaString(test.wrapperPath) + ";",
     "function pause() { helper.delay(0.5); }",
     "function executeSmoke() {",
     "  let lastError = null;",
@@ -234,45 +325,53 @@ async function runMacSmoke() {
     throw new Error("After Effects returned no runtime-smoke result.");
   }
 
-  let report;
   try {
-    report = JSON.parse(lines[lines.length - 1]);
-  } catch (error) {
+    return JSON.parse(lines[lines.length - 1]);
+  } catch {
     throw new Error(
-      "Could not parse After Effects runtime-smoke result: " +
-      lines[lines.length - 1]
+      "Could not parse After Effects runtime-smoke result for the current Test Run."
     );
-  }
-
-  if (report.tempProject) {
-    await fs.rm(report.tempProject, { force: true }).catch(function () {});
-  }
-
-  console.log(JSON.stringify(report, null, 2));
-
-  if (!report.pass) {
-    process.exitCode = 1;
   }
 }
 
 async function main() {
   if (aeIsRunning()) {
     throw new Error(
-      "After Effects is already running. Close it first so the runtime smoke starts clean."
+      "BLOCKED: After Effects is already running. " +
+      "The smoke runner will not terminate a process that may contain unsaved work."
     );
   }
 
-  if (process.platform === "darwin") {
-    await runMacSmoke();
-    return;
-  }
+  const extensionRoot =
+    process.env.FSTR_EXTENSION_ROOT ||
+    path.join(userExtensionRoot(), "FSTR-Line");
+  const installed = await verifyInstalledPayload(extensionRoot);
+  installed.extensionRoot = extensionRoot;
 
-  if (process.platform === "win32") {
-    await runWindowsSmoke();
-    return;
-  }
+  const test = await createTestWorkspace(installed);
 
-  throw new Error("Automated runtime smoke supports macOS and Windows only.");
+  console.log("Test Run ID: " + test.testRunId);
+  console.log("Expected Build ID: " + installed.buildInfo.buildId);
+  console.log("Expected commit: " + installed.buildInfo.gitCommit);
+  console.log("Installed BUILD_MANIFEST SHA-256: " + installed.manifestSha256);
+
+  try {
+    let report;
+
+    if (process.platform === "darwin") {
+      report = await runMacSmoke(await discoverMacApp(), test);
+    } else if (process.platform === "win32") {
+      report = await runWindowsSmoke(await discoverWindowsExe(), test);
+    } else {
+      throw new Error("Automated runtime smoke supports macOS and Windows only.");
+    }
+
+    verifyReport(report, test.config);
+    console.log(JSON.stringify(report, null, 2));
+    console.log("After Effects runtime smoke PASS for Test Run ID: " + test.testRunId);
+  } finally {
+    await fs.rm(test.workspace, { recursive: true, force: true }).catch(function () {});
+  }
 }
 
 main().catch(function (error) {

@@ -118,3 +118,22 @@ The installer does not enable Adobe `PlayerDebugMode`.
 If unsigned CEP development is disabled, installation stops with `BLOCKED`. Enabling that setting requires explicit permission, or the project must use a signed CEP package.
 
 The installer never terminates an already-running After Effects process.
+
+
+## Runtime artifact identity
+
+The real-AE smoke does not load the host bridge from the repository.
+
+Before launching After Effects, the runner:
+
+1. locates the installed per-user `FSTR-Line` CEP bundle;
+2. reads `BUILD_MANIFEST.json` and generated Build Identity;
+3. recalculates SHA-256 for every installed production file;
+4. creates a unique Test Run ID and isolated temporary workspace;
+5. launches AE with a generated wrapper carrying the expected Build ID and commit.
+
+Inside After Effects, the smoke loads `host/cep/host.jsx` from the installed extension root and requires `getBuildInfo()` to match the expected Build ID and Git commit.
+
+A missing result, stale Test Run ID, Build ID mismatch, Git commit mismatch or installed-file hash mismatch is FAIL, never PASS.
+
+The test workspace and temporary project belong to the Test Run and are deleted by the external runner after AE exits.

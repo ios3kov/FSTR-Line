@@ -68,3 +68,18 @@ test("runtime launcher supports Windows AfterFX -r", () => {
   assert.match(runner, /\["-r", SMOKE_SCRIPT\]/);
   assert.match(runner, /process\.platform === "win32"/);
 });
+
+test("real-AE smoke is bound to the installed Build Identity", () => {
+  assert.match(smoke, /\$\._fstrTestConfig/);
+  assert.match(smoke, /Runtime Build ID matches installed artifact/);
+  assert.match(smoke, /Runtime Git commit matches installed artifact/);
+  assert.match(smoke, /\$\._fstr\.getBuildInfo\(\)/);
+  assert.doesNotMatch(smoke, /parent\.parent\.parent/);
+
+  assert.match(runner, /verifyInstalledPayload/);
+  assert.match(runner, /BUILD_MANIFEST\.json/);
+  assert.match(runner, /runtime-smoke-runner\.jsx/);
+  assert.match(runner, /testRunId/);
+  assert.match(runner, /Runtime report Test Run ID mismatch/);
+  assert.match(runner, /Installed payload hash mismatch/);
+});
