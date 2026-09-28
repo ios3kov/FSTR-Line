@@ -20,6 +20,8 @@ Runtime evidence (2026-09-28): `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-
 
 Дополнительный screenshot smoke (2026-09-28): последовательные слои на одной дорожке и docking — PASS. Evidence: `docs/TEST_RECORDS/CEP-PACKING-AE25-2026-09-28.md`, тот же установленный artifact.
 
+Переход с одной на две дорожки после создания overlap в native Timeline и Refresh — PASS по подтверждению пользователя. Evidence: `docs/TEST_RECORDS/CEP-OVERLAP-AE25-2026-09-28.md`, тот же установленный artifact.
+
 ## Required before CEP milestone
 
 Перед первым CEP artifact нужно зафиксировать:

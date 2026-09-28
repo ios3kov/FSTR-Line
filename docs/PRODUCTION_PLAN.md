@@ -21,6 +21,8 @@ Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`, `docs/TEST_RECORDS/CEP-POC-202
 
 В AE 25.6.0 (Build 101) пользователь подтвердил открытие панели, чтение композиции и Refresh после смены композиции/добавления слоя. Скриншот следующего теста подтверждает объединение двух последовательных слоёв в одну дорожку и docking. Evidence: `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`, `docs/TEST_RECORDS/CEP-PACKING-AE25-2026-09-28.md`. Полный integration gate остаётся открытым: остальные packing-сценарии, точность полей snapshot, restart/save/reopen, runtime Build ID, Undo Group и визуальное совпадение с native Timeline ещё не проверены.
 
+Дополнительный smoke test: пользователь подтвердил переход `2 layers, 1 tracks` → `2 layers, 2 tracks` после создания пересечения в native Timeline и Refresh. Evidence: `docs/TEST_RECORDS/CEP-OVERLAP-AE25-2026-09-28.md`. Следующая ручная проверка — сохранение тестового проекта, restart AE и повторное чтение композиции.
+
 ## 1. Product Definition
 
 FSTR Line — альтернативное визуальное представление существующего After Effects Timeline.
