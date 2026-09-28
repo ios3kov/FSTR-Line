@@ -1,9 +1,19 @@
 FSTR Line — read-only AE 25.6 static collector
 
-Run Collect-AE.command on macOS with Python 3.10+. It selects a unique AE 25.6
-installation in /Applications or ~/Applications. For multiple installations:
+Run Collect-AE.command on macOS with Python 3.10+. It opens a macOS file chooser:
+select the installed After Effects 25.6 .app, not its parent folder. Selection
+does NOT launch the application. Cancel exits without scanning.
+To avoid a dialog:
   bash Collect-AE.command --app "/exact/After Effects.app"
 The entire path must point to the application bundle, not its parent folder.
+The Python CLI also supports --non-interactive automatic discovery: failure
+reports retain accepted/rejected AE candidates and the precise validation reason.
+An explicit/selected app always reports its allowlisted plist metadata on rejection,
+without relaxing the target-version, bundle-identity or symlink checks.
+The chooser times out after 180 seconds; --app works without a GUI.
+
+This update responds to a discovery failure, not evidence that AE is absent.
+The earlier failure report had no module data and cannot establish its cause.
 
 Output: ~/Desktop/FSTR-AE-Research/FSTR-AE-Static-<unique run>.zip plus SHA-256.
 Share the ZIP report, NOT the Adobe application or SDK. Inspect it before sharing.

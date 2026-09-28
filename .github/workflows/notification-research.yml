@@ -27,6 +27,8 @@ jobs:
         run: python3 -B scripts/package-notification-collector.py
       - name: Packaged collector and actual LLDB positive control (not AE)
         run: python3 -B tests/research/mac_native_smoke.py
+      - name: Application selection diagnostics and chooser syntax (not AE)
+        run: python3 -B tests/research/mac_selection_smoke.py
       - name: Clean source gate
         run: |
           git diff --exit-code

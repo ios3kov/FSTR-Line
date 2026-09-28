@@ -29,6 +29,41 @@ class Blocked(Exception):
     pass
 
 
+class DiscoveryBlocked(Blocked):
+    def __init__(self, message, audit):
+        super().__init__(message)
+        self.audit = audit
+
+
+# Standard Additions opens a file chooser, not the selected application.
+# No Finder/System Events automation, target launch or permission changes.
+CHOOSE_APP_SCRIPT = """try
+    set chosen to choose file with prompt "Select your installed After Effects 25.6 application (.app)" of type {"com.apple.application-bundle"}
+    return POSIX path of chosen
+on error number -128
+    return "__FSTR_SELECTION_CANCELLED__"
+end try
+"""
+
+
+def choose_app(runner=subprocess.run):
+    try:
+        result = runner(['/usr/bin/osascript', '-e', CHOOSE_APP_SCRIPT],
+                        capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired:
+        raise Blocked('Application selection timed out; no application was scanned') from None
+    except OSError:
+        raise Blocked('Application chooser unavailable; use --app with the exact .app path') from None
+    if result.returncode:
+        raise Blocked('Application chooser failed; use --app with the exact .app path')
+    selected = result.stdout.rstrip('\r\n')
+    if selected == '__FSTR_SELECTION_CANCELLED__':
+        raise Blocked('Application selection cancelled; no application was scanned')
+    if not selected or '\0' in selected or not Path(selected).is_absolute():
+        raise Blocked('Application chooser returned no valid absolute path')
+    return Path(selected)
+
+
 def require(value, message):
     if not value:
         raise ValueError(message)
@@ -60,8 +95,10 @@ def identity(app):
     bundle = values.get('CFBundleIdentifier')
     version = values.get('CFBundleShortVersionString')
     executable = values.get('CFBundleExecutable')
-    if bundle != 'com.adobe.AfterEffects' or not isinstance(version, str) or not re.match(r'^25\.6(?:\.|$)', version):
-        raise Blocked('Expected an After Effects 25.6 application; no other version was scanned')
+    if bundle != 'com.adobe.AfterEffects':
+        raise Blocked('Bundle identifier does not match the expected After Effects identifier; see selection metadata')
+    if not isinstance(version, str) or not re.match(r'^25\.6(?:\.|$)', version):
+        raise Blocked('Application version does not match the 25.6 collection target; see selection metadata')
     require(isinstance(executable, str) and executable not in ('', '.', '..') and
             Path(executable).name == executable and '\\' not in executable, 'Invalid executable name')
     binary = app / 'Contents/MacOS' / executable
@@ -73,25 +110,87 @@ def identity(app):
         'runtimeIdentityVerified': False, 'exactBuild101Verified': False}
 
 
-def discover(roots):
-    """Only immediate .apps and one Adobe After Effects subdirectory; no whole-disk search."""
+def candidate_details(candidate):
+    """Retain only allowlisted metadata, including why this candidate was rejected."""
+    details = {'appName': candidate.name, 'status': 'NOT VALIDATED', 'metadata': {}}
+    try:
+        require(not candidate.is_symlink() and candidate.is_dir(), 'Not an actual application directory')
+        app = candidate.resolve(strict=True)
+        raw, info = regular_read(app / 'Contents/Info.plist', app, 1024 * 1024 + 1)
+        require(info.st_size <= 1024 * 1024, 'Oversized Info.plist')
+        values = plistlib.loads(raw)
+        require(isinstance(values, dict), 'Invalid Info.plist')
+        for key in ('CFBundleIdentifier', 'CFBundleShortVersionString',
+                    'CFBundleVersion', 'CFBundleExecutable'):
+            value = values.get(key)
+            details['metadata'][key] = value[:256] if isinstance(value, str) else None
+        identity(candidate)
+        details['status'] = 'ACCEPTED'
+    except (OSError, ValueError, Blocked, plistlib.InvalidFileException) as error:
+        details.update(status='REJECTED', reason=str(error)[:1024], errorType=type(error).__name__)
+    return details
+
+
+def discover(roots, audit=None):
+    """Bounded automatic discovery; retain rejection reasons instead of hiding them."""
+    audit = {} if audit is None else audit
+    audit.update(status='SEARCHING', roots=[], candidates=[], supportedCandidateCount=0)
     found = []
+    incomplete = False
     for root in roots:
-        if not root.is_dir() or root.is_symlink():
+        root_record = {'directory': str(root), 'status': 'SCANNED'}
+        audit['roots'].append(root_record)
+        if not root.exists():
+            root_record['status'] = 'MISSING'
             continue
-        for item in sorted(root.iterdir())[:1000]:
-            candidates = [item] if item.suffix == '.app' else []
-            if item.is_dir() and not item.is_symlink() and item.name.startswith('Adobe After Effects'):
-                candidates += sorted(item.glob('*.app'))[:20]
-            for candidate in candidates:
-                try:
-                    app, _, _ = identity(candidate)
-                    if app not in found:
-                        found.append(app)
-                except (OSError, ValueError, Blocked, plistlib.InvalidFileException):
-                    pass
-    if len(found) != 1:
-        raise Blocked('No unique AE 25.6 installation found. Pass --app with the exact .app path')
+        if not root.is_dir() or root.is_symlink():
+            root_record['status'] = 'REJECTED'
+            incomplete = True
+            continue
+        try:
+            # Read at most limit+1 entries, not an unbounded sorted directory.
+            with os.scandir(root) as entries:
+                items = []
+                for entry in entries:
+                    if len(items) == 1000:
+                        incomplete = True
+                        root_record['status'] = 'LIMIT_REACHED'
+                        break
+                    items.append(Path(entry.path))
+            for item in sorted(items):
+                candidates = [item] if item.suffix.lower() == '.app' else []
+                if item.is_dir() and not item.is_symlink() and item.name.lower().startswith('adobe after effects'):
+                    with os.scandir(item) as children:
+                        examined = 0
+                        for entry in children:
+                            examined += 1
+                            if examined > 1000:
+                                incomplete = True
+                                root_record['status'] = 'LIMIT_REACHED'
+                                break
+                            if Path(entry.name).suffix.lower() == '.app':
+                                if len(candidates) == 20:
+                                    incomplete = True
+                                    root_record['status'] = 'LIMIT_REACHED'
+                                    break
+                                candidates.append(Path(entry.path))
+                for candidate in candidates:
+                    try:
+                        app, _, _ = identity(candidate)
+                        if app not in found:
+                            found.append(app)
+                            audit['candidates'].append(candidate_details(candidate))
+                    except (OSError, ValueError, Blocked, plistlib.InvalidFileException):
+                        # Do not emit a user's unrelated installed-app inventory.
+                        if 'after effects' in str(candidate.relative_to(root)).lower():
+                            audit['candidates'].append(candidate_details(candidate))
+        except OSError as error:
+            incomplete = True
+            root_record.update(status='UNREADABLE', errorType=type(error).__name__)
+    audit['supportedCandidateCount'] = len(found)
+    audit['status'] = 'INCOMPLETE' if incomplete else ('FOUND' if len(found) == 1 else 'AMBIGUOUS' if found else 'NOT_FOUND')
+    if incomplete or len(found) != 1:
+        raise DiscoveryBlocked('Automatic AE discovery: ' + audit['status'] + '. Select the exact application.', audit)
     return found[0]
 
 
@@ -227,28 +326,50 @@ def save_report(report, output, manifest):
     return archive
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--app', type=Path)
+    selection_args = parser.add_mutually_exclusive_group()
+    selection_args.add_argument('--app', type=Path)
+    selection_args.add_argument('--choose-app', action='store_true', help='Choose the exact installed .app in a macOS dialog')
+    parser.add_argument('--non-interactive', action='store_true', help='Never open a chooser; save all discovery failures')
     parser.add_argument('--output', type=Path, default=Path.home() / 'Desktop/FSTR-AE-Research')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.choose_app and args.non_interactive:
+        parser.error('--choose-app and --non-interactive cannot be combined')
     try:
         manifest = verify_kit(Path(__file__).resolve().parent)
     except (OSError, ValueError):
         print('FAIL: missing or changed diagnostic kit. Nothing scanned.', file=sys.stderr)
         return 2
+    selection = {'mode': 'explicit' if args.app else 'chooser' if args.choose_app else 'automatic'}
     try:
         if platform.system() != 'Darwin':
             raise Blocked('This launcher requires macOS; After Effects was not accessed')
-        app = args.app or discover([Path('/Applications'), Path.home() / 'Applications'])
+        if args.app is not None:
+            app = args.app.expanduser()
+        elif args.choose_app:
+            app = choose_app()
+        else:
+            audit = {}
+            selection['discovery'] = audit
+            try:
+                app = discover([Path('/Applications'), Path.home() / 'Applications'], audit)
+            except DiscoveryBlocked:
+                if args.non_interactive:
+                    raise
+                selection['mode'] = 'chooser-after-discovery'
+                app = choose_app()
+        selection['candidate'] = candidate_details(app)
         target = app.resolve()
         if args.output.expanduser().resolve().is_relative_to(target):
             raise Blocked('Output cannot be placed inside the application')
         report = collect(app)
     except Blocked as error:
         report = {'collectionStatus': 'BLOCKED', 'reason': str(error), 'SYNC-001': 'NOT RUN'}
-    except (OSError, ValueError, plistlib.InvalidFileException):
-        report = {'collectionStatus': 'FAIL', 'reason': 'Invalid or inaccessible application input', 'SYNC-001': 'NOT RUN'}
+    except (OSError, ValueError, plistlib.InvalidFileException) as error:
+        report = {'collectionStatus': 'FAIL', 'reason': str(error)[:1024],
+                  'errorType': type(error).__name__, 'SYNC-001': 'NOT RUN'}
+    report['selection'] = selection
     try:
         archive = save_report(report, args.output, manifest)
     except OSError:
