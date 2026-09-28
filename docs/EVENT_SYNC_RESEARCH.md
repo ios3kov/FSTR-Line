@@ -4,6 +4,8 @@ Date: 2026-09-28. Target: AE 25.6.0.101 / CEP 12 / macOS Apple Silicon.
 
 ## Requirement and result
 
+Authoritative product requirement: **SYNC-001 — «Наша панель тоже должна получать изменения напрямую»**, acceptance criteria in `docs/PRODUCTION_PLAN.md`. Research limitations do not waive this requirement.
+
 The user requires AE-originated notifications for native Timeline changes, rather than periodic full layer reads. No perceptible UI/playback degradation is the performance goal; zero resource usage is not a realistic guarantee.
 
 **Result: implementation BLOCKED pending a verified event source.** Reviewed public documentation does not establish a complete Timeline change subscription for this target. This is not proof that no Adobe/private/future API exists. A native rewrite is not justified by the evidence yet.
