@@ -58,7 +58,7 @@ test("Build Identity is exposed by host, adapter, panel and package flow", () =>
   assert.match(panel, /buildIdentityMismatch/);
   assert.match(panel, /Browser\/host Build Identity mismatch/);
   assert.match(packager, /gitState/);
-  assert.match(packager, /generated\/build-info\.json/);
+  assert.match(packager, /path\.join\(generatedDir, "build-info\.json"\)/);
   assert.match(verifier, /Refusing milestone\/test package from dirty Git state/);
   assert.match(verifier, /Build Identity mismatch between manifest and generated metadata/);
 });
