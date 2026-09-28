@@ -59,8 +59,9 @@ def run(debugger,plan_name):
             result['breakpoints'].append(row)
             if count<int(item['minLocations']) or count>int(item['maxLocations']):
                 raise RuntimeError('Breakpoint location count outside declared bounds: '+item['label'])
-            if not bp.SetScriptCallbackFunction('trace_callback.on_breakpoint'):
-                raise RuntimeError('Could not bind trace callback: '+item['label'])
+            # LLDB's Python binding may return None on success; callback delivery is
+            # verified by actual breakpoint hits, not by this setter's return value.
+            bp.SetScriptCallbackFunction('trace_callback.on_breakpoint')
         trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
                                      max_events=int(plan.get('maxEvents',5000)),
                                      max_seconds=int(plan['durationSeconds'])+30)
