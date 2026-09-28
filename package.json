@@ -5,13 +5,14 @@
   "description": "Premiere-like compact track view for native After Effects layers",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check core/timeline-core.js && node --check host/cep/cep-adapter.js && node --check ui/panel.js && node --check tests/timeline-core.test.js && node --check tests/cep-contract.test.js && node --check tests/host-bridge.test.js && node --check tests/cep-adapter.test.js && node --check scripts/package-extension.mjs && node --check scripts/verify-package.mjs && node --check scripts/install-dev.mjs && node scripts/check-host-jsx.js && node --check scripts/installed-payload.mjs && node --check scripts/run-ae-smoke.mjs && node --check tests/ae-runtime-contract.test.js && node scripts/check-ae-smoke.js && node --check benchmarks/core-baseline.mjs && node --check scripts/validate-ae.mjs",
+    "check": "node --check core/timeline-core.js && node --check host/cep/cep-adapter.js && node --check ui/panel.js && node --check tests/timeline-core.test.js && node --check tests/cep-contract.test.js && node --check tests/host-bridge.test.js && node --check tests/cep-adapter.test.js && node --check scripts/package-extension.mjs && node --check scripts/verify-package.mjs && node --check scripts/install-dev.mjs && node scripts/check-host-jsx.js && node --check scripts/audit-phase0.mjs && node --check scripts/installed-payload.mjs && node --check scripts/run-ae-smoke.mjs && node --check tests/ae-runtime-contract.test.js && node scripts/check-ae-smoke.js && node --check benchmarks/core-baseline.mjs && node --check scripts/validate-ae.mjs",
     "package:dev": "node scripts/package-extension.mjs",
     "verify:package": "node scripts/verify-package.mjs",
     "install:dev": "node scripts/install-dev.mjs",
     "smoke:ae": "node scripts/run-ae-smoke.mjs",
     "benchmark:core": "node benchmarks/core-baseline.mjs",
-    "validate:ae": "node scripts/validate-ae.mjs"
+    "validate:ae": "node scripts/validate-ae.mjs",
+    "audit:phase0": "node scripts/audit-phase0.mjs"
   },
   "engines": {
     "node": ">=22"

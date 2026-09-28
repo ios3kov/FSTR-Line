@@ -11,10 +11,10 @@ jobs:
   core:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
       - name: Verify clean Git state
@@ -23,10 +23,19 @@ jobs:
         run: npm run check
       - name: Unit tests
         run: npm test
+      - name: Phase 0 static code/security audit
+        run: npm run audit:phase0
+      - name: Upload Phase 0 static audit
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: FSTR-Line-Phase0-Static-Audit
+          path: artifacts/phase0-static-audit.json
+          if-no-files-found: warn
       - name: Core performance baseline
         run: npm run benchmark:core
       - name: Upload core performance baseline
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: FSTR-Line-Core-Performance
           path: artifacts/core-performance-baseline.json
@@ -44,7 +53,7 @@ jobs:
           git status --short --untracked-files=normal
           test -z "$(git status --porcelain --untracked-files=normal)"
       - name: Upload clean CEP artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: FSTR-Line-CEP
           path: dist/FSTR-Line
