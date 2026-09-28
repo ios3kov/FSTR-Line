@@ -11,10 +11,17 @@
 <body>
   <header class="toolbar toolbar-primary">
     <div id="comp-meta" class="meta">Connecting to After Effects…</div>
-    <button id="refresh" type="button">Refresh</button>
+    <div class="toolbar-actions">
+      <button id="diagnostics-toggle" type="button">Diagnostics</button>
+      <button id="refresh" type="button">Refresh</button>
+    </div>
   </header>
 
   <div id="status">Starting…</div>
+
+  <section id="diagnostics" class="diagnostics" hidden>
+    <pre id="diagnostics-text">Build Identity unavailable.</pre>
+  </section>
 
   <main class="timeline-scroll">
     <div id="timeline" aria-label="FSTR Line timeline"></div>

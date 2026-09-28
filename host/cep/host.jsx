@@ -170,6 +170,12 @@ if (!$._fstr) {
         }
     }
 
+    api.getBuildInfo = function () {
+        return guard(function () {
+            return $._fstrBuildInfo || null;
+        });
+    };
+
     api.getSnapshot = function () {
         return guard(function () {
             return snapshot(activeCompOrNull());
@@ -252,4 +258,9 @@ if (!$._fstr) {
             return snapshot(comp);
         });
     };
+    try {
+        if ($._fstrBuildInfo) {
+            $.writeln("FSTR_LINE_BUILD=" + JSON.stringify($._fstrBuildInfo));
+        }
+    } catch (ignoreBuildLog) {}
 }($._fstr));

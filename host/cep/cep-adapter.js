@@ -70,6 +70,10 @@
   }
 
   root.FSTRLineCEPAdapter = {
+    getBuildInfo: function () {
+      return callHost("$._fstr.getBuildInfo()");
+    },
+
     getSnapshot: function () {
       return callHost("$._fstr.getSnapshot()");
     },
