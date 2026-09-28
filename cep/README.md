@@ -37,6 +37,8 @@ Build metadata is injected automatically into the bundled client and packaged ho
 
 ## Empty-response recovery
 
+Composition discovery: NO_ACTIVE_COMP is a neutral no-composition state, clearing stale data. At startup, panel focus/visibility return, or Refresh, the client makes up to 15 read attempts, separated by 2 seconds only while there is no composition. Successful reads and other errors stop discovery. Hidden/disposed panels cancel scheduled attempts; an already submitted host read cannot be cancelled. Read latency adds to the roughly 28 seconds of scheduled waits. No continuous polling occurs after success. Browser focus/visibility delivery in CEP still needs runtime verification; this is not complete bidirectional timeline synchronization.
+
 AE 25.6 returned empty startup responses in the recorded user test; manual Refresh recovered. The cause is not established. The adapter now retries only completed empty snapshot/identity reads, up to three total attempts with 500 ms and 1000 ms delays, inside the existing queue. Non-empty errors, invalid responses, timeouts and commands are never automatically replayed. This is a bounded recovery workaround, not a proven startup fix or ongoing polling. Revisit it when the startup cause is reproduced and diagnosed.
 
 Diagnostics shows the last 20 bridge attempts (operation, attempt number, duration and empty/response/transport-error). No payload or project names are included in this log. `response` means transport returned non-empty data; protocol validation can still fail. After exhaustion, the panel shows an error and manual Refresh starts a new bounded read. Runtime verification is pending.

@@ -9,6 +9,13 @@ export interface HostProtocolError {
   readonly message: string;
 }
 
+export class HostResponseError extends Error {
+  constructor(readonly hostCode: string, message: string) {
+    super(`${hostCode}: ${message}`);
+    this.name = "HostResponseError";
+  }
+}
+
 export type HostResponse<T> =
   | {
       readonly protocolVersion: typeof HOST_PROTOCOL_VERSION;
@@ -69,7 +76,7 @@ export function parseResponse<T>(raw: string): T {
     if (!response.error || !response.error.code || !response.error.message) {
       throw new CoreError("INVALID_SNAPSHOT", "Host error response is malformed");
     }
-    throw new CoreError("INVALID_COMMAND", `${response.error.code}: ${response.error.message}`);
+    throw new HostResponseError(response.error.code, response.error.message);
   }
   if (response.data === undefined) {
     throw new CoreError("INVALID_SNAPSHOT", "Host success response is missing data");

@@ -1,6 +1,7 @@
 import { packLayers } from "../core/packing.js";
 import type { CompositionSnapshot, PackedTrack } from "../core/types.js";
 import type { HostAdapter } from "../host/host-adapter.js";
+import { HostResponseError } from "../host/protocol.js";
 
 export type PanelState =
   | { readonly status: "no-composition" }
@@ -85,6 +86,11 @@ export class PanelController {
         return this.state;
       }
       const previous = this.state;
+      if (error instanceof HostResponseError && error.hostCode === "NO_ACTIVE_COMP") {
+        const nextState: PanelState = { status: "no-composition" };
+        this.setState(nextState);
+        return nextState;
+      }
       const nextState: PanelState = {
         status: "error",
         message: error instanceof Error ? error.message : "Unable to read composition",

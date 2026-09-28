@@ -27,6 +27,8 @@ Diagnostics implementation: generated UI/host Build IDs, queued host identity qu
 
 Empty-response recovery: bounded snapshot/identity retries and a 20-entry bridge attempt log implemented; 39 local tests PASS. Root cause remains unknown; new AE startup verification is required. This workaround does not close the initial-read failure gate. Retry policy and removal/review condition: `cep/README.md`.
 
+Composition discovery update: typed NO_ACTIVE_COMP handling, bounded startup discovery and focus/visibility refresh implemented. 42 local tests PASS; new artifact runtime test pending. Previous artifact screenshot showed empty/empty/NO_ACTIVE_COMP then MATCH; user confirmed manual Refresh restored layers. This establishes transport recovery, not automatic composition discovery or the empty-response root cause.
+
 ## 1. Product Definition
 
 FSTR Line — альтернативное визуальное представление существующего After Effects Timeline.

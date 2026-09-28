@@ -1,6 +1,7 @@
 import { PanelController, type PanelState, type PanelView } from "./panel-controller.js";
 import { CEPAdapter, type EvalScriptBridge, type BridgeAttempt } from "../host/cep/bridge.js";
 import { matchingBuilds, type BuildIdentity } from "../host/diagnostics.js";
+import { AutoRefresh } from "./auto-refresh.js";
 
 declare const FSTR_BUILD: BuildIdentity;
 
@@ -76,7 +77,7 @@ function createView(): PanelView {
         return;
       }
       if (state.status === "no-composition") {
-        setStatus("Нет активной композиции", true);
+        setStatus("Откройте композицию. Панель проверяет её появление до 15 раз с паузой 2 секунды; затем используйте Refresh.");
         renderTracks([]);
         return;
       }
@@ -103,10 +104,20 @@ function createController(): PanelController | undefined {
 }
 
 const controller = createController();
+const autoRefresh = controller ? new AutoRefresh(() => controller.refresh(), {
+  schedule: (callback, delay) => window.setTimeout(callback, delay),
+  cancel: (handle) => window.clearTimeout(handle as number),
+}, () => !document.hidden) : undefined;
 refreshButton?.addEventListener("click", () => {
-  void controller?.refresh();
+  autoRefresh?.request();
   void updateBuildStatus();
 });
 
-void controller?.refresh();
+window.addEventListener("focus", () => autoRefresh?.request());
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) autoRefresh?.suspend();
+  else autoRefresh?.request();
+});
+window.addEventListener("pagehide", () => autoRefresh?.dispose());
+autoRefresh?.request();
 void updateBuildStatus();
