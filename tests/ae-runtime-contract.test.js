@@ -65,7 +65,7 @@ test("runtime smoke exposes process exit code and memory baseline", () => {
 test("runtime launcher supports Windows AfterFX -r", () => {
   assert.match(runner, /discoverWindowsExe/);
   assert.match(runner, /AfterFX\.exe/);
-  assert.match(runner, /\["-r", SMOKE_SCRIPT\]/);
+  assert.match(runner, /\["-r", test\.wrapperPath\]/);
   assert.match(runner, /process\.platform === "win32"/);
 });
 
