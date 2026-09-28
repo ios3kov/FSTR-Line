@@ -335,7 +335,7 @@ NoComposition
 
 Обязательный контракт **SYNC-001**: «Наша панель тоже должна получать изменения напрямую». Host Adapter должен получать AE-originated notifications и инициировать обновление read model; UI отражает изменения без ручного Refresh/перевода фокуса. Периодическое сравнение слоёв, revision или проверки в IdleHook не являются реализацией этого контракта. Полные критерии приёмки и текущий BLOCKED-статус: `docs/PRODUCTION_PLAN.md`, раздел SYNC-001.
 
-Native Timeline synchronization must be based on verified AE-originated notifications to satisfy the user's requirement. Existing Auto Sync (2s) is an opt-in polling experiment, not the accepted architecture. CEP event transport alone does not supply change detection; AEGP idle/menu hooks do not establish complete Timeline notifications. Selection of an event source/native adapter is BLOCKED pending target SDK evidence. Coverage matrix and research: `docs/EVENT_SYNC_RESEARCH.md`. No migration to native code is approved solely on an assumption of better event support.
+Native Timeline synchronization must be based on verified AE-originated notifications to satisfy the user's requirement. Existing Auto Sync (2s) is an opt-in polling experiment, not the accepted architecture. CEP event transport alone does not supply change detection; the inspected AE 25.6 AEGP idle/menu/command hooks do not establish complete Timeline notifications, and render timestamp queries are pull APIs for rendered video state. Selection of an event source/native adapter remains BLOCKED. Coverage matrix and research: `docs/EVENT_SYNC_RESEARCH.md`. No migration to native code is approved solely on an assumption of better event support.
 
 Запрещено:
 - full project polling каждые 100–200 ms;

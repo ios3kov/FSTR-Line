@@ -6,7 +6,7 @@
 
 ## Current development baseline
 
-Direct Timeline change notifications (AE 25.6): **BLOCKED**, no verified event source from reviewed public documentation; target-version headers/native probe pending. Research: `docs/EVENT_SYNC_RESEARCH.md`. CEP transport support does not imply Timeline event support.
+Direct Timeline change notifications (AE 25.6): **BLOCKED**, official 25.6 headers audited and no complete push event source found; native runtime probe has no candidate callback. Research: `docs/EVENT_SYNC_RESEARCH.md`; evidence: `docs/TEST_RECORDS/SDK-25.6-HEADER-AUDIT-2026-09-28.md`. CEP transport support does not imply Timeline event support.
 
 | Component | Configuration | Status | Evidence / limitation |
 | --- | --- | --- | --- |
