@@ -29,6 +29,10 @@ class BaseLayer {
   }
 
   set startTime(value) {
+    if (this.failOnStartTimeSet) {
+      throw new Error("Injected host setter failure.");
+    }
+
     const delta = value - this._startTime;
     this._startTime = value;
     this.inPoint += delta;
@@ -254,4 +258,78 @@ test("host move and trims are frame-safe across the production FPS matrix", () =
     assert.equal(response.ok, true);
     assert.ok(Math.abs(layer.outPoint - (4 + 12 * frame)) <= tolerance);
   }
+});
+
+
+test("exception inside Undo Group always closes the group and bridge remains reusable", () => {
+  const host = createHost();
+  host.layers[0].failOnStartTimeSet = true;
+
+  let response = result(host.api.moveLayerFrames(101, 1));
+  assert.equal(response.ok, false);
+  assert.match(response.error.message, /Injected host setter failure/);
+  assert.deepEqual(host.undo, [
+    ["begin", "FSTR Line: Move Clip"],
+    ["end"]
+  ]);
+
+  host.layers[0].failOnStartTimeSet = false;
+  host.undo.length = 0;
+
+  response = result(host.api.moveLayerFrames(101, 1));
+  assert.equal(response.ok, true);
+  assert.deepEqual(host.undo, [
+    ["begin", "FSTR Line: Move Clip"],
+    ["end"]
+  ]);
+});
+
+test("deleted or stale layer ID fails before opening an Undo Group", () => {
+  const host = createHost();
+  host.comp.layers.shift();
+
+  const response = result(host.api.moveLayerFrames(101, 1));
+
+  assert.equal(response.ok, false);
+  assert.match(response.error.message, /was not found/);
+  assert.deepEqual(host.undo, []);
+});
+
+test("repeated move execution leaves no open or duplicate Undo transaction", () => {
+  const host = createHost();
+  const iterations = 100;
+
+  for (let i = 0; i < iterations; i += 1) {
+    const response = result(host.api.moveLayerFrames(101, 1));
+    assert.equal(response.ok, true);
+  }
+
+  assert.equal(host.undo.length, iterations * 2);
+
+  for (let i = 0; i < iterations; i += 1) {
+    assert.deepEqual(host.undo[i * 2], ["begin", "FSTR Line: Move Clip"]);
+    assert.deepEqual(host.undo[i * 2 + 1], ["end"]);
+  }
+
+  const expected = iterations * host.comp.frameDuration;
+  assert.ok(Math.abs(host.layers[0].startTime - expected) < 1e-9);
+});
+
+test("failed operation followed by repeated trims stays recoverable", () => {
+  const host = createHost();
+
+  let response = result(host.api.trimLayerInFrames(101, 1000));
+  assert.equal(response.ok, false);
+  assert.deepEqual(host.undo, []);
+
+  for (let i = 0; i < 20; i += 1) {
+    response = result(host.api.trimLayerOutFrames(101, -1));
+    assert.equal(response.ok, true);
+  }
+
+  assert.equal(host.undo.length, 40);
+  assert.equal(
+    host.undo.filter((entry) => entry[0] === "begin").length,
+    host.undo.filter((entry) => entry[0] === "end").length
+  );
 });
