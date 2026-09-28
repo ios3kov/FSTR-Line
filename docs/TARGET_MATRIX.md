@@ -9,12 +9,14 @@
 | Component | Configuration | Status | Evidence / limitation |
 | --- | --- | --- | --- |
 | Timeline Core | Node.js `v24.13.1`, TypeScript toolchain, macOS development host | **PASS** | Build и 13 pure Core/FakeHostAdapter tests PASS; это не проверка After Effects |
-| After Effects host | Version not yet fixed | **UNTESTED** | Требуется зафиксировать целевую AE version matrix до CEP integration |
-| CEP | Preliminary manifest/runtime declaration; real host not available | **UNTESTED** | Static package checks only; требуется реальный CEP runtime и AE smoke test |
-| ExtendScript | Version/AE host not yet fixed | **UNTESTED** | Не подключён на этапе pure Core |
+| After Effects host | AE 25.6.0.101, macOS 26.6.2 | **PASS (limited smoke)** | Panel open/read/refresh подтверждены пользователем; см. runtime evidence ниже |
+| CEP | Bundled CEPHtmlEngine 12.0.1.2 | **PASS (limited smoke)** | Открытие панели и read/refresh; docking/lifecycle ещё не проверены |
+| ExtendScript | AE 25.6 host | **PASS (read smoke only)** | Snapshot read через CEP; editing/Undo и полная точность snapshot не проверены |
 | UXP | Future adapter | **UNTESTED** | Не считается поддержанным без подтверждения AE-specific API |
 | Windows | Not available in current environment | **BLOCKED** | Нужен Windows test host |
-| Apple Silicon / Intel | Not recorded | **UNTESTED** | Требуется зафиксировать hardware и выполнить relevant smoke tests |
+| Apple Silicon / Intel | Apple M1 Pro, 16 GB RAM / Intel unavailable | **PASS (M1 Pro limited smoke) / UNTESTED (Intel)** | Только open/read/refresh на M1 Pro |
+
+Runtime evidence (2026-09-28): `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`. Installed Build ID: `fstr-cep-aaa6da96ab91`; runtime identity independently unverified. Успешный smoke test не закрывает полный compatibility gate.
 
 ## Required before CEP milestone
 

@@ -19,7 +19,7 @@
 
 Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`, `docs/TEST_RECORDS/CEP-POC-2026-09-28.md`.
 
-Ограничение: реальный After Effects, Undo Group и визуальное совпадение с native Timeline пока не проверены. CEP protocol, static host syntax, package layout, client bundle и controller lifecycle проверены без AE. Следующий gate — запуск read/refresh panel в чистом After Effects.
+В AE 25.6.0 (Build 101) пользователь подтвердил открытие панели, чтение композиции и Refresh после смены композиции/добавления слоя. Evidence: `docs/TEST_RECORDS/CEP-READ-REFRESH-AE25-2026-09-28.md`. Полный integration gate остаётся открытым: контролируемый packing, точность полей snapshot, docking, restart/save/reopen, runtime Build ID, Undo Group и визуальное совпадение с native Timeline ещё не проверены.
 
 ## 1. Product Definition
 
