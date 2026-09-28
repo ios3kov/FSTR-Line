@@ -37,7 +37,7 @@ test("panel load path is self-contained", () => {
 
 test("clean installer verifies package before deleting installed copies", () => {
   const installer = fs.readFileSync("scripts/install-dev.mjs", "utf8");
-  const verifyIndex = installer.indexOf("await verifyPackage()");
+  const verifyIndex = installer.indexOf("await verifyPackage(");
   const targetDeleteIndex = installer.indexOf("await fs.rm(target");
 
   assert.notEqual(verifyIndex, -1);
