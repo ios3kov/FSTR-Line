@@ -19,6 +19,8 @@ The user requires AE-originated notifications for native Timeline changes, rathe
 
 5. **Official After Effects Plug-in SDK 25.6, Mac OS, downloaded by the user.** Archive SHA-256: `e02fa2b488c3cceb238866b648eb9a2526d308a260744367915a2f173663c36c`. The Zstandard payload was extracted to a controlled temporary audit directory. `Examples/Headers/AE_GeneralPlug.h` contains `AEGP_RegisterCommandHook`, `AEGP_RegisterUpdateMenuHook`, `AEGP_RegisterDeathHook`, and `AEGP_RegisterIdleHook`; it contains no Timeline/project/layer change-notification registration function. `AEGP_GetCurrentTimestamp` and `AEGP_HasItemChangedSinceTimestamp` are in `AEGP_RenderSuite5`; the header describes them as a render timestamp and a query for whether an item's video changed since that timestamp. They are not push callbacks and do not cover audio, selection, ordering, layer switches, or playhead changes. SDK version/header inspection is PASS; native runtime probe is NOT RUN.
 
+6. Candidate audit: `docs/TEST_RECORDS/DIRECT-NOTIFICATION-CANDIDATES-2026-09-28.md`. This checks `PF_AdvItemSuite1`, ADM notifier references, CEP transport, and `AEGP_Command_ALL`. Only the command hook remains a partial candidate; none is currently a complete source.
+
 ## Required coverage
 
 | Change originating in AE | Verified public push API for AE 25.6 |
@@ -30,7 +32,7 @@ The user requires AE-originated notifications for native Timeline changes, rathe
 | Undo/Redo, including changes from scripts/plugins | No push API in inspected AE 25.6 headers |
 | Playhead changes | No push API in inspected AE 25.6 headers |
 
-Focus events, keyboard/mouse interception, menu hooks, a timer sending custom CSEvents, and revision polling do not satisfy this contract. Events emitted by FSTR's own operations would cover only FSTR-originated edits, not native Timeline edits.
+Focus events, keyboard/mouse interception, menu hooks, a timer sending custom CSEvents, and revision polling do not satisfy this contract. Events emitted by FSTR's own operations would cover only FSTR-originated edits, not native Timeline edits. `AEGP_Command_ALL` is tracked as a partial candidate and cannot be accepted without post-commit matrix evidence.
 
 ## Architecture decision
 
