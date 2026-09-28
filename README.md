@@ -1,20 +1,19 @@
 # FSTR Line
 
-**FSTR Line** — dockable-панель для Adobe After Effects, которая показывает обычные AE layers в компактном Premiere-подобном виде: несколько последовательных слоёв могут визуально располагаться на одной дорожке.
+**FSTR Line** — dockable-панель для Adobe After Effects, которая показывает обычные AE layers в компактном Premiere-подобном Track View: непересекающиеся слои могут визуально располагаться на одной дорожке.
 
 ## Главный принцип
 
-Проект **не заменяет Timeline After Effects и не создаёт новый монтажный движок**.
+FSTR Line не заменяет Timeline After Effects и не создаёт отдельный монтажный движок.
 
 After Effects остаётся единственным источником истины:
-- каждый клип панели соответствует реальному AE Layer;
-- `inPoint`, `outPoint`, `startTime`, порядок слоёв и switches остаются нативными данными AE;
-- панель меняет только отображение и выполняет обычные операции над существующими слоями;
-- проект `.aep` должен оставаться полностью рабочим без панели.
+
+- каждый clip соответствует реальному AE Layer;
+- timing, Z-order и switches остаются нативными данными AE;
+- packing меняет только отображение;
+- проект `.aep` остаётся обычным AE-проектом и не зависит от FSTR Line.
 
 ## Цель v1
-
-Сделать альтернативный Track View:
 
 ```text
 AE Timeline
@@ -30,19 +29,46 @@ V1 | █████ █████ ████
 V2 | ██████████████████
 ```
 
-## В v1
+## Уже реализовано в Phase 0 PoC
 
-- автоматическая упаковка непересекающихся слоёв в общие дорожки;
-- сохранение реального compositing/Z-order AE;
-- выбор слоя;
-- move;
-- trim in/out;
+- dockable CEP panel для AE 22+;
+- read-only snapshot активной композиции;
+- persistent identity через `Layer.id`;
+- Z-order-safe packing;
+- выбор AE layer из панели;
+- frame-step Move;
+- Trim In / Trim Out;
+- один native AE Undo group на успешную edit-операцию;
+- explicit bridge errors;
+- self-contained CEP package без Node/network permissions;
+- clean macOS/Windows dev installer;
+- deterministic package + SHA-256 manifest;
+- unit/mock/contract tests;
+- полный FPS timing matrix;
+- Core benchmark 10–1000 layers;
+- real-AE smoke/profiling harness для macOS.
+
+## Ещё не считается подтверждённым
+
+До перехода к следующим продуктовым фазам нужен реальный clean run внутри After Effects:
+
+- dock/install;
+- native Timeline ↔ FSTR Line equality;
+- реальный Undo;
+- save/reopen identity;
+- host/UI profiling;
+- compatibility matrix.
+
+## В v1 позже
+
+- drag move / trim;
 - multi-select / multi-move;
 - snapping;
 - zoom / scroll;
-- playhead;
+- ruler / playhead;
 - visibility / solo / lock / audio;
-- Undo/Redo через стандартный AE undo stack.
+- reorder;
+- virtualization для больших проектов.
 
 ## Не входит в v1
 
@@ -61,23 +87,49 @@ Timeline UI
     ↓
 Timeline Core
     ↓
-HostAdapter
-   ↙     ↘
-CEP       UXP
-сейчас     позже
+HostAdapter boundary
     ↓
-After Effects
+CEP Adapter → ExtendScript → After Effects
+
+                 later
+                   ↓
+              UXP Adapter
 ```
 
-Core не должен зависеть от CEP. Это позволит заменить CEP Adapter на UXP Adapter без переписывания логики таймлайна.
+Core не зависит от CEP. Миграция на UXP должна заменить host bridge, а не логику таймлайна.
+
+## Проверки
+
+```bash
+npm run check
+npm test
+npm run benchmark:core
+npm run package:dev
+npm run verify:package
+```
+
+На macOS после всех статических/CI проверок:
+
+```bash
+npm run smoke:ae
+```
 
 ## Документация
 
+- [Development Rules](DEVELOPMENT_RULES.md)
 - [Production Plan](docs/PRODUCTION_PLAN.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Build / Artifact Identity](docs/BUILD_IDENTITY.md)
+- [Testing](docs/TESTING.md)
+- [Performance](docs/PERFORMANCE.md)
+- [Status](docs/STATUS.md)
+- [Current Status](docs/STATUS.md)
+- [Testing / Clean Validation](docs/TESTING.md)
+- [Performance](docs/PERFORMANCE.md)
+- [Compatibility](docs/COMPATIBILITY.md)
 
-## Статус
+## Текущий статус
 
-**Этап 0: документация / подготовка Technical Proof of Concept.**
+**Phase 0 Technical Proof of Concept реализован в ветке `feat/phase0-cep-poc` и проходит автоматический CI.**
 
-Следующий технический gate: dockable CEP-панель, которая читает активную композицию, упаковывает реальные AE layers в Premiere-like tracks и поддерживает move/trim/undo без изменения визуального результата композиции.
+Следующий обязательный gate — clean real-After-Effects runtime smoke + profiling. До его прохождения Phase 1/2/3 не считаются открытыми.

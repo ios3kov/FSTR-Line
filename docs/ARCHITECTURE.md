@@ -2,9 +2,7 @@
 
 ## Goal
 
-Сделать Premiere-like Track View для After Effects **как визуальный слой над обычными AE Layers**.
-
-Главное правило:
+Сделать Premiere-like Track View для After Effects как лёгкий визуальный слой над обычными AE Layers.
 
 > FSTR Line не владеет проектом. Проектом владеет After Effects.
 
@@ -14,15 +12,16 @@
 
 Источник истины — активная AE Composition.
 
-FSTR Line хранит только краткоживущее UI-состояние:
+FSTR Line может хранить только краткоживущее UI-состояние:
 
 - zoom;
 - scroll;
-- выделение UI;
+- UI selection;
 - вычисленный packing;
-- временное состояние drag/trim.
+- временный drag/trim preview.
 
-Не хранить дубли:
+Не хранить отдельную копию:
+
 - media;
 - layer timing;
 - effects;
@@ -31,94 +30,138 @@ FSTR Line хранит только краткоживущее UI-состоян
 
 ---
 
-## Data Flow
+## Current Data Flow
 
 ```text
 After Effects
-   ↓ snapshot
-CEP/UXP HostAdapter
+   ↓ snapshot via ExtendScript
+host/cep/host.jsx
+   ↓ JSON
+host/cep/cep-adapter.js
    ↓ normalized model
-Timeline Core
+core/timeline-core.js
    ↓
-UI
+ui/panel.js
 
-UI gesture
-   ↓ command
-Timeline Core
-   ↓ HostAdapter
+UI command
+   ↓
+CEP adapter
+   ↓ evalScript()
+host.jsx
+   ↓ native AE property edit
 After Effects
-   ↓ result
-targeted refresh
+   ↓ fresh snapshot
+UI
 ```
+
+Открытие/refresh панели — read-only. Mutating host call выполняется только по явной edit-команде.
 
 ---
 
-## Modules
+## Current Modules
 
-### /core
+### `core/timeline-core.js`
 
-Платформонезависимая логика:
+Платформонезависимый Core:
 
-- `TimelineModel`
-- `PackingEngine`
-- `SnapEngine`
-- `SelectionModel`
-- `TimeScale`
-- `Commands`
+- seconds ↔ frames conversion;
+- snapshot normalization;
+- Z-order-safe track packing;
+- packing invariant validation.
 
-### /host
+Core не импортирует CEP, Node или Adobe API.
 
-Контракт с After Effects:
+### `host/cep/cep-adapter.js`
 
-- `HostAdapter`
+Browser-side HostAdapter boundary:
 
-### /host/cep
+- `getSnapshot()`;
+- `selectLayer()`;
+- `moveLayerFrames()`;
+- `trimLayerInFrames()`;
+- `trimLayerOutFrames()`;
+- validation до `evalScript()`;
+- structured host-error propagation.
 
-Текущая реализация:
+### `host/cep/host.jsx`
 
-- `CEPAdapter.ts`
-- `host.jsx`
+ExtendScript implementation:
 
-### /host/uxp
+- читает active Comp;
+- ищет layer по persistent `Layer.id`;
+- сериализует normalized snapshot;
+- выполняет native selection/move/trim;
+- группирует успешный edit в один AE Undo group.
 
-Будущая реализация:
+### `ui/panel.js` / `ui/panel.css`
 
-- `UXPAdapter.ts`
+Текущий PoC UI:
 
-### /ui
+- compact tracks;
+- clip blocks;
+- AE label colors;
+- selected state;
+- manual refresh;
+- frame-step edit controls.
 
-- Timeline
-- Tracks
-- Clips
-- Ruler
-- Playhead
-- Track Controls
+### `CSXS/manifest.xml`
+
+- AEFT 22.0+;
+- CSXS 11 minimum;
+- dockable Panel;
+- Node.js не включён;
+- remote network access не включён.
+
+### `vendor/`
+
+Self-contained runtime dependencies:
+
+- Adobe `CSInterface.js` from CEP 11 resources;
+- ES3-compatible `json2.js`.
+
+---
+
+## Planned Modules — not implemented yet
+
+Не считать существующим кодом до появления соответствующего этапа:
+
+- SnapEngine;
+- richer SelectionModel;
+- timeline geometry / ruler;
+- playhead;
+- virtualization;
+- multi-move command model;
+- reorder/switch commands;
+- UXP adapter.
 
 ---
 
 ## Layer Identity
 
-Основная привязка:
-- `Layer.id` для AE 2022+.
+Основная привязка для AE 22+:
 
-Дополнительно snapshot может содержать:
+- `Layer.id`.
+
+Snapshot дополнительно содержит:
+
 - comp item id;
 - layer index;
 - source id;
 - name.
 
-Но имя/индекс не использовать как основной persistent key.
+Имя и index не используются как persistent identity.
 
 ---
 
-## Packing Rules
+## Packing Invariant
 
-1. Clip представляет ровно один AE Layer.
-2. Непересекающиеся clips могут находиться на одном визуальном track.
-3. Пересекающиеся clips не могут занимать один track.
-4. При пересечениях визуальный vertical order должен соответствовать AE compositing order.
-5. Packing ничего не записывает в AE сам по себе.
-6. Открытие панели — read-only операция.
+1. Один clip = один AE Layer.
+2. Непересекающиеся clips могут делить visual track.
+3. Пересекающиеся clips не могут делить visual track.
+4. Для каждой одновременно видимой пары vertical order обязан соответствовать AE `Layer.index`.
+5. Packing ничего не записывает в AE.
+
+Текущая реализация проходит deterministic regression + randomized invariant tests и benchmark до 1000 layers.
 
 ---
 
@@ -126,36 +169,73 @@ targeted refresh
 
 ### Move
 
-Изменяется нативный timing layer.
+Изменяется native `startTime`. AE сам сдвигает layer timing относительно source.
 
-### Trim
+### Trim In / Out
 
-Изменяются нативные `inPoint/outPoint`.
+Изменяются native `inPoint` / `outPoint`.
 
-### Reorder
+### Undo
 
-Используется нативное перемещение слоя в AE stack.
+Одна успешная edit-команда = один:
 
-### Switches
+```javascript
+app.beginUndoGroup("FSTR Line: ...");
+// one committed edit
+app.endUndoGroup();
+```
 
-Visibility / Solo / Lock / Audio управляют соответствующими свойствами AE Layer.
+Validation выполняется до открытия Undo group, чтобы отклонённая операция не создавала пустой Undo.
 
 ---
 
-## Performance Rules
+## Sync Strategy
 
-Запрещено:
-- full project polling каждые 100–200 ms;
-- host call на каждый mousemove;
-- DOM node на каждый невидимый clip в больших проектах.
+Сейчас реализовано:
 
-Использовать:
-- snapshot;
-- diff/targeted refresh;
-- локальный drag preview;
-- commit on mouseup;
-- virtualization;
-- throttling только там, где подтверждена необходимость.
+```text
+panel open
+manual refresh
+after our edit
+→ full active-comp snapshot
+```
+
+Не реализовано ещё:
+
+- active-comp event sync;
+- focus sync;
+- targeted diff refresh.
+
+Запрещён aggressive polling.
+
+Во время будущего drag:
+
+- preview локальный;
+- host не вызывается на каждый mousemove;
+- commit на mouseup;
+- затем refresh.
+
+---
+
+## Performance Strategy
+
+Уже действует:
+
+- no project polling;
+- no host call per mousemove;
+- measured Core benchmark;
+- real-AE smoke captures host timings;
+- 10/50/200/500/1000 layer host stress harness.
+
+До production ещё требуется:
+
+- real panel layout/profile;
+- idle CPU;
+- memory;
+- RAM Preview comparison;
+- render comparison;
+- MFR validation;
+- virtualization profile.
 
 ---
 
@@ -165,37 +245,54 @@ Visibility / Solo / Lock / Audio управляют соответствующи
 
 CEP + ExtendScript.
 
+- After Effects 22+;
+- CSXS 11 compatibility floor.
+
 ### Future
 
 UXP Adapter после появления достаточного AE-specific API.
 
-Общий Core остаётся неизменным.
+Не должны переписываться:
+
+- packing;
+- frame conversion;
+- validation;
+- platform-independent tests.
+
+---
+
+## Clean Validation
+
+Каждый реальный AE тест должен исходить из clean build:
+
+1. deterministic package;
+2. package hash verification;
+3. stale FSTR Line bundle/cache cleanup;
+4. clean AE session;
+5. isolated smoke project;
+6. structured result;
+7. regression comparison.
+
+См. [TESTING.md](TESTING.md).
 
 ---
 
 ## Research References
 
-- Adobe CEP Samples — After Effects panel / CSInterface bridge:
-  https://github.com/Adobe-CEP/Samples
-- After Effects Scripting Guide:
-  https://ae-scripting.docsforadobe.dev/
-- Layer object:
-  https://ae-scripting.docsforadobe.dev/layer/layer/
-- Adobe UXP migration guide:
-  https://developer.adobe.com/uxp/migration-center/uxp-for-cep-devs/technical-migration-guide/
-- Adobe announcement on UXP expansion / CEP retirement:
-  https://blog.developer.adobe.com/en/publish/2026/09/investing-in-the-future-of-creative-cloud-extensibility-uxp-comes-to-our-flagship-applications
+- Adobe CEP Samples: https://github.com/Adobe-CEP/Samples
+- Adobe CEP Resources: https://github.com/Adobe-CEP/CEP-Resources
+- After Effects Scripting Guide: https://ae-scripting.docsforadobe.dev/
+- Adobe UXP migration guide: https://developer.adobe.com/uxp/migration-center/uxp-for-cep-devs/technical-migration-guide/
 
 ---
 
 ## Architectural Non-Goals
 
 Не строить:
-- “Premiere внутри AE”;
+
+- «Premiere внутри AE»;
 - отдельный NLE;
 - второй layer database;
 - собственный render graph;
 - собственную media pipeline;
 - отдельный project format.
-
-FSTR Line должен оставаться лёгким альтернативным представлением существующего After Effects Timeline.
