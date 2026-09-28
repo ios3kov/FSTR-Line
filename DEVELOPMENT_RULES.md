@@ -88,6 +88,35 @@
 
 если это можно сделать самостоятельно.
 
+### Автоматизация After Effects
+
+Где технически возможно, использовать автоматический запуск After Effects для smoke / integration tests.
+
+Для ExtendScript / JSX могут использоваться:
+
+- автоматический запуск `.jsx` через поддерживаемый command-line запуск After Effects;
+- `afterfx -r path/to/test_runner.jsx`, где это поддерживается целевой платформой/версией;
+- собственный test runner внутри After Effects.
+
+Для render-specific сценариев использовать:
+
+- `aerender`;
+- подготовленные test projects;
+- автоматическое сравнение render output.
+
+`afterfx -r` не считать полноценным headless-режимом. Он используется как средство автоматического запуска скрипта в After Effects.
+
+`aerender` использовать прежде всего для render automation, а не как универсальную замену scripting test runner.
+
+Автоматические AE-тесты должны по возможности:
+
+1. открывать подготовленный test project;
+2. запускать тестируемую функцию;
+3. сохранять результат;
+4. записывать логи;
+5. возвращать однозначный PASS / FAIL;
+6. закрывать тестовое состояние без ручного участия пользователя.
+
 Ручной тест пользователя — последний этап, а не часть процесса диагностики.
 
 ---
@@ -236,7 +265,9 @@ Build Identity не должен требовать ручного редакт�
 - CPU;
 - GPU;
 - MFR;
-- cache behaviour.
+- cache behaviour;
+- bit depth;
+- color-management configuration.
 
 ### Для scripts / panels / extensions
 
@@ -291,7 +322,14 @@ Build Identity не должен требовать ручного редакт�
 - GPU;
 - MFR;
 - Smart Render;
-- ROI.
+- ROI;
+- 8 bpc;
+- 16 bpc;
+- 32 bpc float;
+- Linear Color workflow;
+- применимые OCIO-конфигурации;
+- extended-range float values;
+- отсутствие непреднамеренного clipping.
 
 Для scripts / panels дополнительно:
 
@@ -299,10 +337,13 @@ Build Identity не должен требовать ручного редакт�
 - callbacks;
 - events;
 - timers;
-- Undo;
+- Undo / Redo;
+- Undo Group safety;
 - file operations;
 - host calls;
-- большие проекты.
+- большие проекты;
+- permissions;
+- repeated execution.
 
 Новая функция не считается готовой, если ломает существующее рабочее поведение.
 
@@ -481,11 +522,40 @@ Workaround не должен незаметно превращаться в по
 - timers;
 - asynchronous operations.
 
+### Non-interactive Render Safety
+
+Render/background code path не должен требовать взаимодействия с пользователем.
+
+Запрещены во время:
+
+- `PF_Cmd_RENDER`;
+- background rendering;
+- `aerender`;
+- render farm execution;
+- других non-interactive операций,
+
+любые действия, которые требуют ответа пользователя:
+
+- `alert`;
+- `prompt`;
+- modal dialogs;
+- confirmation dialogs;
+- interactive error windows.
+
+Ошибка в таком режиме должна:
+
+1. корректно возвращаться через соответствующий API;
+2. записываться в лог;
+3. завершать или пропускать операцию предсказуемым образом;
+4. не блокировать процесс ожиданием пользовательского ввода.
+
+Диагностический UI допустим только в интерактивном UI-контексте.
+
 Debug-информация не должна заметно ухудшать production performance.
 
 ---
 
-## 17. Производительность — высокий приоритет
+## 17. Производительность и корректность изображения — высокий приоритет
 
 Производительность должна оцениваться по типу инструмента.
 
@@ -508,6 +578,33 @@ Render и RAM Preview должны быть максимально быстры�
 - CPU ↔ GPU transfers;
 - bit depth;
 - pixel format conversions.
+
+### Color / Bit Depth Correctness
+
+Render/effect plugin должен корректно работать во всех заявленных режимах:
+
+- 8 bpc;
+- 16 bpc;
+- 32 bpc float.
+
+Для 32 bpc:
+
+- сохранять floating-point precision там, где это предусмотрено алгоритмом;
+- корректно работать с Linear Color workflow;
+- не предполагать, что входные значения всегда находятся в диапазоне `0.0–1.0`;
+- не выполнять непреднамеренный clamp;
+- не создавать clipping значений ниже `0.0` или выше `1.0`, если этого явно не требует алгоритм;
+- корректно обрабатывать HDR / extended-range значения.
+
+Если используется color management, проверять:
+
+- project working space;
+- linearized working space;
+- применимые OCIO workflows;
+- преобразования между color spaces;
+- CPU/GPU parity после color conversions.
+
+Результат эффекта не должен неожиданно меняться только из-за перехода между 8/16/32 bpc, кроме ожидаемых различий precision/диапазона.
 
 ### Scripts / panels / CEP / UXP
 
@@ -580,6 +677,7 @@ Render и RAM Preview должны быть максимально быстры�
 - transfers;
 - Smart Render;
 - ROI;
+- pixel-format conversions;
 - bottlenecks.
 
 ### Для scripts / panels / extensions
@@ -653,7 +751,30 @@ Production artifact не должен зависеть от случайного
 - permissions;
 - файловые пути;
 - special/unicode characters;
-- локализацию.
+- локализацию;
+- 8/16/32 bpc;
+- Linear Color;
+- OCIO.
+
+### UXP Sandbox / Permissions
+
+UXP нельзя считать эквивалентом ExtendScript или CEP по доступу к файловой системе.
+
+Для UXP отдельно проверять:
+
+- filesystem sandbox;
+- `localFileSystem` API;
+- manifest permissions;
+- user-granted file/folder access;
+- persistence предоставленных file/folder tokens;
+- поведение после restart;
+- отсутствие разрешения;
+- отозванное или недействительное разрешение;
+- попытку доступа к файлу вне разрешённой области.
+
+Код не должен предполагать наличие произвольного доступа к файловой системе.
+
+Отказ в доступе должен обрабатываться как штатная ситуация, а не как необъяснимый crash.
 
 Не считать платформу, runtime или конфигурацию поддерживаемой, пока она реально не проверена.
 
@@ -685,7 +806,9 @@ Production artifact не должен зависеть от случайного
 - отсутствие зависания интерфейса;
 - отсутствие accidental double-actions.
 
-### After Effects integration
+### After Effects Integration
+
+Проверять:
 
 - корректный active project;
 - отсутствие project;
@@ -696,7 +819,37 @@ Production artifact не должен зависеть от случайного
 - locked layers;
 - missing footage/files;
 - Undo / Redo;
-- отмена операции пользователем.
+- отмену операции пользователем.
+
+### Undo Safety
+
+Любая операция, использующая:
+
+`app.beginUndoGroup()`
+
+должна быть спроектирована так, чтобы соответствующий:
+
+`app.endUndoGroup()`
+
+гарантированно выполнялся даже при exception или досрочном выходе из операции.
+
+Для сложных операций использовать структуру:
+
+`try ... finally`
+
+так, чтобы закрытие Undo Group находилось в `finally`.
+
+Ошибка внутри операции не должна оставлять неконтролируемое состояние Undo transaction.
+
+Дополнительно проверять:
+
+- exception внутри Undo Group;
+- early return;
+- пользовательскую отмену;
+- повторный запуск после ошибки;
+- Undo;
+- Redo;
+- несколько последовательных операций.
 
 ### State
 
@@ -706,7 +859,7 @@ Production artifact не должен зависеть от случайного
 - migration старых настроек;
 - reset state.
 
-### Repeated execution
+### Repeated Execution
 
 Одна и та же операция должна корректно работать:
 
@@ -722,7 +875,7 @@ Production artifact не должен зависеть от случайного
 - лишние timers;
 - лишние background processes.
 
-### File system
+### File System
 
 Проверять:
 
@@ -735,9 +888,72 @@ Production artifact не должен зависеть от случайного
 - кириллицу;
 - специальные символы.
 
+Для UXP дополнительно проверять:
+
+- sandbox restrictions;
+- `localFileSystem`;
+- user-granted access;
+- invalid/stale entries;
+- отсутствие необходимого permission;
+- отказ пользователя предоставить доступ.
+
 ---
 
-## 23. Документация после каждого этапа
+## 23. Дополнительные проверки Native Effects / Render Plugins
+
+Для native effect/render plugins дополнительно проверять:
+
+### Render Context
+
+- обычный interactive render;
+- RAM Preview;
+- export/render queue;
+- `aerender`;
+- background rendering;
+- MFR;
+- Smart Render, если поддерживается.
+
+Ни один render code path не должен:
+
+- открывать modal UI;
+- требовать подтверждения пользователя;
+- ждать interactive input;
+- зависеть от наличия UI.
+
+### Pixel Correctness
+
+Проверять:
+
+- 8 bpc;
+- 16 bpc;
+- 32 bpc float;
+- alpha;
+- premultiplied/unpremultiplied сценарии, где применимо;
+- extreme values;
+- negative float values;
+- float values выше `1.0`;
+- отсутствие unintended clipping;
+- отсутствие unintended quantization.
+
+### Color Management
+
+Проверять, где применимо:
+
+- Working Space;
+- Linear Working Space;
+- OCIO;
+- HDR / extended range;
+- CPU/GPU consistency.
+
+### CPU / GPU Parity
+
+Если эффект имеет CPU и GPU implementation, визуальный результат должен совпадать в пределах заранее определённой допустимой погрешности.
+
+Расхождения должны измеряться, а не оцениваться только визуально.
+
+---
+
+## 24. Документация после каждого этапа
 
 После каждого законченного шага обновлять:
 
@@ -758,7 +974,7 @@ Production artifact не должен зависеть от случайного
 
 ---
 
-## 24. Итоговая техническая документация
+## 25. Итоговая техническая документация
 
 После завершения проекта сохранить:
 
@@ -777,13 +993,18 @@ Production artifact не должен зависеть от случайного
 - build/package process;
 - Build Identity process;
 - способы чистого тестирования;
+- automated AE testing process;
+- особенности Undo;
+- особенности permissions/sandbox;
+- особенности render/background execution;
+- особенности bit depth/color management;
 - полезные решения для будущих AE-проектов.
 
 Проект должен оставлять после себя инженерную базу знаний.
 
 ---
 
-## 25. Перед ручным тестом пользователя
+## 26. Перед ручным тестом пользователя
 
 Сначала выполнить все разумные автоматические проверки.
 
@@ -797,7 +1018,7 @@ Production artifact не должен зависеть от случайного
 
 После успешных автоматических проверок пройти финальный checklist.
 
-### Финальный checklist
+### Финальный Checklist
 
 1. Проверка Git state.
 2. Проверка Build / Artifact Identity.
@@ -808,23 +1029,28 @@ Production artifact не должен зависеть от случайного
 7. Code Audit.
 8. Refactoring при необходимости.
 9. Debugging.
-10. Regression Level 2.
-11. Profiling.
-12. Optimization при наличии доказанного bottleneck.
-13. Deep Performance Audit для performance-critical инструмента.
-14. Реальное тестирование внутри After Effects.
-15. Проверка логов и ошибок.
-16. Проверка документации.
-17. Проверка Evidence.
-18. Проверка совместимости, относящейся к текущему milestone.
-19. Финальная проверка установленного/загруженного production artifact.
-20. Проверка, что реально запущенный Build ID соответствует проверенному artifact.
+10. Automated Smoke / Integration Tests.
+11. Regression Level 2.
+12. Profiling.
+13. Optimization при наличии доказанного bottleneck.
+14. Deep Performance Audit для performance-critical инструмента.
+15. Реальное тестирование внутри After Effects.
+16. Проверка логов и ошибок.
+17. Проверка Undo Safety, если применимо.
+18. Проверка UXP/CEP permissions, если применимо.
+19. Проверка non-interactive render/aerender, если применимо.
+20. Проверка 8/16/32 bpc и color management для render/effect plugins.
+21. Проверка документации.
+22. Проверка Evidence.
+23. Проверка совместимости, относящейся к текущему milestone.
+24. Финальная проверка установленного/загруженного production artifact.
+25. Проверка, что реально запущенный Build ID соответствует проверенному artifact.
 
 Только после этого передавать artifact пользователю.
 
 ---
 
-## 26. Общение с пользователем
+## 27. Общение с пользователем
 
 Общаться:
 
@@ -868,6 +1094,7 @@ Production artifact не должен зависеть от случайного
 - через profiling;
 - через regression testing;
 - через clean testing;
+- через automated After Effects testing;
 - через нормальную инженерную проверку.
 
 Ручной тест пользователя нужен для подтверждения поведения в его реальной среде, а не для поиска ошибок, которые могла найти система разработки.
