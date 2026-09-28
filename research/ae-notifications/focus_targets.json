@@ -24,5 +24,10 @@
     "CmdPreParamChange", "LifetimeObserver", "Observer", "Signal",
     "MessageNameFor", "Selection", "Undo", "Redo", "Playhead",
     "CurrentTime", "TimeChanged", "Dispatcher", "Notification"
+  ],
+  "lookupFilters": [
+    "BEE_Layer", "BEE_Selection", "BEE_UndoContext",
+    "CmdParamChanged", "CmdPreParamChange", "LifetimeObserverToken",
+    "ProjectSettingsChanged", "BEEp_CLayerDispatcher", "BEEp_CProjectDispatcher"
   ]
 }
