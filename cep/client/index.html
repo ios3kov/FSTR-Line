@@ -13,6 +13,12 @@
     </header>
     <p id="status" data-state="ready">Starting…</p>
     <ol id="timeline-output" aria-label="Visual tracks"></ol>
+    <details id="diagnostics">
+      <summary>Diagnostics</summary>
+      <p id="build-status">Checking loaded build…</p>
+      <p>Snapshot: integer frames relative to composition time zero; outFrame is exclusive. Refresh to update. Names are included below.</p>
+      <pre id="snapshot-diagnostics">No snapshot</pre>
+    </details>
     <script src="./CSInterface.js"></script>
     <script src="./app.js"></script>
   </body>

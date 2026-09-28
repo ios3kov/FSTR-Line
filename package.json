@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check:host": "node scripts/check-extend-script.mjs",
-    "build:cep": "npm run build && npm run check:host && esbuild src/cep/client-entry.ts --bundle --format=iife --platform=browser --outfile=cep/client/app.js && node scripts/build-cep.mjs",
+    "build:cep": "npm run build && npm run check:host && node scripts/build-cep.mjs",
     "test": "npm run build && node --test dist/tests/*.test.js",
     "check": "npm run build && npm test",
     "check:cep": "npm run build:cep"

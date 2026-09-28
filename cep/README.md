@@ -25,4 +25,12 @@ It also generates `build-manifest.json` with the source commit, dirty state and 
 
 ## Current status
 
-The shell and protocol are statically checked. Loading the panel, reading a real composition, and validating dockability remain `BLOCKED` until tested inside the target After Effects/CEP environment.
+The previous read/refresh artifact passed user-observed AE 25.6 smoke tests including docking, packing and restart (see docs/TEST_RECORDS). The diagnostics update needs a new AE runtime check.
+
+## Diagnostics
+
+Expand Diagnostics to see the compiled UI Build ID and the identity returned by the loaded ExtendScript code. MATCH requires all identity fields to agree; MISMATCH requires panel reload / AE restart. Missing or older host metadata is reported explicitly. Refresh repeats the identity read using the same serialized bridge as snapshot reads. No background polling is introduced.
+
+The snapshot JSON displays names, IDs, AE indices, rational FPS, integer timing frames, switches and capabilities. It includes project layer names and is displayed locally only. During loading or on error it is marked unavailable/stale. Compare inFrame/outFrame/startFrame against the native Timeline in frames; outFrame is exclusive. Exact field verification is still pending in AE.
+
+Build metadata is injected automatically into the bundled client and packaged host before payload hashes are calculated. Dirty builds have a `-dirty` suffix and are not installation candidates.

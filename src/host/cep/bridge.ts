@@ -2,6 +2,7 @@ import type { TimelineCommand } from "../../core/types.js";
 import { parseOperationResponse, parseSnapshotResponse, serializeCommandForEval } from "../protocol.js";
 import type { HostAdapter, HostOperationResult } from "../host-adapter.js";
 import type { CompositionSnapshot } from "../../core/types.js";
+import { parseDiagnostics, type HostDiagnostics } from "../diagnostics.js";
 
 export interface EvalScriptBridge {
   evalScript(script: string, callback: (result: string) => void): void;
@@ -27,6 +28,10 @@ export class CEPAdapter implements HostAdapter {
       const raw = await this.eval("fstrLineHost.readSnapshot()");
       return parseSnapshotResponse(raw);
     });
+  }
+
+  async readDiagnostics(): Promise<HostDiagnostics> {
+    return this.enqueue(async () => parseDiagnostics(await this.eval("fstrLineHost.diagnostics()")));
   }
 
   async execute(command: TimelineCommand): Promise<HostOperationResult> {

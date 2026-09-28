@@ -334,6 +334,14 @@ function fstrLineHostApply(comp, command, targets) {
 }
 
 var fstrLineHost = {
+    diagnostics: function () {
+        return fstrLineHostReply(function () {
+            if (typeof FSTR_BUILD === "undefined") {
+                throw { code: "MISSING_BUILD", message: "Host build metadata missing; rebuild CEP package" };
+            }
+            return fstrLineHostSuccess({ build: FSTR_BUILD, aeVersion: String(app.version) });
+        });
+    },
     readSnapshot: function () {
         return fstrLineHostReply(function () {
             return fstrLineHostSuccess(fstrLineHostSnapshot(fstrLineHostRequireComp()));

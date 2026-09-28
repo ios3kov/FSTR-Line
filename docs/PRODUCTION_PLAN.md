@@ -23,6 +23,8 @@ Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`, `docs/TEST_RECORDS/CEP-POC-202
 
 Дополнительные smoke tests: пользователь подтвердил переход `2 layers, 1 tracks` → `2 layers, 2 tracks` после создания пересечения в native Timeline и Refresh, а затем сохранение counts и layer IDs после save/reopen и restart AE. Evidence: `docs/TEST_RECORDS/CEP-OVERLAP-AE25-2026-09-28.md`, `docs/TEST_RECORDS/CEP-RESTART-AE25-2026-09-28.md`. Следующий этап — диагностика runtime identity и проверка полей snapshot для закрытия read/refresh integration gate перед editing UI.
 
+Diagnostics implementation: generated UI/host Build IDs, queued host identity query, mismatch/error display and read-only snapshot JSON are available for the next AE test. Local regression: 33 tests PASS. Runtime identity and exact native field comparison are still NOT RUN for this new artifact. See `cep/README.md` for the procedure.
+
 ## 1. Product Definition
 
 FSTR Line — альтернативное визуальное представление существующего After Effects Timeline.

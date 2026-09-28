@@ -1,5 +1,8 @@
 import { PanelController, type PanelState, type PanelView } from "./panel-controller.js";
 import { CEPAdapter, type EvalScriptBridge } from "../host/cep/bridge.js";
+import { matchingBuilds, type BuildIdentity } from "../host/diagnostics.js";
+
+declare const FSTR_BUILD: BuildIdentity;
 
 interface CEPWindow extends Window {
   CSInterface?: new () => EvalScriptBridge;
@@ -8,6 +11,19 @@ interface CEPWindow extends Window {
 const output = document.getElementById("timeline-output");
 const status = document.getElementById("status");
 const refreshButton = document.getElementById("refresh");
+const buildStatus = document.getElementById("build-status");
+const snapshotOutput = document.getElementById("snapshot-diagnostics");
+let adapter: CEPAdapter | undefined;
+
+async function updateBuildStatus(): Promise<void> {
+  if (!buildStatus || !adapter) return;
+  try {
+    const host = await adapter.readDiagnostics();
+    buildStatus.textContent = `${matchingBuilds(FSTR_BUILD, host.build) ? "MATCH" : "MISMATCH — reload panel / restart AE"}\nUI: ${FSTR_BUILD.buildId}\nHost: ${host.build.buildId}\nAE: ${host.aeVersion}`;
+  } catch (error) {
+    buildStatus.textContent = `UI: ${FSTR_BUILD.buildId}; host identity unavailable: ${String(error)}`;
+  }
+}
 
 function setStatus(message: string, isError = false): void {
   if (status === null) {
@@ -33,6 +49,14 @@ function renderTracks(tracks: readonly { trackIndex: number; layerIds: readonly 
 function createView(): PanelView {
   return {
     render(state: PanelState): void {
+      if (refreshButton instanceof HTMLButtonElement) {
+        refreshButton.disabled = state.status === "loading" || state.status === "refreshing";
+      }
+      if (snapshotOutput) {
+        snapshotOutput.textContent = state.status === "ready"
+          ? JSON.stringify(state.snapshot, null, 2)
+          : `Snapshot unavailable or stale (${state.status}). Refresh to read current AE state.`;
+      }
       if (state.status === "loading") {
         setStatus("Чтение активной композиции…");
         return;
@@ -49,9 +73,7 @@ function createView(): PanelView {
       }
       if (state.status === "error") {
         setStatus(state.message, true);
-        if (state.tracks !== undefined) {
-          renderTracks(state.tracks);
-        }
+        renderTracks([]);
         return;
       }
       renderTracks(state.tracks);
@@ -67,12 +89,15 @@ function createController(): PanelController | undefined {
     return undefined;
   }
 
-  return new PanelController(new CEPAdapter(new Constructor()), createView());
+  adapter = new CEPAdapter(new Constructor());
+  return new PanelController(adapter, createView());
 }
 
 const controller = createController();
 refreshButton?.addEventListener("click", () => {
   void controller?.refresh();
+  void updateBuildStatus();
 });
 
 void controller?.refresh();
+void updateBuildStatus();

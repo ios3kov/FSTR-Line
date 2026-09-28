@@ -41,7 +41,7 @@ export function serializeCommandForEval(command: TimelineCommand): string {
   return serialized.replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
 
-function parseResponse<T>(raw: string): T {
+export function parseResponse<T>(raw: string): T {
   if (!raw || raw === "EvalScript error.") {
     throw new CoreError("INVALID_SNAPSHOT", raw || "Host returned an empty response");
   }
@@ -53,6 +53,9 @@ function parseResponse<T>(raw: string): T {
     throw new CoreError("INVALID_SNAPSHOT", "Host returned invalid JSON");
   }
 
+  if (!response || typeof response !== "object") {
+    throw new CoreError("INVALID_SNAPSHOT", "Host response must be an object");
+  }
   if (response.protocolVersion !== HOST_PROTOCOL_VERSION) {
     throw new CoreError(
       "INVALID_SNAPSHOT",
