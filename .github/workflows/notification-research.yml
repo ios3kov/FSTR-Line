@@ -26,14 +26,17 @@ jobs:
       - name: Build exact clean diagnostic kits
         run: |
           python3 -B scripts/package-notification-collector.py
-          python3 -B scripts/package-focused-research.py\n          python3 -B scripts/package-runtime-research.py
+          python3 -B scripts/package-focused-research.py
+          python3 -B scripts/package-runtime-research.py
       - name: Packaged collector and actual LLDB positive control
         run: python3 -B tests/research/mac_native_smoke.py
       - name: Application selection diagnostics
         run: python3 -B tests/research/mac_selection_smoke.py
       - name: Focused nm/LLDB static smoke on owned Mach-O
         run: python3 -B tests/research/mac_focused_smoke.py
-      - name: Runtime observer attach smoke on owned process (not AE)\n        run: python3 -B tests/research/mac_runtime_attach_smoke.py\n      - name: Clean source gate
+      - name: Runtime observer attach smoke on owned process (not AE)
+        run: python3 -B tests/research/mac_runtime_attach_smoke.py
+      - name: Clean source gate
         run: |
           git diff --exit-code
           test -z "$(git status --porcelain --untracked-files=normal)"
@@ -44,6 +47,8 @@ jobs:
             dist/notification-collector/**/*.zip
             dist/notification-collector/**/SHA256.txt
             dist/focused-research/**/*.zip
-            dist/focused-research/**/SHA256.txt\n            dist/runtime-research/**/*.zip\n            dist/runtime-research/**/SHA256.txt
+            dist/focused-research/**/SHA256.txt
+            dist/runtime-research/**/*.zip
+            dist/runtime-research/**/SHA256.txt
             dist/notification-evidence/*.json
           if-no-files-found: error
