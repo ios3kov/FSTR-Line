@@ -57,7 +57,18 @@ This preserves After Effects compositing order at all overlap times.
 - Undo-group contract checks;
 - self-contained dependency checks.
 
-## Implemented — Phase 0C\n\n- deterministic package builder from an explicit source allowlist;\n- SHA-256 BUILD_MANIFEST.json for packaged files;\n- package integrity verifier;\n- mocked AE host execution tests for snapshot/select/move/trim/Undo;\n- mocked CEP adapter tests for argument validation and host-error propagation;\n- CI packaging and artifact upload;\n- clean per-user macOS/Windows development installer;\n- stale FSTR Line CEP cache/log cleanup only;\n- duplicate system-extension detection;\n- unsigned CSXS 11/12 development-mode setup;\n- final automated code/security audit fixes: package verification before install, stale per-user bundle cleanup, no-op Undo prevention, sync bridge-error recovery.\n\n## Not yet claimed
+## Implemented — Phase 0C\n\n- deterministic package builder from an explicit source allowlist;\n- SHA-256 BUILD_MANIFEST.json for packaged files;\n- package integrity verifier;\n- mocked AE host execution tests for snapshot/select/move/trim/Undo;\n- mocked CEP adapter tests for argument validation and host-error propagation;\n- CI packaging and artifact upload;\n- clean per-user macOS/Windows development installer;\n- stale FSTR Line CEP cache/log cleanup only;\n- duplicate system-extension detection;\n- unsigned CSXS 11/12 development-mode setup;\n- final automated code/security audit fixes: package verification before install, stale per-user bundle cleanup, no-op Undo prevention, sync bridge-error recovery.\n\n## Implemented — Phase 0D
+
+- real-After-Effects runtime smoke JSX;
+- clean-project safety gate;
+- real host.jsx execution inside AE;
+- runtime snapshot/select/move/trim validation;
+- rejected-trim non-mutation check;
+- save/reopen Layer.id persistence check;
+- automatic test-project close without saving;
+- macOS runner that refuses a pre-existing AE session and retrieves the structured result without requiring file-write permission.
+
+## Not yet claimed
 
 The CEP panel has not yet completed a clean real-After-Effects runtime run.
 
@@ -72,4 +83,4 @@ Therefore these are still unverified:
 
 ## Next gate
 
-Next: complete the clean real-AE runtime gate. Drag/trim gesture UX comes only after the host bridge is proven stable.
+Next: run the automated macOS real-AE smoke gate on an installed After Effects build, then capture real profiling. Drag/trim gesture UX comes only after the host bridge is proven stable.
