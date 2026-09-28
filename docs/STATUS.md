@@ -8,12 +8,13 @@
 
 Before implementation the repository contained documentation only. No executable panel, Core, build, tests, or AE integration existed.
 
-## Research completed for Phase 0A
+## Research completed
 
-- Adobe CEP Samples: official After Effects panel structure and CEP host bridge pattern.
+- Adobe CEP 12 resources and official `CSInterface.js`.
+- Adobe After Effects CEP sample structure.
 - After Effects Scripting Guide: `Layer.id`, timing properties, `CompItem.frameDuration`, `displayStartFrame`.
-- Adobe CEP → UXP migration guide: keep Core independent from CEP.
-- ExtendScript JSON behavior: JSON is not guaranteed in the host runtime and must be bundled by the extension before host↔panel JSON transport is used.
+- Adobe CEP → UXP migration guidance: keep Core independent from CEP.
+- ExtendScript JSON behavior: JSON is not guaranteed in the host runtime, so the extension vendors its own ES3-compatible JSON implementation.
 
 ## Implemented — Phase 0A
 
@@ -24,31 +25,51 @@ Before implementation the repository contained documentation only. No executable
 - regression tests for sequential clips, overlaps, nested ranges, zero-gap, negative time and 23.976 frame conversion;
 - dependency-free CI using Node's built-in test runner.
 
-## Packing decision
+## Implemented — Phase 0B
+
+- dockable CEP 12 panel manifest targeting AE 22+;
+- official Adobe CEP 12 `CSInterface.js` bridge;
+- self-contained ExtendScript JSON transport;
+- read-only active-composition snapshot;
+- native persistent `Layer.id` identity;
+- compact visual track rendering using Timeline Core packing;
+- AE layer selection from the panel;
+- frame-step Move, Trim In and Trim Out;
+- one native AE Undo group per edit;
+- explicit host errors returned to the UI;
+- no Node.js, filesystem or network permissions enabled.
+
+## Packing invariant
 
 A naive "first free track" algorithm is rejected.
-
-Reason: an overlap chain can place a lower AE layer on a visually higher track even when both layers overlap in time.
-
-Current rule:
 
 > For every overlapping pair, the lower AE layer must have a strictly larger visual track index.
 
 This preserves After Effects compositing order at all overlap times.
 
-## Validation status
+## Automated validation
 
-Automated validation is available for the platform-independent Core.
+- Core syntax check;
+- Core unit tests;
+- CEP browser-side syntax checks;
+- ExtendScript syntax parse check after removing the preprocessor include line;
+- manifest security/contract checks;
+- Undo-group contract checks;
+- self-contained dependency checks.
 
-Real After Effects profiling and host integration testing are not yet applicable because the CEP host adapter has not been committed in this stage.
+## Not yet claimed
 
-## Next
+The CEP panel has not yet completed a clean real-After-Effects runtime run.
 
-Phase 0B:
+Therefore these are still unverified:
 
-1. dockable CEP manifest;
-2. ExtendScript host adapter;
-3. self-contained JSON transport;
-4. read-only active-composition snapshot;
-5. panel rendering using the tested packing Core;
-6. select / move / trim / undo commands.
+- actual dock/install behavior in the current AE build;
+- native timeline ↔ snapshot equality on real projects;
+- Undo behavior inside AE;
+- save/reopen Layer.id persistence in the PoC;
+- performance/profiling inside AE;
+- compatibility matrix entries.
+
+## Next gate
+
+Phase 0C — automated packaging + clean AE validation harness where possible, followed by the minimum real AE runtime validation needed for host-only behavior. Drag/trim gesture UX comes after the bridge is proven stable.

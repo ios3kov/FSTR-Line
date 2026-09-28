@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none';">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FSTR Line</title>
+  <link rel="stylesheet" href="./ui/panel.css">
+</head>
+<body>
+  <header class="toolbar toolbar-primary">
+    <div id="comp-meta" class="meta">Connecting to After Effects…</div>
+    <button id="refresh" type="button">Refresh</button>
+  </header>
+
+  <div id="status">Starting…</div>
+
+  <main class="timeline-scroll">
+    <div id="timeline" aria-label="FSTR Line timeline"></div>
+  </main>
+
+  <section id="editor" class="editor" hidden>
+    <div id="selection">Select a clip</div>
+    <div class="edit-groups">
+      <div class="edit-group">
+        <span class="edit-label">Move</span>
+        <button type="button" data-command="move-back">−1f</button>
+        <button type="button" data-command="move-forward">+1f</button>
+      </div>
+      <div class="edit-group">
+        <span class="edit-label">Trim In</span>
+        <button type="button" data-command="trim-in-back">−1f</button>
+        <button type="button" data-command="trim-in-forward">+1f</button>
+      </div>
+      <div class="edit-group">
+        <span class="edit-label">Trim Out</span>
+        <button type="button" data-command="trim-out-back">−1f</button>
+        <button type="button" data-command="trim-out-forward">+1f</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="./vendor/CSInterface.js"></script>
+  <script src="./core/timeline-core.js"></script>
+  <script src="./host/cep/cep-adapter.js"></script>
+  <script src="./ui/panel.js"></script>
+</body>
+</html>
