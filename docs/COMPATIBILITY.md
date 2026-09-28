@@ -10,8 +10,8 @@ Only actually tested configurations are marked as supported.
 
 ## Current technical floor
 
-The CEP manifest intentionally targets After Effects 22.0+ because FSTR Line uses persistent `Layer.id`.
+The CEP manifest intentionally targets After Effects 22.0+ because FSTR Line uses persistent `Layer.id`. Adobe's integration matrix places AE 18.4+ on CEP 11 and AE 25+ on CEP 12, so CSXS 11 is the compatibility floor.
 
-CEP runtime target: CSXS 12.
+Minimum CEP runtime target: CSXS 11. This covers the AE 22+ floor while remaining loadable by newer CEP hosts.
 
 No platform is considered supported until the clean-install AE validation gate has passed on that exact configuration.

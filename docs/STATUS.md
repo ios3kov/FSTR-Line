@@ -10,7 +10,7 @@ Before implementation the repository contained documentation only. No executable
 
 ## Research completed
 
-- Adobe CEP 12 resources and official `CSInterface.js`.
+- Adobe CEP 11/12 compatibility matrix and official `CSInterface.js`.
 - Adobe After Effects CEP sample structure.
 - After Effects Scripting Guide: `Layer.id`, timing properties, `CompItem.frameDuration`, `displayStartFrame`.
 - Adobe CEP → UXP migration guidance: keep Core independent from CEP.
@@ -27,8 +27,8 @@ Before implementation the repository contained documentation only. No executable
 
 ## Implemented — Phase 0B
 
-- dockable CEP 12 panel manifest targeting AE 22+;
-- official Adobe CEP 12 `CSInterface.js` bridge;
+- dockable CEP panel manifest targeting AE 22+ with CSXS 11 minimum;
+- official Adobe CEP 11 `CSInterface.js` bridge;
 - self-contained ExtendScript JSON transport;
 - read-only active-composition snapshot;
 - native persistent `Layer.id` identity;
