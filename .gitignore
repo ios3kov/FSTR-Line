@@ -4,3 +4,4 @@ cep/client/app.js
 cep/host/host.jsx
 cep/build-manifest.json
 *.log
+.artifacts/
