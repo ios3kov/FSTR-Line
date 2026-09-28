@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   CoreError,
   createMoveLayersCommand,
+  createSetLayerSwitchCommand,
   createTrimLayerInCommand,
   validateCommandAgainstSnapshot,
 } from "../src/core/index.js";
@@ -53,5 +54,16 @@ test("rejects locked layers and invalid trim ranges", () => {
   assert.throws(
     () => createTrimLayerInCommand(snapshot([layer(1, 1, 0, 4)]), 1, 4, "op-trim"),
     (error: unknown) => error instanceof CoreError && error.code === "INVALID_TIMING",
+  );
+});
+
+test("allows unlocking a locked layer while rejecting other locked-layer switches", () => {
+  const current = snapshot([layer(1, 1, 0, 4, { locked: true })]);
+  const unlock = createSetLayerSwitchCommand(current, 1, "locked", false, "op-unlock");
+  assert.equal(unlock.type, "setLayerSwitch");
+
+  assert.throws(
+    () => createSetLayerSwitchCommand(current, 1, "enabled", false, "op-disable"),
+    (error: unknown) => error instanceof CoreError && error.code === "LOCKED_LAYER",
   );
 });

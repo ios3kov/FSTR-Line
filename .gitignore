@@ -1,3 +1,6 @@
 node_modules/
 dist/
+cep/client/app.js
+cep/host/host.jsx
+cep/build-manifest.json
 *.log

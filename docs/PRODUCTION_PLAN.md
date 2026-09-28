@@ -16,7 +16,7 @@
 
 Evidence: `docs/TEST_RECORDS/CORE-2026-09-28.md`.
 
-Ограничение: CEP bridge, ExtendScript, реальный After Effects, Undo Group и визуальное совпадение с native Timeline пока не проверены. Следующий gate — target matrix и минимальный CEP read/refresh proof of concept.
+Ограничение: реальный After Effects, Undo Group и визуальное совпадение с native Timeline пока не проверены. CEP protocol, static host syntax, package layout и client bundle проверены без AE. Следующий gate — запуск read/refresh panel в чистом After Effects.
 
 ## 1. Product Definition
 

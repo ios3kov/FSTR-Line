@@ -96,7 +96,7 @@ export function createSetLayerSwitchCommand(
   validateSnapshot(snapshot);
   assertOperationId(operationId);
   const layer = requireTarget(snapshot, layerId);
-  requireCapability(layer, layer.capabilities.canSetSwitches, "set layer switch");
+  requireSwitchCapability(layer, layerSwitch, value);
 
   return {
     type: "setLayerSwitch",
@@ -173,7 +173,7 @@ export function validateCommandAgainstSnapshot(
     }
     case "setLayerSwitch": {
       const layer = requireTarget(snapshot, command.layerId);
-      requireCapability(layer, layer.capabilities.canSetSwitches, "set layer switch");
+      requireSwitchCapability(layer, command.layerSwitch, command.value);
       return;
     }
     case "selectLayers":
@@ -215,6 +215,19 @@ function requireCapability(layer: LayerSnapshot, allowed: boolean, operation: st
   }
   if (!allowed) {
     throw new CoreError("UNSUPPORTED_OPERATION", `Layer ${layer.layerId} cannot ${operation}`);
+  }
+}
+
+function requireSwitchCapability(
+  layer: LayerSnapshot,
+  layerSwitch: LayerSwitch,
+  value: boolean,
+): void {
+  if (layer.locked && !(layerSwitch === "locked" && value === false)) {
+    throw new CoreError("LOCKED_LAYER", `Layer ${layer.layerId} is locked`);
+  }
+  if (!layer.capabilities.canSetSwitches && !(layer.locked && layerSwitch === "locked" && value === false)) {
+    throw new CoreError("UNSUPPORTED_OPERATION", `Layer ${layer.layerId} cannot set layer switch`);
   }
 }
 
