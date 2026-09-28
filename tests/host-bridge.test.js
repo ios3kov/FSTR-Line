@@ -333,3 +333,117 @@ test("failed operation followed by repeated trims stays recoverable", () => {
     host.undo.filter((entry) => entry[0] === "end").length
   );
 });
+
+
+test("editing with no active composition fails without opening Undo", () => {
+  const host = createHost();
+  host.app.project.activeItem = null;
+
+  for (const raw of [
+    host.api.moveLayerFrames(101, 1),
+    host.api.trimLayerInFrames(101, 1),
+    host.api.trimLayerOutFrames(101, -1),
+    host.api.selectLayer(101, false)
+  ]) {
+    const response = result(raw);
+    assert.equal(response.ok, false);
+    assert.match(response.error.message, /No active composition/);
+  }
+
+  assert.deepEqual(host.undo, []);
+});
+
+test("zero-delta edits are read-only and create no Undo transaction", () => {
+  const host = createHost();
+  const before = {
+    startTime: host.layers[0].startTime,
+    inPoint: host.layers[0].inPoint,
+    outPoint: host.layers[0].outPoint
+  };
+
+  assert.equal(result(host.api.moveLayerFrames(101, 0)).ok, true);
+  assert.equal(result(host.api.trimLayerInFrames(101, 0)).ok, true);
+  assert.equal(result(host.api.trimLayerOutFrames(101, 0)).ok, true);
+
+  assert.deepEqual(
+    {
+      startTime: host.layers[0].startTime,
+      inPoint: host.layers[0].inPoint,
+      outPoint: host.layers[0].outPoint
+    },
+    before
+  );
+  assert.deepEqual(host.undo, []);
+});
+
+test("additive selection preserves existing selection and non-additive resets it", () => {
+  const host = createHost();
+
+  let response = result(host.api.selectLayer(102, true));
+  assert.equal(response.ok, true);
+  assert.equal(host.layers[0].selected, true);
+  assert.equal(host.layers[1].selected, true);
+
+  response = result(host.api.selectLayer(102, false));
+  assert.equal(response.ok, true);
+  assert.equal(host.layers[0].selected, false);
+  assert.equal(host.layers[1].selected, true);
+});
+
+test("snapshot tolerates unavailable source and audio properties", () => {
+  const host = createHost();
+
+  Object.defineProperty(host.layers[0], "source", {
+    configurable: true,
+    get() {
+      throw new Error("missing source");
+    }
+  });
+  Object.defineProperty(host.layers[0], "audioEnabled", {
+    configurable: true,
+    get() {
+      throw new Error("audio unavailable");
+    }
+  });
+
+  const response = result(host.api.getSnapshot());
+  assert.equal(response.ok, true);
+
+  const layer = response.data.layers.find((item) => item.id === 101);
+  assert.equal(layer.sourceId, null);
+  assert.equal(layer.audioEnabled, false);
+});
+
+test("host setter failure representative of locked/rejected mutation is structured and recoverable", () => {
+  const host = createHost();
+  host.layers[0].locked = true;
+  host.layers[0].failOnStartTimeSet = true;
+
+  let response = result(host.api.moveLayerFrames(101, 1));
+  assert.equal(response.ok, false);
+  assert.match(response.error.message, /Injected host setter failure/);
+  assert.deepEqual(host.undo, [
+    ["begin", "FSTR Line: Move Clip"],
+    ["end"]
+  ]);
+
+  host.layers[0].locked = false;
+  host.layers[0].failOnStartTimeSet = false;
+  host.undo.length = 0;
+
+  response = result(host.api.moveLayerFrames(101, 1));
+  assert.equal(response.ok, true);
+  assert.deepEqual(host.undo, [
+    ["begin", "FSTR Line: Move Clip"],
+    ["end"]
+  ]);
+});
+
+test("non-integer host edit input is rejected before Undo", () => {
+  const host = createHost();
+
+  const response = result(host.api.moveLayerFrames(101, 0.5));
+  assert.equal(response.ok, false);
+  assert.match(response.error.message, /deltaFrames must be an integer/);
+  assert.deepEqual(host.undo, []);
+});
