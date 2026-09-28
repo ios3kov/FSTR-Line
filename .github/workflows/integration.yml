@@ -19,19 +19,19 @@ jobs:
       - run: npm ci
       - name: Core and adapter regression
         run: npm test
-      - name: Host and research regression
-        run: |
-          if test -d tests/runtime; then node --test tests/runtime/*.test.mjs; fi
-          if test -d tests/research; then python3 -m unittest discover -s tests/research -p 'test_*.py'; fi
       - name: CEP build
         run: npm run check:cep
+      - name: Host and research regression
+        run: |
+          node --test tests/runtime/*.test.mjs
+          if test -d tests/research; then python3 -m unittest discover -s tests/research -p 'test_*.py'; fi
       - name: Package integrity
         run: |
-          if test -f scripts/verify-cep.mjs; then node scripts/verify-cep.mjs; fi
+          node scripts/verify-cep.mjs
           git diff --exit-code
           test -z "$(git status --porcelain --untracked-files=normal)"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: FSTR-Line-integration-${{ github.sha }}
-          path: cep
+          path: dist/cep
           if-no-files-found: error
