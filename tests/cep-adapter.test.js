@@ -56,8 +56,8 @@ test("adapter emits numeric-only host expressions", async () => {
 test("adapter rejects non-integer arguments before evalScript", async () => {
   const harness = createAdapter(() => ok(null));
 
-  await assert.rejects(
-    harness.adapter.moveLayerFrames(42, 0.5),
+  assert.throws(
+    () => harness.adapter.moveLayerFrames(42, 0.5),
     /deltaFrames must be an integer/
   );
   assert.deepEqual(harness.calls, []);
