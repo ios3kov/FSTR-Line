@@ -68,6 +68,14 @@ This preserves After Effects compositing order at all overlap times.
 - automatic test-project close without saving;
 - macOS runner that refuses a pre-existing AE session and retrieves the structured result without requiring file-write permission.
 
+## Implemented — Phase 0E
+
+- deterministic Core performance baseline for 10/50/200/500/1000 layers;
+- sequential, full-overlap and mixed timing scenarios;
+- CI performance JSON artifact;
+- real-AE smoke timing instrumentation using ExtendScript high-resolution timing;
+- measurement policy documented before optimization.
+
 ## Not yet claimed
 
 The CEP panel has not yet completed a clean real-After-Effects runtime run.

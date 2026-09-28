@@ -8,6 +8,7 @@
         aeVersion: app.version,
         startedAt: (new Date()).toUTCString(),
         checks: [],
+        timings: [],
         warnings: [],
         error: null,
         tempProject: null
@@ -27,6 +28,18 @@
 
     function near(a, b, tolerance) {
         return Math.abs(a - b) <= tolerance;
+    }
+
+    function timed(name, fn) {
+        $.hiresTimer;
+        var value = fn();
+        var microseconds = $.hiresTimer;
+        report.timings.push({
+            name: name,
+            microseconds: microseconds,
+            milliseconds: microseconds / 1000
+        });
+        return value;
     }
 
     function parseHost(raw) {
@@ -158,7 +171,9 @@
             app.project.activeItem && app.project.activeItem.id === comp.id
         );
 
-        var initial = parseHost($._fstr.getSnapshot());
+        var initial = timed("snapshot-3-layers", function () {
+            return parseHost($._fstr.getSnapshot());
+        });
         addCheck("Snapshot layer count", initial.layers.length === 3);
 
         var ids = {};
@@ -173,7 +188,9 @@
             ids.A !== ids.B && ids.A !== ids.C && ids.B !== ids.C
         );
 
-        var selected = parseHost($._fstr.selectLayer(ids.B, false));
+        var selected = timed("select-layer", function () {
+            return parseHost($._fstr.selectLayer(ids.B, false));
+        });
         var selectedCount = 0;
         var selectedId = null;
         for (i = 0; i < selected.layers.length; i += 1) {
@@ -195,7 +212,9 @@
             outPoint: layerB.outPoint
         };
 
-        parseHost($._fstr.moveLayerFrames(ids.B, 2));
+        timed("move-2-frames", function () {
+            return parseHost($._fstr.moveLayerFrames(ids.B, 2));
+        });
         addCheck(
             "Move startTime +2f",
             near(layerB.startTime, beforeMove.startTime + 2 * frame, tolerance)
@@ -212,7 +231,9 @@
             outPoint: layerB.outPoint
         };
 
-        parseHost($._fstr.trimLayerInFrames(ids.B, 1));
+        timed("trim-in-1-frame", function () {
+            return parseHost($._fstr.trimLayerInFrames(ids.B, 1));
+        });
         addCheck(
             "Trim In changes only inPoint",
             near(layerB.startTime, beforeTrimIn.startTime, tolerance) &&
@@ -226,7 +247,9 @@
             outPoint: layerB.outPoint
         };
 
-        parseHost($._fstr.trimLayerOutFrames(ids.B, -1));
+        timed("trim-out-1-frame", function () {
+            return parseHost($._fstr.trimLayerOutFrames(ids.B, -1));
+        });
         addCheck(
             "Trim Out changes only outPoint",
             near(layerB.startTime, beforeTrimOut.startTime, tolerance) &&
@@ -238,7 +261,9 @@
             inPoint: layerB.inPoint,
             outPoint: layerB.outPoint
         };
-        var invalid = JSON.parse($._fstr.trimLayerInFrames(ids.B, 100000));
+        var invalid = timed("reject-invalid-trim", function () {
+            return JSON.parse($._fstr.trimLayerInFrames(ids.B, 100000));
+        });
 
         addCheck("Invalid trim is rejected", invalid.ok === false);
         addCheck(
@@ -250,7 +275,10 @@
         tempFile = new File(Folder.temp.fsName + "/fstr-line-runtime-smoke.aep");
         report.tempProject = tempFile.fsName;
 
-        app.project.save(tempFile);
+        timed("save-temp-project", function () {
+            app.project.save(tempFile);
+            return null;
+        });
         addCheck("Temporary project saved", tempFile.exists, tempFile.fsName);
 
         var savedIds = {
@@ -260,7 +288,10 @@
         };
 
         app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
-        app.open(tempFile);
+        timed("reopen-temp-project", function () {
+            app.open(tempFile);
+            return null;
+        });
 
         var reopenedComp = findItemByName(compName);
         addCheck(
@@ -282,7 +313,9 @@
             reopenedC.id === savedIds.C
         );
 
-        var reopenedSnapshot = parseHost($._fstr.getSnapshot());
+        var reopenedSnapshot = timed("snapshot-after-reopen", function () {
+            return parseHost($._fstr.getSnapshot());
+        });
         addCheck(
             "Bridge works after reopen",
             reopenedSnapshot.layers.length === 3 &&

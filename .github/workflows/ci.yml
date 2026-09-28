@@ -19,6 +19,14 @@ jobs:
         run: npm run check
       - name: Unit tests
         run: npm test
+      - name: Core performance baseline
+        run: npm run benchmark:core
+      - name: Upload core performance baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: FSTR-Line-Core-Performance
+          path: artifacts/core-performance-baseline.json
+          if-no-files-found: error
       - name: Package extension
         run: npm run package:dev
       - name: Verify clean package
