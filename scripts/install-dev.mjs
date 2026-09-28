@@ -84,7 +84,7 @@ async function findBundleDuplicates(root) {
   return matches;
 }
 
-async function removeFilesContaining(root, needle) {
+async function removeEntriesContaining(root, needle) {
   let entries;
   try {
     entries = await fs.readdir(root, { withFileTypes: true });
@@ -95,13 +95,18 @@ async function removeFilesContaining(root, needle) {
   let removed = 0;
   for (const entry of entries) {
     const fullPath = path.join(root, entry.name);
-    if (entry.isDirectory()) {
-      removed += await removeFilesContaining(fullPath, needle);
-    } else if (entry.isFile() && entry.name.includes(needle)) {
-      await fs.rm(fullPath, { force: true });
+
+    if (entry.name.includes(needle)) {
+      await fs.rm(fullPath, { recursive: true, force: true });
       removed += 1;
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      removed += await removeEntriesContaining(fullPath, needle);
     }
   }
+
   return removed;
 }
 
@@ -144,8 +149,8 @@ async function cleanFstrCepState() {
     return;
   }
 
-  await removeFilesContaining(cacheRoot, EXTENSION_ID);
-  await removeFilesContaining(logRoot, EXTENSION_ID);
+  await removeEntriesContaining(cacheRoot, EXTENSION_ID);
+  await removeEntriesContaining(logRoot, EXTENSION_ID);
 }
 
 if (afterEffectsIsRunning()) {
@@ -163,14 +168,22 @@ for (const root of systemExtensionRoots()) {
 }
 
 const packageResult = await packageExtension();
+await verifyPackage();
+enableUnsignedDevelopment();
+
 const installRoot = userExtensionRoot();
 const target = path.join(installRoot, INSTALL_FOLDER);
 
 await fs.mkdir(installRoot, { recursive: true });
+
+const perUserDuplicates = await findBundleDuplicates(installRoot);
+for (const duplicate of perUserDuplicates) {
+  await fs.rm(duplicate, { recursive: true, force: true });
+}
+
 await fs.rm(target, { recursive: true, force: true });
 await cleanFstrCepState();
 await fs.cp(DIST_DIR, target, { recursive: true, force: true });
-enableUnsignedDevelopment();
 
 console.log("Clean development install complete: " + target);
 console.log("Installed " + packageResult.files + " source files plus BUILD_MANIFEST.json");

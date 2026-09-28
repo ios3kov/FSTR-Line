@@ -27,7 +27,7 @@ The installer:
 
 1. refuses to install while After Effects is running;
 2. rebuilds dist/FSTR-Line from an explicit source allowlist;
-3. deletes the previous per-user FSTR Line extension copy;
+3. verifies the freshly built package before changing the installed extension;\n4. deletes every stale per-user extension carrying the FSTR Line bundle ID;
 4. detects a system-level FSTR Line duplicate that would override the per-user copy;
 5. removes only FSTR Line CEP cookie/cache records and FSTR Line CEP logs;
 6. copies the newly packaged build;

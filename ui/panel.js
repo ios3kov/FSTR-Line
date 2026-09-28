@@ -175,7 +175,16 @@
     setBusy(true);
     setStatus("Updating After Effects…", false);
 
-    operation()
+    var pending;
+    try {
+      pending = operation();
+    } catch (error) {
+      setStatus(error.message || String(error), true);
+      setBusy(false);
+      return;
+    }
+
+    Promise.resolve(pending)
       .then(function (snapshot) {
         applySnapshot(snapshot);
       })

@@ -218,11 +218,12 @@ if (!$._fstr) {
             requireInteger(deltaFrames, "deltaFrames");
 
             if (deltaFrames !== 0) {
+                var nextInPoint = layer.inPoint + (deltaFrames * comp.frameDuration);
+                if (!(nextInPoint < layer.outPoint)) {
+                    throw new Error("Trim In would make the layer duration zero or negative.");
+                }
+
                 withUndo("FSTR Line: Trim In", function () {
-                    var nextInPoint = layer.inPoint + (deltaFrames * comp.frameDuration);
-                    if (!(nextInPoint < layer.outPoint)) {
-                        throw new Error("Trim In would make the layer duration zero or negative.");
-                    }
                     layer.inPoint = nextInPoint;
                 });
             }
@@ -238,11 +239,12 @@ if (!$._fstr) {
             requireInteger(deltaFrames, "deltaFrames");
 
             if (deltaFrames !== 0) {
+                var nextOutPoint = layer.outPoint + (deltaFrames * comp.frameDuration);
+                if (!(nextOutPoint > layer.inPoint)) {
+                    throw new Error("Trim Out would make the layer duration zero or negative.");
+                }
+
                 withUndo("FSTR Line: Trim Out", function () {
-                    var nextOutPoint = layer.outPoint + (deltaFrames * comp.frameDuration);
-                    if (!(nextOutPoint > layer.inPoint)) {
-                        throw new Error("Trim Out would make the layer duration zero or negative.");
-                    }
                     layer.outPoint = nextOutPoint;
                 });
             }

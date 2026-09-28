@@ -34,3 +34,14 @@ test("panel load path is self-contained", () => {
   assert.match(html, /\.\/core\/timeline-core\.js/);
   assert.match(html, /\.\/host\/cep\/cep-adapter\.js/);
 });
+
+test("clean installer verifies package before deleting installed copies", () => {
+  const installer = fs.readFileSync("scripts/install-dev.mjs", "utf8");
+  const verifyIndex = installer.indexOf("await verifyPackage()");
+  const targetDeleteIndex = installer.indexOf("await fs.rm(target");
+
+  assert.notEqual(verifyIndex, -1);
+  assert.notEqual(targetDeleteIndex, -1);
+  assert.ok(verifyIndex < targetDeleteIndex);
+  assert.match(installer, /perUserDuplicates/);
+});

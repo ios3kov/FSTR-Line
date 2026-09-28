@@ -210,10 +210,7 @@ test("invalid trim is rejected with a structured error", () => {
 
   assert.equal(response.ok, false);
   assert.match(response.error.message, /duration zero or negative/i);
-  assert.deepEqual(host.undo, [
-    ["begin", "FSTR Line: Trim In"],
-    ["end"]
-  ]);
+  assert.deepEqual(host.undo, []);
 });
 
 test("no active composition returns an empty snapshot, not a bridge failure", () => {
