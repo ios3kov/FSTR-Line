@@ -82,3 +82,66 @@ This is not security certification. SYNC-001 production gate remains NOT RUN.
 Next: independent owned-fixture state reads and controlled exception cleanup;
 design isolated Undo/Redo without touching unrelated history. Do not infer
 post-commit delivery from completion-edge observations.
+
+## Follow-up: separate state reads on reused owned fixture
+
+Run `completion-iq57aqzd`, clean source
+`2a15aa83a08eb7b90544d9199d43439c08c5d86e`, AE 25.6.0.101,
+macOS arm64, PID 30059. Reused owned comp ID 16 / layer ID 29 after checking
+its exact name, layer name, IDs and initial enabled=true. No new comp created.
+
+Acceptance: each action result must match a separate read-only JSX invocation
+after its action window, with matching comp/layer identity. An unknown or
+changed fixture, failed bridge, missing output or state mismatch refuses the
+run. These are separate script invocations using the same AE scripting API;
+they do not establish an independent host-origin oracle.
+
+| Action | Separate read enabled | Edge hits per context | Signal calls |
+| --- | --- | --- | --- |
+| Grouped two toggles | true | 1 | 0 |
+| Two separate groups | true | 2 | 0 |
+| No-op assignment | true | 1 | 0 |
+| Single off | false | 1 | 0 |
+| Single on | true | 1 | 0 |
+
+There were two context addresses throughout; both yielded the listed edge
+count in each action window. All hits were group-completion-edge. No capture
+error/limit; observer and clean detach PASS. Research suite: 113 tests PASS.
+The test layer ended enabled=true. Existing two test comps remain in the
+project; no user comp was targeted and no project save/close was performed.
+
+Evidence archive `FSTR-Completion-iq57aqzd.zip`, local chat outputs, SHA-256
+`fabde30aab9183f67843e3bc7cf1a53503f3e3db2b3f13fffdfee41ee471af66`.
+Static code scan exit 1 with the same three existing eval heuristic findings
+outside the changed research code. They require separate review before a
+shipping security verdict. No Undo/Redo, error-path runtime, native subscriber,
+post-commit callback, or uninstrumented performance evidence was produced.
+SYNC-001 production gate remains NOT RUN.
+
+Next: validate error cleanup and isolate Undo/Redo on test-owned history;
+resolve safe subscription/delivery feasibility before shipping claims.
+
+## Follow-up: controlled exception and recovery
+
+Run `completion-_pvo6bj9`, clean source `2a1e7f3`, same AE 25.6.0.101
+process and reused owned comp ID 16 / layer ID 29. The script deliberately
+sets this test layer false, throws and catches its own known exception inside
+an Undo group, closes that group in `finally`, then checks the partial state
+through a separate read-only JSX invocation. A later recovery group restores
+true and is checked through another separate read.
+
+Observed: exception scenario completed with layer=false and recovery with
+layer=true; both separate reads matched identities and states. The two context
+addresses each produced one group-completion-edge for the exception group and
+one for recovery, with zero signal-call-site hits. Observer/detach PASS,
+capture errors/limits none, 113 research tests PASS. This establishes that
+ending a group after an application exception does not roll back the already
+applied test-layer change in this scenario. It does not establish arbitrary
+AE error handling, successful commit status, Undo/Redo behavior or subscriber
+delivery. No additional test comp was created.
+
+Evidence archive `FSTR-Completion-_pvo6bj9.zip`, local chat outputs, SHA-256
+`ecdb5eb8f7e4caf6f50cdbf653709628f131c0a844b334abedac4312409d59f0`.
+SYNC-001 production gate remains NOT RUN. Next engineering dependency is a
+safe, complete, callable subscription ABI/source; more completion-edge counts
+alone cannot close the shipping gate.

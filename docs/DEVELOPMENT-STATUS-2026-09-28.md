@@ -4,6 +4,19 @@
 
 ## Delivery implementation stage
 
+Controlled real-AE exception test on the owned layer confirmed partial state
+persists after `finally` closes its Undo group; a separate read showed false,
+then recovery showed true. Observer/detach and 113 research tests PASS.
+This narrow result does not prove native callback delivery. See
+`docs/TEST_RECORDS/COMPLETION-REAL-AE-2026-09-29.md`.
+
+Separate read-only JSX checks on a reused owned test comp confirm enabled
+states true/true/true/false/true after grouped/separate/no-op/off/on actions.
+Observer/detach and 113 research tests PASS; signal-call sites still have zero
+hits without a subscriber. The read uses the same scripting API, so native
+post-commit delivery and the SYNC-001 production gate remain unverified. See
+`docs/TEST_RECORDS/COMPLETION-REAL-AE-2026-09-29.md`.
+
 Follow-up completion trace `completion-gcokp48f` distinguishes two context
 addresses on two threads: each contributes 1/2/1 grouped/separate/no-op edges.
 No signal calls; observer/detach PASS, 110 research tests PASS. Context roles,
