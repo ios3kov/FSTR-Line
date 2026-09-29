@@ -28,6 +28,7 @@ jobs:
           python3 -B scripts/package-notification-collector.py
           python3 -B scripts/package-focused-research.py
           python3 -B scripts/package-runtime-research.py
+          python3 -B scripts/package-deep-research.py
       - name: Packaged collector and actual LLDB positive control
         run: python3 -B tests/research/mac_native_smoke.py
       - name: Application selection diagnostics
@@ -36,6 +37,8 @@ jobs:
         run: python3 -B tests/research/mac_focused_smoke.py
       - name: Runtime observer attach smoke on owned process (not AE)
         run: python3 -B tests/research/mac_runtime_attach_smoke.py
+      - name: Deep static symbol/disassembly smoke on owned Mach-O
+        run: python3 -B tests/research/mac_deep_smoke.py
       - name: Clean source gate
         run: |
           git diff --exit-code
@@ -50,5 +53,7 @@ jobs:
             dist/focused-research/**/SHA256.txt
             dist/runtime-research/**/*.zip
             dist/runtime-research/**/SHA256.txt
+            dist/deep-research/**/*.zip
+            dist/deep-research/**/SHA256.txt
             dist/notification-evidence/*.json
           if-no-files-found: error

@@ -2,24 +2,28 @@
 
 Дата: 2026-09-29. Ветка: integration/host-safety-notifications, Draft PR #2. Main не изменён.
 
-## Состояние
+## Final Matrix — проанализирован
 
-V5 подтвердил интерактивный parent-terminal protocol и сильный common-path lead `DoProcessProjectChanges`. V6 был подготовлен для structural native coverage, но пользователь попросил объединить все оставшиеся пользовательские проверки в один прогон.
+Реальный `FSTR-AE-FinalMatrix-20260929T072338Z-2daebc3abe79.zip` (SHA-256 `12f0de676336fe2fc61dd6f8692b77d5d52e32cec67fef3c542009b58ad5d2d4`) полностью завершён на AE 25.6.0.101. Обе LLDB sessions PASS/clean detach; restart подтверждён сменой PID 80268 → 96103.
 
-## Final Matrix — один Runtime-AE.command
+`DoProcessProjectChanges` напрямую наблюдался для native timing/add/delete/reorder/selection/switch/Undo/Redo/playhead и для ExtendScript до/после restart. В idle windows — 0. Это сильный common-path lead, но не production notification API и не one-event-per-change контракт.
 
-Один запуск включает две observer sessions:
+Открытые доказательные долги:
+- active composition switch: 0 candidate hits → отдельный direct channel нужен;
+- post-commit: UNPROVEN; нормальные окна имеют последний ProcessProjectChanges после известных markers, но burst даёт контрпример;
+- state snapshot oracle невалиден: DoScriptFile возвращал 0 вместо строки состояния;
+- other-plugin window содержит hits, но provenance стороннего plugin не доказан;
+- LLDB burst overhead 14.579x нельзя переносить на production performance.
 
-**До restart:** idle, timing, add/delete/reorder, selection, switch, Undo/Redo, active comp switch, playhead, ExtendScript structural mutation, 20-op ExtendScript burst, 10-click native rapid switch, optional third-party plugin-origin, idle.
+## Текущий этап
 
-После clean detach пользователь вручную сохраняет и закрывает AE, затем вручную открывает тот же AE/project. Parent проверяет исчезновение старого PID и появление одного нового exact process.
+По DEVELOPMENT_RULES следующий gate сначала статический и read-only:
+1. exact SHA+UUID validation реальных BEE/AfterFXLib;
+2. bounded static disassembly `DoProcessProjectChanges` и известных boundary/playhead functions;
+3. symbol discovery для active-comp/composition/viewer activation;
+4. reproducible offline Final Matrix analyzer;
+5. только после конкретных static leads — узкий runtime positive control, если он действительно нужен.
 
-**После restart:** idle, timing, Undo/Redo, playhead, ExtendScript mutation, idle.
+Никакого нового broad matrix, polling-substitute, merge/deploy или private production hook на этом этапе нет.
 
-Перед/после каждого action window собирается read-only state snapshot через официально поддерживаемый macOS DoScriptFile bridge. Snapshots являются after-action oracle, но не доказательством exact post-commit semantics breakpoint entry.
-
-Performance evidence: одинаковый 20-operation ExtendScript burst измеряется до attach и под observer. Native rapid-switch phase даёт ground-truth multiplicity. Raw ratios/counts сохраняются без автоматического claims о duplicates.
-
-Independent other-plugin origin остаётся условным: если установлен сторонний plugin, который реально меняет AE state, его mutation выполняется в выделенном окне. Если такого plugin нет, этот origin будет BLOCKED в том же отчёте; никакой сторонний software не устанавливается/меняется скрытно.
-
-SYNC-001 остаётся NOT RUN до анализа Final Matrix. Private production hook не интегрирован.
+SYNC-001 остаётся NOT RUN / не принят.
