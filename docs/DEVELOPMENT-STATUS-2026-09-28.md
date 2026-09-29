@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+Read-only completion preflight now validates explicit PID and exact on-disk
+AE/module identity without attach permission. 105 research tests PASS; real
+no-process refusal returned BLOCKED. Capture runner and real event correlation
+remain unimplemented/NOT RUN; see completion probe preparation record.
+
 Prepared eight pinned completion trace targets distinguishing activity edges
 from signal-call sites; 102 research tests PASS locally. No live runner or
 subscription is enabled. See

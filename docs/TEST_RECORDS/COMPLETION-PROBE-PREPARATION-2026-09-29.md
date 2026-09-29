@@ -29,3 +29,23 @@ clean detach and no automatic restart of a user session. Test runner refusal
 paths before any live run. Success/error/no-op, two edits per group and separate
 groups need distinct windows. Runtime correlation and every shipping gate
 remain NOT RUN; this is instrumentation preparation only.
+
+## Read-only preflight follow-up
+
+Baseline dfd5d21. Added completion_preflight.py: requires explicit --app and
+positive --pid, macOS arm64, exact bundle identity, module SHA/UUID, and the
+same unique selected AE PID before and after module verification. Emits JSON
+only; never launches/attaches, runs JSX, restarts or writes a project. It does
+not create an executable capture plan. Even PASS has attachAllowed=false,
+projectOwnership=UNVERIFIED and loadedModuleIdentity=NOT VERIFIED.
+
+Three tests cover successful mocked identity, PID mismatch/change, module
+mismatch, invalid PID and platform refusal. All 105 research tests PASS locally.
+Real negative control using the installed AE bundle and explicit PID 1 returned
+BLOCKED/exit 2: no unique selected AE process was running. No process was
+attached or launched. Positive real-session preflight remains NOT RUN.
+
+Limitations: process start identity/PID reuse, loaded modules, test-project
+ownership and opt-in scope still need verification at actual attach time.
+No cached PASS can authorize a later attach. Next implement the owned session
+lifecycle and operation driver; the capture runner remains NOT IMPLEMENTED.
