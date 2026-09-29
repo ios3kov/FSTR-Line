@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+UI dispatch ordering research establishes an inline main-thread callback path,
+so dispatch does not itself prove post-commit semantics. Undo-completed emitter
+and payload are located, but caller ordering and coverage remain unproved.
+See `docs/TEST_RECORDS/UI-DISPATCH-ORDER-2026-09-29.md`.
+
 Phase accounting: the production plan defines five phases (0–4). Phase 0's
 full real-AE acceptance gate remains open; later-phase implementation exists
 but does not establish sequential phase completion. No measured overall
