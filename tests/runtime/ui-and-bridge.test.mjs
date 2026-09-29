@@ -59,10 +59,11 @@ test('controller preserves the projection through repeated failures, but clears 
 for (const mode of ['timeout', 'empty', 'invalid', 'wrong-operation', 'rollback-failed']) {
   test(`uncertain ${mode} command disables later writes even after a successful read`, async () => {
     const scripts = [];
+    let late;
     const bridge = { evalScript(script, callback) {
       scripts.push(script);
       if (script === 'fstrLineHost.readSnapshot()') { callback(success(current)); return; }
-      if (mode === 'timeout') return;
+      if (mode === 'timeout') { late = callback; return; }
       if (mode === 'empty') callback('');
       if (mode === 'invalid') callback('not JSON');
       if (mode === 'wrong-operation') callback(success({ operationId: 'other', changed: true, snapshot: current }));
@@ -70,6 +71,11 @@ for (const mode of ['timeout', 'empty', 'invalid', 'wrong-operation', 'rollback-
     } };
     const adapter = new CEPAdapter(bridge, { timeoutMs: 5 });
     await assert.rejects(adapter.execute(command));
+    if (mode === 'timeout') {
+      await assert.rejects(adapter.readSnapshot(), /HOST_CALL_PENDING/);
+      // Host completion permits reads; it cannot clear uncertain-write state.
+      late(success({ operationId: 'op-ui', changed: true, snapshot: current }));
+    }
     await adapter.readSnapshot();
     await assert.rejects(adapter.execute(command), /UNKNOWN_COMMAND_OUTCOME/);
     assert.equal(scripts.filter((script) => script.startsWith('fstrLineHost.executeCommand')).length, 1);

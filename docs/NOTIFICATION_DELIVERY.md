@@ -18,10 +18,13 @@ debugger, idle polling, timer polling or unverified event name are installed by
 this stage. No notification source is added to the CEP entry point yet.
 
 The `read()` transport contract must settle only when its host operation has
-ended. The current `CEPAdapter` timeout settles its Promise before a late
-`evalScript` callback; it must not be plugged into this module unchanged. A
-producer/transport integration must retain the in-flight guard until the actual
-callback, or require a new host/transport session after uncertain termination.
+ended. Use `CEPAdapter.readNotificationSnapshot()` for this contract; it retains
+the pending Promise until the actual callback even after the normal read
+deadline. `readSnapshot()` still rejects promptly for the existing UI and must
+not be plugged into this module directly. The adapter refuses additional host
+calls while completion is unknown. If a callback never arrives, the delivery
+deadline blocks the session; recovery needs verified host termination/restart,
+not a new adapter instance. No live source is wired to this path yet.
 
 This module is an integration prerequisite, not acceptance of the source or
 its claimed post-commit semantics. It cannot detect a final silently lost event

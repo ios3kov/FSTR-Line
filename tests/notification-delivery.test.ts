@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { NotificationDelivery, type DeliveryClock, type NotificationHandshake,
   type NotificationIdentity } from "../src/host/notification-delivery.js";
+import { CEPAdapter } from "../src/host/cep/bridge.js";
+import { snapshot } from "./fixtures.js";
 
 // Synthetic identities deliberately do not approve any installed AE binary.
 const identity: NotificationIdentity = {
@@ -250,4 +252,32 @@ test("a cancelled deadline callback cannot block a later session", async () => {
   assert.equal(f.delivery.getState().status, "active");
   f.reads[1]!.resolve("new"); await settle();
   assert.deepEqual(f.published, ["initial", "new"]);
+});
+
+test("CEP completion adapter keeps delivery single-flight across transport timeout and recovery", async () => {
+  const callbacks: ((value: string) => void)[] = [];
+  const adapter = new CEPAdapter({ evalScript(_script, callback) { callbacks.push(callback); } }, { timeoutMs: 5 });
+  const clock = new Clock();
+  const values: unknown[] = [];
+  const delivery = new NotificationDelivery(identity, {
+    read: () => adapter.readNotificationSnapshot(), invalidate() {},
+    publish(value) { values.push(value); },
+  }, clock);
+  delivery.open(handshake());
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(delivery.getDiagnostics().pending, true);
+  clock.expire();
+  assert.equal(delivery.open(handshake("session-2")), false);
+  assert.equal(callbacks.length, 1);
+  const current = snapshot([]);
+  const reply = JSON.stringify({ protocolVersion: 1, ok: true, data: current });
+  callbacks[0]!(reply);
+  await settle();
+  assert.equal(delivery.getDiagnostics().pending, false);
+  assert.deepEqual(values, []);
+  assert.equal(delivery.open(handshake("session-3")), true);
+  await settle();
+  callbacks[1]!(reply);
+  await settle(); await settle();
+  assert.deepEqual(values, [current]);
 });

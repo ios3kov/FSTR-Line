@@ -19,12 +19,23 @@ export class CEPAdapter implements HostAdapter {
   private operationTail: Promise<void> = Promise.resolve();
   private readonly onAttempt: CEPAdapterOptions["onAttempt"];
   private writeOutcomeUncertain = false;
+  // A rejected JS Promise is not cancellation of an ExtendScript invocation.
+  private pendingEval: { readonly completion: Promise<void> } | undefined;
   constructor(private readonly bridge: EvalScriptBridge, options: CEPAdapterOptions = {}) {
     this.timeoutMs = options.timeoutMs ?? 5000;
     this.onAttempt = options.onAttempt;
   }
   async readSnapshot(): Promise<CompositionSnapshot> {
     return this.enqueue(async () => parseSnapshotResponse(await this.readWithRecovery("fstrLineHost.readSnapshot()", "snapshot")));
+  }
+  /** NotificationDelivery owns the deadline and must retain its in-flight guard
+   * until the actual host callback, including after a UI-facing read timeout. */
+  async readNotificationSnapshot(): Promise<CompositionSnapshot> {
+    try { return await this.readSnapshot(); }
+    catch (error) {
+      await this.pendingEval?.completion;
+      throw error;
+    }
   }
   async readDiagnostics(): Promise<HostDiagnostics> {
     return this.enqueue(async () => parseDiagnostics(await this.readWithRecovery("fstrLineHost.diagnostics()", "diagnostics")));
@@ -65,22 +76,37 @@ export class CEPAdapter implements HostAdapter {
     finally { try { this.onAttempt?.({ operation, attempt, elapsedMs: Date.now() - start, outcome }); } catch { /* observer only */ } }
   }
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.operationTail.then(operation, operation);
+    const guarded = () => {
+      if (this.pendingEval !== undefined) {
+        throw new Error("HOST_CALL_PENDING: previous AE call has not returned; wait for its callback or recover the host session. Reload is not proof of cancellation.");
+      }
+      return operation();
+    };
+    const result = this.operationTail.then(guarded, guarded);
     this.operationTail = result.then(() => undefined, () => undefined);
     return result;
   }
   private eval(script: string): Promise<string> {
     return new Promise((resolve, reject) => {
       let settled = false;
+      let completed!: () => void;
+      const token = { completion: new Promise<void>((resolveCompletion) => { completed = resolveCompletion; }) };
+      this.pendingEval = token;
       const timer = setTimeout(() => {
         if (!settled) { settled = true; reject(new Error(`CEP evalScript timed out after ${this.timeoutMs}ms`)); }
       }, this.timeoutMs);
       try {
         this.bridge.evalScript(script, (result) => {
+          // Late completion releases only its own invocation. It must neither
+          // resolve the expired read nor unlock a newer invocation twice.
+          if (this.pendingEval === token) this.pendingEval = undefined;
+          completed();
           if (settled) return;
           settled = true; clearTimeout(timer); resolve(result);
         });
       } catch (error) {
+        // A synchronous bridge exception does not establish whether dispatch
+        // happened. Keep the guard until a callback or real host recovery.
         if (!settled) { settled = true; clearTimeout(timer); reject(error); }
       }
     });

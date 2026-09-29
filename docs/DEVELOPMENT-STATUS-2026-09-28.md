@@ -4,12 +4,21 @@
 
 ## Delivery implementation stage
 
+Native subscription triage now identifies real exported connect/listener
+candidates, but private ABI, ownership and full Timeline coverage remain
+unproved. See `docs/TEST_RECORDS/NATIVE-SUBSCRIPTION-ABI-2026-09-29.md`.
+The CEP adapter now refuses overlapping calls after timeout until the original
+callback arrives. Reproduced with three failing baseline tests and verified in
+the adapter harness; real-AE timeout acceptance remains NOT RUN. See
+`docs/TEST_RECORDS/CEP-TIMEOUT-GUARD-2026-09-29.md`.
+
 Implemented an isolated read-side notification delivery state machine and
 contract: `docs/NOTIFICATION_DELIVERY.md`. It validates exact compatibility
 identity, serializes reads, coalesces bursts, suppresses obsolete replies,
 reconciles observable sequence gaps and stops on errors/deadlines. No private
-AE producer is installed or wired to the panel. The existing CEP adapter's
-early timeout settlement needs a transport integration decision before reuse.
+AE producer is installed or wired to the panel. The adapter's new
+`readNotificationSnapshot()` method supplies host-completion settlement for
+this controller; the ordinary UI read still rejects promptly at its deadline.
 
 Verification and limitations: `docs/TEST_RECORDS/NOTIFICATION-DELIVERY-2026-09-29.md`.
 Clean implementation commit `fcf1cacd5df5`: 62 unit/contract tests, 34 runtime

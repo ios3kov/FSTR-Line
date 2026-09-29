@@ -30,6 +30,13 @@ Initial empty host read recovery is bounded to three completed empty responses w
 
 After a command timeout, empty/malformed reply, operation identity mismatch or incomplete restoration, further writes are blocked in the current bridge/host instance. A successful read does not clear uncertainty. Inspect the project in native AE and recover the host/bridge deliberately; reload alone must not be represented as proof that the previous command failed. Last-known read data remains visibly STALE after refresh failure.
 
+After any evalScript timeout or synchronous dispatch exception, that adapter
+also refuses all later reads, diagnostics and writes with `HOST_CALL_PENDING`
+until the original callback arrives. The deadline does not cancel ExtendScript.
+A late callback releases only its own call and never clears uncertain-write
+state. If no callback arrives, recovery needs a verified new host session;
+creating another adapter or reloading the panel is not a safe bypass.
+
 ## Required native acceptance
 
 AE 25.6.0.101 / CEP 12 / macOS Apple Silicon: exact installed Build ID/hash, clean load, native snapshot equality, frame timing, keyframes/stretch/remapping, project context identity, true Undo/Redo, rollback/error handling, reopen/restart and responsiveness. Other AE versions, Windows/Intel, arbitrary subframe values, distributable signing and complete event-based synchronization are not currently accepted.
