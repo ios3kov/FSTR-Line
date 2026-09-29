@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+Fixed diagnostic post-commit marker Undo cleanup after mutation exceptions.
+Baseline failure reproduced; four actual-JSX VM harness tests and 105 research
+tests PASS. Real-AE execution remains NOT RUN. See
+`docs/TEST_RECORDS/POSTCOMMIT-MARKER-UNDO-2026-09-29.md`.
+
 Read-only completion preflight now validates explicit PID and exact on-disk
 AE/module identity without attach permission. 105 research tests PASS; real
 no-process refusal returned BLOCKED. Capture runner and real event correlation

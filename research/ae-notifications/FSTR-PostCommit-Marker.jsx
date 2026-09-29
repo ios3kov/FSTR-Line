@@ -27,9 +27,12 @@
     var l = c.selectedLayers.length ? c.selectedLayers[0] : c.layer(1);
     lines.push("before|" + nowMs() + "|enabled=" + (l.enabled ? "1" : "0"));
     app.beginUndoGroup("FSTR PostCommit Marker");
-    l.enabled = !l.enabled;
-    lines.push("after-mutation|" + nowMs() + "|enabled=" + (l.enabled ? "1" : "0"));
-    app.endUndoGroup();
+    try {
+        l.enabled = !l.enabled;
+        lines.push("after-mutation|" + nowMs() + "|enabled=" + (l.enabled ? "1" : "0"));
+    } finally {
+        app.endUndoGroup();
+    }
     lines.push("after-end-undo|" + nowMs() + "|enabled=" + (l.enabled ? "1" : "0"));
     writeAll(outputPath, lines);
 }());
