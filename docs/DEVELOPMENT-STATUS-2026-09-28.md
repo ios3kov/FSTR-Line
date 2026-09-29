@@ -12,6 +12,9 @@ AE producer is installed or wired to the panel. The existing CEP adapter's
 early timeout settlement needs a transport integration decision before reuse.
 
 Verification and limitations: `docs/TEST_RECORDS/NOTIFICATION-DELIVERY-2026-09-29.md`.
+Clean implementation commit `fcf1cacd5df5`: 62 unit/contract tests, 34 runtime
+harness tests and package integrity PASS. Evidence:
+`docs/TEST_RECORDS/NOTIFICATION-DELIVERY-CLEAN-2026-09-29.md`.
 This stage does not close any real-AE shipping source/performance gate below.
 
 ## SYNC-001 research coverage
