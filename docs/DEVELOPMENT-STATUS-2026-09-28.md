@@ -4,6 +4,12 @@
 
 ## Delivery implementation stage
 
+Read-side reconnect review found a replay bug: session IDs could be reused
+after an intervening connection. The consumer now keeps bounded per-instance
+history and refuses reuse/exhaustion. Baseline failure reproduced; 71 TypeScript,
+38 runtime and 113 research tests PASS on the clean code commit. See
+`docs/TEST_RECORDS/NOTIFICATION-SESSION-REPLAY-2026-09-29.md`.
+
 Controlled real-AE exception test on the owned layer confirmed partial state
 persists after `finally` closes its Undo group; a separate read showed false,
 then recovery showed true. Observer/detach and 113 research tests PASS.
