@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+Command/group/Undo/Redo setters share completion on aggregate activity ending,
+not on each layer mutation. The static matrix and next correlation scenarios
+are in `docs/TEST_RECORDS/COMMAND-COMPLETION-MATRIX-2026-09-29.md`.
+This does not close source coverage or post-commit acceptance.
+
 Undo completion producer located in SetExecutingUndo's activity transition.
 Scoped teardown can reach it during exception cleanup, so completion must not
 be treated as mutation success. Static evidence only:
