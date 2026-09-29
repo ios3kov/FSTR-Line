@@ -36,7 +36,7 @@ when no later event arrives. Sequence numbers detect only observable gaps.
 | --- | --- | --- |
 | ND-01 | Refuse unknown protocol, build, host binary identity or missing committed-delivery capability before reading | Each identity field mismatched; no reads; explicit new matching session recovers |
 | ND-02 | One initial read per explicit open/reconnect; no reads without new notifications thereafter | Initial read settles; no work queued in idle |
-| ND-03 | Validate bounded messages; exact session and monotonically increasing positive safe-integer sequence | Invalid messages fail closed; old-session messages cannot affect current session; duplicates are ignored |
+| ND-03 | Validate bounded messages; exact session, never-reused session ID within this instance and monotonically increasing positive safe-integer sequence | Invalid messages and replay after an intervening session fail closed; duplicates are ignored; bounded session history eventually refuses new connections |
 | ND-04 | At most one read in flight; bursts use a dirty bit, not an unbounded event queue | Thousands of notifications during one read yield one trailing read; obsolete result never publishes |
 | ND-05 | A sequence gap or explicit overflow invalidates the projection and reconciles by snapshot | Gap/overflow publishes only reconciled state, counts detected gaps |
 | ND-06 | No-op/cancelled/failed operations produce no refresh unless producer declares state changed | Explicit no-op sequence advances without reading; partial change is a changed event |
@@ -49,7 +49,9 @@ locally verified identity from a trusted producer; a CEP message cannot grant
 itself compatibility. The allowlist is provided by the integration, never by
 the event. No production allowlist is approved in this stage. It must bind AE
 version/build, architecture, loaded BEE and AfterFXLib identities and matching
-panel/producer build ID. A reconnect must use a fresh opaque session ID.
+panel/producer build ID. A reconnect must use a fresh opaque session ID. The
+consumer remembers up to 1024 accepted IDs per instance and then refuses more
+connections, preventing replay through an older ID without unbounded memory.
 
 Each event is either `changed` (producer has verified post-commit state),
 `noop`, or `overflow`. Failed/cancelled operations that partially change AE

@@ -57,7 +57,10 @@ export class NotificationDelivery<T> {
   private dirty = false;
   private pending = false;
   private timedOut = false;
-  private lastSession: string | undefined;
+  // Retain all accepted IDs for this instance. A bounded set prevents a
+  // session-1 -> session-2 -> session-1 replay without unbounded growth.
+  private readonly usedSessions = new Set<string>();
+  private readonly maxSessions = 1024;
   private gaps = 0;
   private duplicates = 0;
 
@@ -92,11 +95,12 @@ export class NotificationDelivery<T> {
     }
     if (!record(handshake) || identityKeys.some((key) => handshake[key] !== this.expected[key]) ||
         handshake.committedDelivery !== true || !token(handshake.sessionId) ||
-        !counter(handshake.sequence) || handshake.sessionId === this.lastSession) {
+        !counter(handshake.sequence) || this.usedSessions.has(handshake.sessionId) ||
+        this.usedSessions.size >= this.maxSessions) {
       this.block("INCOMPATIBLE_OR_REUSED_SESSION");
       return false;
     }
-    this.lastSession = handshake.sessionId;
+    this.usedSessions.add(handshake.sessionId);
     this.sequence = handshake.sequence;
     this.change = 0;
     this.timedOut = false;

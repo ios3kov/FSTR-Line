@@ -98,6 +98,32 @@ test("ND-03 ignores duplicates, out-of-order delivery and foreign sessions", asy
   assert.equal(f.delivery.getDiagnostics().gaps, 0);
 });
 
+test("ND-03 refuses replay of an earlier session after another reconnect", async () => {
+  const f = fixture();
+  assert.equal(f.delivery.open(handshake("session-1")), true);
+  f.reads[0]!.resolve("first"); await settle();
+  f.delivery.close();
+  assert.equal(f.delivery.open(handshake("session-2")), true);
+  f.reads[1]!.resolve("second"); await settle();
+  f.delivery.close();
+  assert.equal(f.delivery.open(handshake("session-1")), false);
+  assert.equal(f.delivery.getState().status, "blocked");
+  f.delivery.receive(event(1, "changed", "session-1"));
+  assert.equal(f.reads.length, 2);
+  assert.deepEqual(f.published, ["first", "second"]);
+});
+
+test("ND-03 bounds session history and refuses further reconnects", () => {
+  const f = fixture();
+  for (let i = 0; i < 1024; i += 1) {
+    assert.equal(f.delivery.open(handshake(`session-${i}`)), true);
+    f.delivery.close();
+  }
+  assert.equal(f.delivery.open(handshake("session-1024")), false);
+  assert.equal(f.delivery.getState().status, "blocked");
+  assert.equal(f.reads.length, 1); // previous outstanding read stays single-flight
+});
+
 test("ND-04 burst suppresses obsolete read and performs exactly one trailing read", async () => {
   const f = fixture(); f.delivery.open(handshake());
   for (let i = 1; i <= 10000; i += 1) f.delivery.receive(event(i));
