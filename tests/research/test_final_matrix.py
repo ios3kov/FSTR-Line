@@ -10,7 +10,7 @@ class FinalMatrixTests(unittest.TestCase):
         done=mock.Mock(returncode=0,stdout=' 12 /A/After Effects\n 13 /A/After Effects Helper\n',stderr='')
         runner=mock.Mock(return_value=done)
         self.assertEqual(probe.find_pids(Path('/A/After Effects'),runner=runner),[12])
-        self.assertIn('comm=',runner.call_args.args[0])
+        self.assertEqual(runner.call_args.args[0],['/bin/ps','-axo','pid=,comm='])
 
     def test_jsx_command_uses_application_id_and_file(self):
         fake=mock.Mock(return_value=mock.Mock(returncode=0,stdout='OK\n',stderr=''))
