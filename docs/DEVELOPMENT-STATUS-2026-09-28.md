@@ -4,6 +4,12 @@
 
 ## Delivery implementation stage
 
+Follow-up completion trace `completion-gcokp48f` distinguishes two context
+addresses on two threads: each contributes 1/2/1 grouped/separate/no-op edges.
+No signal calls; observer/detach PASS, 110 research tests PASS. Context roles,
+independent state oracle and shipping delivery remain unproven. See the
+follow-up section in `docs/TEST_RECORDS/COMPLETION-REAL-AE-2026-09-29.md`.
+
 First owned-comp real-AE completion trace executed with explicit user approval:
 grouped/separate/no-op edge counts 2/4/2, zero signal-call hits, clean detach
 PASS. Doubling/context identity and independent state remain unresolved.

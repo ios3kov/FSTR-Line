@@ -43,3 +43,42 @@ log; no AE project payload. Archive is local evidence, not a published release.
 Next: distinguish context/thread identities for doubled edges, add independent
 owned-fixture reads and bounded Undo/Redo/error scenarios. Keep runtime research
 separate from safe private subscription ABI and shipping acceptance.
+
+## Follow-up: context address distinction
+
+Run `completion-gcokp48f`, clean source
+`a0e507b1f9abf4326d9c7c60ee8eb2d979632b6f`, same exact AE build/PID.
+Acceptance: distinguish doubled edges without logging pointer values or
+dereferencing target memory; fail closed on unavailable registers; clean detach.
+The exact-build arm64 sites preserve the context pointer in x19. Optional
+register capture maps addresses to session-local tokens, not lifetime IDs.
+110 Python research tests PASS, including token reuse/redaction and unreadable
+register refusal. Live observer and detach PASS; no capture errors/limits.
+
+| Window | context-1 / thread 14785181 | context-2 / thread 14785750 | Signal calls |
+| --- | --- | --- | --- |
+| Grouped | 1 | 1 | 0 |
+| Separate | 2 | 2 | 0 |
+| No-op | 1 | 1 | 0 |
+
+All eight hits are group-completion-edge. Thus in this run the paired hits
+belong to distinct context addresses and threads, not repeated hits of the same
+address. Their semantic roles and object lifetimes are not established; do not
+label them main/render contexts or treat these tokens as durable identities.
+
+New owned comp `FSTR completion test cf59d1b55ebb`, ID 16, layer ID 29,
+remains enabled=true per action-script results. The prior fixture was not
+removed; this runner has now created two retained test comps. User comps were
+not targeted. No save/close, Undo/Redo, native subscriber or plugin installation.
+Independent oracle, error cases, shipping delivery and performance NOT RUN.
+
+Evidence: `FSTR-Completion-gcokp48f.zip`, local chat outputs, SHA-256
+`d45c96f07c135d7b679e636e8e4cd97822fbe9a5ac1aceba612b83d2ff6aec92`.
+Contains redacted trace/scripts/identity/results and source-bound count summary.
+Static code scan exit 1: three existing eval heuristic warnings in CEP bridge,
+generated client and host JSON fallback; no finding in changed research scope.
+This is not security certification. SYNC-001 production gate remains NOT RUN.
+
+Next: independent owned-fixture state reads and controlled exception cleanup;
+design isolated Undo/Redo without touching unrelated history. Do not infer
+post-commit delivery from completion-edge observations.
