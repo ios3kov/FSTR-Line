@@ -4,6 +4,14 @@
 
 ## Delivery implementation stage
 
+Located a native completion subscriber in SamuraiUpdateParamsUI: it acquires
+context through an internal effect/project chain, waits only while activity is
+in progress, posts deferred work, then disconnects on its normal callback path.
+Its Connect specialization is local in AfterFXLib, and queue absence can skip
+posting. Queued execution selects GetProjectClone, so UI snapshot/API safety
+cannot be inferred. Safe external registration/context and queue completion remain open.
+See `docs/TEST_RECORDS/COMPLETION-NATIVE-CLIENT-2026-09-29.md`.
+
 Read-side reconnect review found a replay bug: session IDs could be reused
 after an intervening connection. The consumer now keeps bounded per-instance
 history and refuses reuse/exhaustion. Baseline failure reproduced; 71 TypeScript,
