@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+First owned-comp real-AE completion trace executed with explicit user approval:
+grouped/separate/no-op edge counts 2/4/2, zero signal-call hits, clean detach
+PASS. Doubling/context identity and independent state remain unresolved.
+See `docs/TEST_RECORDS/COMPLETION-REAL-AE-2026-09-29.md`.
+
 Fixed diagnostic post-commit marker Undo cleanup after mutation exceptions.
 Baseline failure reproduced; four actual-JSX VM harness tests and 105 research
 tests PASS. Real-AE execution remains NOT RUN. See
