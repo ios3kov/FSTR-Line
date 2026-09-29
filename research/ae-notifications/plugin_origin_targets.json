@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "aeBundleId": "com.adobe.AfterEffects.application",
+  "aeShortVersion": "25.6.0",
+  "aeBundleVersion": "25.6.0.101",
+  "pluginInstallPath": "/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/FSTR Line/FSTRPluginOrigin.plugin",
+  "modules": {
+    "BEE": {
+      "relativePath": "Contents/Frameworks/BEE.dylib",
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "uuid": "161300f3-73f8-3ebc-a751-959df40a073b"
+    }
+  },
+  "breakpoints": [
+    {"label":"layer-switch-internal","role":"mutation-marker","module":"BEE","fileAddress":"0x2a3460","minLocations":1,"maxLocations":1},
+    {"label":"end-group","role":"transaction-marker","module":"BEE","fileAddress":"0x6444ac","minLocations":1,"maxLocations":1},
+    {"label":"render-end-undo-group","role":"transaction-marker","module":"BEE","fileAddress":"0x778c54","minLocations":1,"maxLocations":1},
+    {"label":"after-process-from-render-thread","role":"project-change-boundary","module":"BEE","fileAddress":"0x7afa7c","minLocations":1,"maxLocations":1},
+    {"label":"process-project-changes-return","role":"project-change-return","module":"BEE","fileAddress":"0x7b055c","minLocations":1,"maxLocations":1}
+  ],
+  "durationSeconds": 180,
+  "maxFrames": 12,
+  "attachReadyTimeoutSeconds": 30,
+  "ackTimeoutSeconds": 10,
+  "shutdownTimeoutSeconds": 30,
+  "acceptance": "PASS requires independent helper provenance log mutation, state-oracle layer-1 VIDEO_ACTIVE change, direct layer-switch hit, project-processing boundary/return in the same explicit action window, matching helper Build ID/source receipt, and clean detach."
+}

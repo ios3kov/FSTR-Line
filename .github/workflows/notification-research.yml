@@ -30,6 +30,7 @@ jobs:
           python3 -B scripts/package-runtime-research.py
           python3 -B scripts/package-deep-research.py
           python3 -B scripts/package-context-research.py
+          python3 -B scripts/package-plugin-origin-research.py
       - name: Packaged collector and actual LLDB positive control
         run: python3 -B tests/research/mac_native_smoke.py
       - name: Application selection diagnostics
@@ -42,6 +43,8 @@ jobs:
         run: python3 -B tests/research/mac_deep_smoke.py
       - name: Context probe packaged attach smoke on owned process
         run: python3 -B tests/research/mac_context_smoke.py
+      - name: Plugin origin source/package smoke
+        run: python3 -B tests/research/mac_plugin_origin_smoke.py
       - name: Clean source gate
         run: |
           git diff --exit-code
@@ -60,5 +63,7 @@ jobs:
             dist/deep-research/**/SHA256.txt
             dist/context-research/**/*.zip
             dist/context-research/**/SHA256.txt
+            dist/plugin-origin-research/**/*.zip
+            dist/plugin-origin-research/**/SHA256.txt
             dist/notification-evidence/*.json
           if-no-files-found: error

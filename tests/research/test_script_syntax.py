@@ -22,6 +22,7 @@ class ResearchScriptSyntaxTests(unittest.TestCase):
             ROOT/'research/ae-notifications/deep_static.py',
             ROOT/'research/ae-notifications/analyze_runtime_matrix.py',
             ROOT/'research/ae-notifications/context_probe.py',
+            ROOT/'research/ae-notifications/plugin_origin_tool.py',
         ]
         for path in paths:
             with self.subTest(path=path.name):
