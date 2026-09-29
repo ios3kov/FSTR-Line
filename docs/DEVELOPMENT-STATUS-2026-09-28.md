@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+Prepared eight pinned completion trace targets distinguishing activity edges
+from signal-call sites; 102 research tests PASS locally. No live runner or
+subscription is enabled. See
+`docs/TEST_RECORDS/COMPLETION-PROBE-PREPARATION-2026-09-29.md`.
+
 Fixed deep-static diagnostic false-PASS handling: failed/limited tool analysis
 now yields BLOCKED. Baseline reproduced; 100 research tests PASS locally.
 See `docs/TEST_RECORDS/DEEP-STATIC-COMPLETENESS-2026-09-29.md`.
