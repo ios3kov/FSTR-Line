@@ -1,4 +1,4 @@
-import importlib.util,tempfile,unittest
+import importlib.util,subprocess,tempfile,unittest
 from pathlib import Path
 from unittest import mock
 ROOT=Path(__file__).resolve().parents[2]
@@ -21,6 +21,15 @@ class FinalMatrixTests(unittest.TestCase):
         self.assertIn('DoScriptFile POSIX file',args[2])
         self.assertIn('com.adobe.AfterEffects.application',args[2])
         self.assertTrue(row['ok'])
+
+    def test_run_jsx_timeout_is_nonfatal_result(self):
+        timeout=subprocess.TimeoutExpired(cmd=['/usr/bin/osascript'],timeout=1,output='partial',stderr='slow')
+        with mock.patch.object(probe.subprocess,'run',side_effect=timeout):
+            row=probe.run_jsx('com.adobe.AfterEffects.application',Path('/tmp/FSTR-Burst.jsx'),timeout=1)
+        self.assertFalse(row['ok'])
+        self.assertTrue(row['timedOut'])
+        self.assertEqual(row['returnCode'],None)
+        self.assertIn('continues',row['error'])
 
     def test_snapshot_changed_logic_is_raw_state_evidence_only(self):
         self.assertNotEqual('layers=2','layers=3')

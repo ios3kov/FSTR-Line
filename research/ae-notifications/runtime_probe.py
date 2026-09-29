@@ -71,13 +71,33 @@ def _make_file(path):
 def _as_string(value):
     return str(value).replace('\\','\\\\').replace('"','\\"')
 
+def _bounded_text(value):
+    if value is None:
+        return ''
+    if isinstance(value,bytes):
+        value=value.decode('utf-8','replace')
+    return str(value).strip()[:4000]
+
 def run_jsx(bundle_id,script_path,timeout=30):
     script='tell application id "'+_as_string(bundle_id)+'" to DoScriptFile POSIX file "'+_as_string(str(script_path))+'"'
     started=time.monotonic()
-    done=subprocess.run(['/usr/bin/osascript','-e',script],capture_output=True,text=True,timeout=timeout)
-    return {'ok':done.returncode==0,'elapsedMs':round((time.monotonic()-started)*1000,3),
-            'stdout':done.stdout.strip()[:4000],'stderr':done.stderr.strip()[:4000],
-            'returnCode':done.returncode}
+    try:
+        done=subprocess.run(['/usr/bin/osascript','-e',script],capture_output=True,text=True,timeout=timeout)
+        return {'ok':done.returncode==0,'timedOut':False,
+                'elapsedMs':round((time.monotonic()-started)*1000,3),
+                'stdout':_bounded_text(done.stdout),'stderr':_bounded_text(done.stderr),
+                'returnCode':done.returncode}
+    except subprocess.TimeoutExpired as error:
+        return {'ok':False,'timedOut':True,
+                'elapsedMs':round((time.monotonic()-started)*1000,3),
+                'stdout':_bounded_text(error.stdout),'stderr':_bounded_text(error.stderr),
+                'returnCode':None,'timeoutSeconds':timeout,
+                'error':'AppleScript bridge timed out; matrix continues'}
+    except OSError as error:
+        return {'ok':False,'timedOut':False,
+                'elapsedMs':round((time.monotonic()-started)*1000,3),
+                'stdout':'','stderr':str(error)[:4000],'returnCode':None,
+                'error':'AppleScript bridge launch failed; matrix continues'}
 
 def snapshot(bundle_id):
     row=run_jsx(bundle_id,ROOT/'FSTR-Snapshot.jsx',timeout=15)
@@ -126,12 +146,22 @@ def run_observer_session(binary,pid,modules,candidates,phases,work,session_name,
                 kind=phase.get('kind','manual')
                 if kind in ('jsx','burst'):
                     input('Нажми Enter → ')
-                    script_result=run_jsx(bundle_id,ROOT/phase['script'],timeout=60)
+                    script_result=run_jsx(bundle_id,ROOT/phase['script'],timeout=int(phase.get('timeoutSeconds',60)))
                     append_evidence(evidence_path,{'kind':'script-result','session':session_name,
                         'phase':phase['label'],'script':phase['script'],'result':script_result})
-                    if not script_result['ok']:
-                        print('Автозапуск ExtendScript не сработал. Запусти вручную: '+str(ROOT/phase['script']))
-                        input('После ручного запуска вернись сюда и нажми Enter → ')
+                    if script_result.get('timedOut'):
+                        print('TIMEOUT только этого автоматического шага. Весь Final Matrix продолжается.')
+                        print('НЕ запускай этот JSX повторно: AE мог уже начать/закончить выполнение после таймаута sender-процесса.')
+                        input('Дождись, когда After Effects снова реагирует, затем вернись сюда и нажми Enter → ')
+                        append_evidence(evidence_path,{'kind':'step-blocked','session':session_name,
+                            'phase':phase['label'],'reason':'jsx-timeout','continued':True})
+                    elif not script_result['ok']:
+                        print('Автозапуск ExtendScript не сработал. Можно выполнить его вручную в этом же прогоне:')
+                        print(str(ROOT/phase['script']))
+                        input('После ручного запуска (или если пропускаешь этот подпункт) нажми Enter → ')
+                        append_evidence(evidence_path,{'kind':'step-blocked','session':session_name,
+                            'phase':phase['label'],'reason':'jsx-auto-launch-failed',
+                            'manualFallbackOffered':True,'continued':True})
                 else:
                     input('Сделай действие в After Effects, вернись в Terminal и нажми Enter → ')
                 mark(phase['label']+'-done')
@@ -186,7 +216,7 @@ def main(argv=None):
     baseline=run_jsx(candidates['aeBundleId'],ROOT/'FSTR-Burst.jsx',timeout=60)
     append_evidence(evidence,{'kind':'performance-baseline','result':baseline})
     if not baseline['ok']:
-        print('Baseline ExtendScript не запустился автоматически; performance сравнение будет BLOCKED.')
+        print('Baseline ExtendScript не завершился автоматически; performance сравнение будет BLOCKED, но матрица продолжится.')
 
     pid=require_one_pid(binary)
     run_observer_session(binary,pid,modules,candidates,candidates['preRestart'],work,'pre-restart',evidence)
@@ -204,8 +234,12 @@ def main(argv=None):
 
     observed_burst=[r for r in runtime_protocol.read_complete_jsonl(evidence)
                     if r.get('kind')=='script-result' and r.get('phase')=='extendscript-burst']
-    perf={'baselineMs':baseline.get('elapsedMs') if baseline.get('ok') else None,
-          'observedMs':observed_burst[0]['result'].get('elapsedMs') if observed_burst else None}
+    observed_result=observed_burst[0]['result'] if observed_burst else None
+    perf={'status':'PASS' if baseline.get('ok') and observed_result and observed_result.get('ok') else 'BLOCKED',
+          'baselineMs':baseline.get('elapsedMs') if baseline.get('ok') else None,
+          'observedMs':observed_result.get('elapsedMs') if observed_result and observed_result.get('ok') else None,
+          'baselineTimedOut':bool(baseline.get('timedOut')),
+          'observedTimedOut':bool(observed_result.get('timedOut')) if observed_result else None}
     if perf['baselineMs'] and perf['observedMs']:
         perf['ratio']=round(perf['observedMs']/perf['baselineMs'],3)
     append_evidence(evidence,{'kind':'performance-comparison',**perf})
