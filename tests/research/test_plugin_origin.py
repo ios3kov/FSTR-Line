@@ -19,6 +19,14 @@ class PluginOriginTests(unittest.TestCase):
         state=p.parse_state('comp=A|L1=Layer,0,0,1,1,0,0,1')
         self.assertEqual(state['L1'].split(',')[4],'1')
 
+    def test_l1_video_active_requires_active_comp(self):
+        self.assertIsNone(p.l1_video_active({'ok':True,'value':'NO_ACTIVE_COMP'}))
+        self.assertIsNone(p.l1_video_active({'ok':True,'value':'comp=A|layers=0'}))
+        self.assertEqual(p.l1_video_active({'ok':True,'value':'comp=A|L1=Layer,0,0,1,1,0,0,1'}),'1')
+
+    def test_l1_video_active_rejects_invalid_flag(self):
+        self.assertIsNone(p.l1_video_active({'ok':True,'value':'comp=A|L1=Layer,0,0,1,x,0,0,1'}))
+
     def test_wait_for_new_mutation_ignores_historical_rows(self):
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/'helper.jsonl'

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "aeBundleId": "com.adobe.AfterEffects.application",
   "aeShortVersion": "25.6.0",
   "aeBundleVersion": "25.6.0.101",
@@ -58,7 +58,7 @@
   "attachReadyTimeoutSeconds": 30,
   "ackTimeoutSeconds": 10,
   "shutdownTimeoutSeconds": 30,
-  "acceptance": "PASS requires a newly detected helper mutation after phase start (observer auto-closes only after provenance log confirms it), independent state-oracle L1 VIDEO_ACTIVE change, direct layer-switch hit plus project-processing boundary/return in the same window, matching helper Build ID/source receipt, and clean detach.",
+  "acceptance": "PASS requires preflight active-comp/L1 state before attach, a newly detected helper mutation after phase start, exact state-oracle before/after values matching helper beforeVideoActive/afterVideoActive, direct layer-switch hit plus project-processing boundary/return in the same window, matching helper Build ID/source receipt, and clean detach.",
   "acceptedHelperSourceCommit": "d5a86afe5448882429346a07da72eecea486c193",
   "mutationTimeoutSeconds": 60,
   "downstreamGraceSeconds": 1.5

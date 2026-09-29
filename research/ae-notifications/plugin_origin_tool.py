@@ -192,6 +192,17 @@ def parse_state(value):
             k,v=part.split('=',1); out[k]=v
     return out
 
+def l1_video_active(snapshot_result):
+    if not snapshot_result.get('ok'):
+        return None
+    state=parse_state(snapshot_result.get('value',''))
+    if not state.get('comp') or not state.get('L1'):
+        return None
+    fields=state['L1'].split(',')
+    if len(fields)<5 or fields[4] not in ('0','1'):
+        return None
+    return fields[4]
+
 def read_jsonl(path):
     if not Path(path).is_file(): return []
     return [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
@@ -251,6 +262,10 @@ def observe(args):
     call='script runtime_control.run(lldb.debugger, '+json.dumps(str(work/'plan.json'))+')'
     lldb_log=work/'lldb.log'; evidence=work/'evidence.jsonl'; sequence=0
     before=snapshot(targets['aeBundleId'],work/'snapshots')
+    before_l1=l1_video_active(before)
+    if before_l1 is None:
+        raise Blocked('Preflight requires an active composition with at least one readable layer. Click/open the test comp in AE, then run Observe again.')
+    print('Preflight PASS: active comp + L1 state='+before_l1)
     with lldb_log.open('w') as stream:
         proc=subprocess.Popen(['xcrun','lldb','--batch','--no-lldbinit',
           '-o','command script import '+str(ROOT/'trace_callback.py'),
@@ -287,15 +302,19 @@ def observe(args):
     hits=[r for r in trace if r.get('kind')=='candidate-hit' and start<=r.get('wallTimeNs',0)<=end]
     counts=Counter(r.get('label') for r in hits)
     mutation=mutations[-1] if mutations else None
-    b=parse_state(before.get('value','')); a=parse_state(after.get('value',''))
-    before_l1=b.get('L1','').split(',')[4] if len(b.get('L1','').split(','))>4 else None
-    after_l1=a.get('L1','').split(',')[4] if len(a.get('L1','').split(','))>4 else None
+    after_l1=l1_video_active(after)
     provenance_ok=bool(mutation and mutation.get('statusCode')==0 and mutation.get('beforeVideoActive')!=mutation.get('afterVideoActive'))
-    state_ok=bool(before.get('ok') and after.get('ok') and before_l1 in ('0','1') and after_l1 in ('0','1') and before_l1!=after_l1)
+    state_ok=bool(
+        mutation and before_l1 in ('0','1') and after_l1 in ('0','1')
+        and before_l1==str(mutation.get('beforeVideoActive'))
+        and after_l1==str(mutation.get('afterVideoActive'))
+        and before_l1!=after_l1
+    )
     direct_ok=counts.get('layer-switch-internal',0)>0 and counts.get('after-process-from-render-thread',0)>0 and counts.get('process-project-changes-return',0)>0
     analysis={'pluginBuildId':build_id,'pluginSourceCommit':source_commit,
               'installedPluginBinarySha256':sha256(plugin_binary),'provenanceMutation':mutation,
               'stateBeforeL1VideoActive':before_l1,'stateAfterL1VideoActive':after_l1,
+              'stateMatchesHelperMutation':state_ok,
               'directHitCounts':dict(counts),'provenance':'OBSERVED' if provenance_ok else 'UNPROVEN',
               'stateChange':'OBSERVED' if state_ok else 'UNPROVEN','directChannel':'OBSERVED' if direct_ok else 'UNPROVEN',
               'otherPluginOrigin':'OBSERVED' if provenance_ok and state_ok and direct_ok else 'UNPROVEN'}
