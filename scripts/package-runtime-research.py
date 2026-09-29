@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Package a clean, identified runtime-observer research kit."""
+"""Package the clean final one-run runtime matrix."""
 import hashlib,json,shutil,subprocess,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]; SRC=ROOT/'research/ae-notifications'
 NAMES=('Runtime-AE.command','runtime_probe.py','runtime_control.py','trace_callback.py',
-       'runtime_protocol.py','runtime_candidates.json','collect_app.py')
+       'runtime_protocol.py','runtime_candidates.json','collect_app.py',
+       'FSTR-Snapshot.jsx','FSTR-ExtendScript-Origin.jsx','FSTR-Burst.jsx')
 def git(*a): return subprocess.check_output(['git','-C',str(ROOT),*a],text=True).strip()
 def main():
     if git('status','--porcelain'): raise SystemExit('Dirty source: runtime handoff refused')
     commit=git('rev-parse','HEAD'); out=ROOT/'dist/runtime-research'/commit
     out.mkdir(parents=True,exist_ok=False); kit=out/'FSTR-AE-Runtime'; kit.mkdir()
     manifest={'schemaVersion':1,'sourceCommit':commit,'sourceState':'clean',
-              'buildId':'fstr-runtime-'+commit[:12],'files':{}}
+              'buildId':'fstr-final-matrix-'+commit[:12],'files':{}}
     for name in NAMES:
         src=SRC/name; shutil.copyfile(src,kit/name)
         (kit/name).chmod(0o755 if name.endswith('.command') else 0o644)

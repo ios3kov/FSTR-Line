@@ -1,24 +1,25 @@
 # FSTR Line — текущий статус разработки
 
-Дата: 2026-09-29. Рабочая ветка: integration/host-safety-notifications, Draft PR #2. Main не слит и не изменён.
+Дата: 2026-09-29. Ветка: integration/host-safety-notifications, Draft PR #2. Main не изменён.
 
-## Runtime evidence
+## Состояние
 
-V5 interactive parent-terminal protocol на AE 25.6.0.101 отработал корректно: PASS, clean detach, 177 hits, все 8 шагов имеют точные start/done markers.
+V5 подтвердил интерактивный parent-terminal protocol и сильный common-path lead `DoProcessProjectChanges`. V6 был подготовлен для structural native coverage, но пользователь попросил объединить все оставшиеся пользовательские проверки в один прогон.
 
-Главный новый lead: `DoProcessProjectChanges` (`BEE.dylib:0x7afa7c`) находится в stack строго внутри timing, selection, switch, Undo, Redo и playhead и отсутствует в обоих idle windows. `Render_EndUndoGroup` покрывает часть timing/switch/playhead, а `BEE_CmdSeekItemToTime` оказался чистым playhead marker.
+## Final Matrix — один Runtime-AE.command
 
-Это сильная гипотеза общего internal change path, но ещё не notification-source proof и не post-commit proof.
+Один запуск включает две observer sessions:
 
-## Текущий gate — Runtime v6
+**До restart:** idle, timing, add/delete/reorder, selection, switch, Undo/Redo, active comp switch, playhead, ExtendScript structural mutation, 20-op ExtendScript burst, 10-click native rapid switch, optional third-party plugin-origin, idle.
 
-Сохраняется проверенный интерактивный UX:
-**одно действие → вернуться в Terminal → Enter → следующий шаг**.
+После clean detach пользователь вручную сохраняет и закрывает AE, затем вручную открывает тот же AE/project. Parent проверяет исчезновение старого PID и появление одного нового exact process.
 
-Breakpoints сужены прямо на DoProcessProjectChanges, Render_EndUndoGroup и CmdSeekItemToTime. SetContentChanged/EndGroup оставлены как transaction comparators; selection/switch/Undo/Redo markers — только как ground-truth корреляция.
+**После restart:** idle, timing, Undo/Redo, playhead, ExtendScript mutation, idle.
 
-Матрица v6: idle → move/trim → add layer → delete layer → reorder layer → selection → switch → Undo → Redo → active comp switch → playhead → idle.
+Перед/после каждого action window собирается read-only state snapshot через официально поддерживаемый macOS DoScriptFile bridge. Snapshots являются after-action oracle, но не доказательством exact post-commit semantics breakpoint entry.
 
-Цель v6: проверить structural layer/context coverage общего пути перед тестами ExtendScript и other-plugin origins.
+Performance evidence: одинаковый 20-operation ExtendScript burst измеряется до attach и под observer. Native rapid-switch phase даёт ground-truth multiplicity. Raw ratios/counts сохраняются без автоматического claims о duplicates.
 
-SYNC-001 всё ещё NOT RUN. Private production hook не интегрирован.
+Independent other-plugin origin остаётся условным: если установлен сторонний plugin, который реально меняет AE state, его mutation выполняется в выделенном окне. Если такого plugin нет, этот origin будет BLOCKED в том же отчёте; никакой сторонний software не устанавливается/меняется скрытно.
+
+SYNC-001 остаётся NOT RUN до анализа Final Matrix. Private production hook не интегрирован.

@@ -1,14 +1,16 @@
 {
-  "schemaVersion": 6,
-  "protocolVersion": 6,
+  "schemaVersion": 7,
+  "protocolVersion": 7,
   "aeBundleId": "com.adobe.AfterEffects.application",
   "aeShortVersion": "25.6.0",
   "aeBundleVersion": "25.6.0.101",
   "sourceFocusedReportSha256": "0609b3de91f67f56e942708438f575f1d89fb46440e9bf0b95f98f3bf4165e93",
   "sourceRuntimeReportSha256": "888d47eadebf4c5ad8531d4ec4ed0e76c08e61a65764e1fd225707c8bc2390bd",
-  "interactive": true,
-  "durationSeconds": 540,
+  "durationSeconds": 570,
   "maxFrames": 8,
+  "attachReadyTimeoutSeconds": 30,
+  "ackTimeoutSeconds": 10,
+  "shutdownTimeoutSeconds": 30,
   "modules": {
     "BEE": {
       "relativePath": "Contents/Frameworks/BEE.dylib",
@@ -103,58 +105,127 @@
       "maxLocations": 1
     }
   ],
-  "phases": [
+  "preRestart": [
     {
       "label": "idle-control",
+      "kind": "manual",
       "instructionRu": "Ничего не делай в After Effects примерно 3 секунды."
     },
     {
       "label": "native-layer-timing",
+      "kind": "manual",
       "instructionRu": "Один раз передвинь ИЛИ подрежь обычный слой на таймлайне."
     },
     {
       "label": "native-layer-add",
-      "instructionRu": "Добавь один слой. Проще всего: выдели слой и нажми Cmd+D, чтобы сделать дубликат."
+      "kind": "manual",
+      "instructionRu": "Добавь один слой: выдели слой и нажми Cmd+D."
     },
     {
       "label": "native-layer-delete",
-      "instructionRu": "Удалите только что добавленный/дублированный слой клавишей Delete."
+      "kind": "manual",
+      "instructionRu": "Удали только что добавленный слой клавишей Delete."
     },
     {
       "label": "native-layer-reorder",
-      "instructionRu": "Перетащи один слой на одну позицию выше или ниже в списке слоёв."
+      "kind": "manual",
+      "instructionRu": "Перетащи один слой на одну позицию выше или ниже."
     },
     {
       "label": "native-selection",
+      "kind": "manual",
       "instructionRu": "Один раз выдели другой слой."
     },
     {
       "label": "native-switches",
+      "kind": "manual",
       "instructionRu": "Один раз переключи глазик, Solo, Lock или Audio у слоя."
     },
     {
       "label": "native-undo",
+      "kind": "manual",
       "instructionRu": "Один раз нажми Cmd+Z — Отменить."
     },
     {
       "label": "native-redo",
+      "kind": "manual",
       "instructionRu": "Один раз нажми Cmd+Shift+Z — Повторить."
     },
     {
       "label": "native-comp-switch",
-      "instructionRu": "Переключись на другую открытую композицию. Если второй композиции нет — открой заранее ещё одну и сейчас просто переключись на неё."
+      "kind": "manual",
+      "instructionRu": "Переключись на другую открытую композицию."
     },
     {
       "label": "native-playhead",
+      "kind": "manual",
       "instructionRu": "Подвигай ползунок времени примерно 2 секунды и остановись."
     },
     {
-      "label": "idle-after",
-      "instructionRu": "Ничего не делай в After Effects примерно 3 секунды."
+      "label": "extendscript-origin",
+      "kind": "jsx",
+      "script": "FSTR-ExtendScript-Origin.jsx",
+      "instructionRu": "Автоматический тест ExtendScript. Ничего не делай в AE; нажми Enter, чтобы запустить."
+    },
+    {
+      "label": "extendscript-burst",
+      "kind": "burst",
+      "script": "FSTR-Burst.jsx",
+      "instructionRu": "Автоматический burst: 20 быстрых изменений через ExtendScript. Нажми Enter, чтобы запустить."
+    },
+    {
+      "label": "native-rapid-switch",
+      "kind": "manual",
+      "instructionRu": "Быстро 10 раз щёлкни глазик выбранного слоя, затем вернись и нажми Enter."
+    },
+    {
+      "label": "other-plugin-origin",
+      "kind": "manual-optional-plugin",
+      "instructionRu": "Если у тебя есть СТОРОННИЙ AE plugin, который реально меняет слой/композицию, сделай через него одно изменение. Если такого нет — просто нажми Enter без действия."
+    },
+    {
+      "label": "idle-before-restart",
+      "kind": "manual",
+      "instructionRu": "Ничего не делай примерно 3 секунды."
     }
   ],
-  "acceptance": "Interactive v6 directly tests DoProcessProjectChanges, Render_EndUndoGroup and CmdSeekItemToTime across timing, structural layer changes, selection, switches, undo/redo, comp switch and playhead. Hits remain observational; post-commit and all-origin coverage are not yet proven.",
-  "attachReadyTimeoutSeconds": 30,
-  "ackTimeoutSeconds": 10,
-  "shutdownTimeoutSeconds": 30
+  "postRestart": [
+    {
+      "label": "restart-idle",
+      "kind": "manual",
+      "instructionRu": "После перезапуска ничего не делай примерно 3 секунды."
+    },
+    {
+      "label": "restart-layer-timing",
+      "kind": "manual",
+      "instructionRu": "После перезапуска один раз передвинь или подрежь слой."
+    },
+    {
+      "label": "restart-undo",
+      "kind": "manual",
+      "instructionRu": "Нажми Cmd+Z один раз."
+    },
+    {
+      "label": "restart-redo",
+      "kind": "manual",
+      "instructionRu": "Нажми Cmd+Shift+Z один раз."
+    },
+    {
+      "label": "restart-playhead",
+      "kind": "manual",
+      "instructionRu": "Подвигай ползунок времени примерно 2 секунды."
+    },
+    {
+      "label": "restart-extendscript",
+      "kind": "jsx",
+      "script": "FSTR-ExtendScript-Origin.jsx",
+      "instructionRu": "Повторный автоматический ExtendScript после restart. Нажми Enter, чтобы запустить."
+    },
+    {
+      "label": "restart-idle-after",
+      "kind": "manual",
+      "instructionRu": "Ничего не делай примерно 3 секунды."
+    }
+  ],
+  "acceptance": "One Runtime-AE.command run covers native structural/timing/context actions, ExtendScript origin, rapid burst/multiplicity/performance evidence, optional third-party plugin-origin attempt, manual AE restart/reopen and post-restart repeat. Post-action snapshots are evidence of observed final state, not proof that breakpoint entry itself is post-commit."
 }
