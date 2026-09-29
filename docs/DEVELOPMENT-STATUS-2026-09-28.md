@@ -2,29 +2,44 @@
 
 Дата: 2026-09-29. Ветка: integration/host-safety-notifications, Draft PR #2. Main не изменён.
 
-## Evidence already observed
+## SYNC-001 research coverage
 
-Real AE 25.6.0.101 evidence confirms native project-change coverage, ExtendScript origin, active-comp transitions, real state oracle, restart/reopen and script-origin post-processing after endUndoGroup.
+**Origins/coverage research: OBSERVED. Production integration: BLOCKED.**
 
-## Other-plugin origin — provenance/direct overlap OBSERVED, independent before-state still pending
+Real AE 25.6.0.101 evidence now covers:
+- native UI timing/add/delete/reorder/selection/layer switches/Undo/Redo/playhead;
+- ExtendScript-origin changes before/after restart;
+- active composition changes with independent state oracle;
+- independent AEGP plugin-origin mutation with direct stack provenance;
+- restart/reopen;
+- script-origin post-endUndoGroup processing positive control.
 
-Real overlap report:
-`FSTR-AE-PluginOrigin-20260929T085035Z-6fbcd36ebc06.zip`, SHA-256 `1a444be0e63bfa35e88c06732681d8edfb338d43f527a460ef318277f7b82225`.
+Latest final plugin-origin report:
+`FSTR-AE-PluginOrigin-20260929T090335Z-1a2a1e564b15.zip`, SHA-256 `dad9249991e0383b752c06cf960052fd5ca611c8ad47e9ae175d48abefcc4068`.
 
-The independent public-SDK AEGP helper mutation and direct internal observer now overlap correctly:
-- helper mutation VIDEO_ACTIVE 0→1, status 0;
-- layer-switch-internal: 2;
-- after-ProcessFromRenderThread: 13;
-- DoProcessProjectChanges return: 13;
-- end-group: 4;
-- render-end-undo-group: 2.
+Acceptance facts:
+- snapshot before L1 video active = 1;
+- helper provenance = 1→0, status 0;
+- snapshot after L1 video active = 0;
+- exact state/helper correlation = PASS;
+- BEEp_SetLayerSwitch = 2 hits;
+- project-processing boundary = 3;
+- DoProcessProjectChanges return = 3;
+- clean detach = PASS;
+- stack contains FSTRPluginOrigin → AEGPDriver → AfterFXLib → BEE.
 
-Nearest direct hits around helper mutationEnd include layer-switch +15.845 ms, downstream boundary +37.511 ms and function return +56.336 ms.
+The independent other-plugin origin research gate is therefore closed.
 
-The remaining acceptance failure is only state-oracle precondition: the pre-run snapshot was `NO_ACTIVE_COMP`, so L1 before=0 was not independently observed. Post-run snapshot had Comp 2 / L1 enabled=1.
+## What remains before SYNC-001 can be accepted
 
-Observer now blocks before attach unless an active comp with readable L1 state is already present. Final state gate requires exact match of snapshot before/after to helper beforeVideoActive/afterVideoActive.
+LLDB breakpoints are not a shipping mechanism. Production acceptance still requires:
+1. a defined compatible/failure-safe internal delivery mechanism (or later supported Adobe API);
+2. exact-build/version mismatch refusal and recovery behavior;
+3. post-commit state-read semantics for the actual shipping mechanism across required change families;
+4. duplicate/coalescing/missed-event behavior, rapid bursts, no-op/error/cancel and panel-closed cases;
+5. uninstrumented CPU/memory/playback responsiveness comparison against baseline;
+6. compatibility/safety/maintenance/licensing review before any private production integration.
 
-No helper rebuild/reinstall is required.
+Polling/revision/idle/focus/self-events remain non-compliant substitutes.
 
-SYNC-001 remains NOT RUN / not accepted until one corrected preflight overlap run closes the independent state correlation, after which production performance/stability gates still require separate acceptance.
+SYNC-001 remains NOT RUN as a production integration gate.

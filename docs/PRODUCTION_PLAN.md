@@ -2,7 +2,7 @@
 
 ## Current Development Status
 
-**Priority gate: direct AE-originated Timeline notifications — BLOCKED pending verified API.** User rejected periodic full-layer reads as the final synchronization design. The official AE 25.6 SDK headers were inspected: command/menu/idle hooks and render-change queries exist, but no complete push notification API for the required Timeline state was found. Native runtime probe is therefore not applicable. See `docs/EVENT_SYNC_RESEARCH.md` and `docs/TEST_RECORDS/SDK-25.6-HEADER-AUDIT-2026-09-28.md`. Existing Auto Sync prototype is not acceptance evidence for this requirement. Next step: obtain an Adobe-supported notification mechanism or clarification; do not substitute polling.
+**Priority gate: direct AE-originated Timeline notifications — RESEARCH COVERAGE OBSERVED, PRODUCTION MECHANISM BLOCKED.** Periodic full-layer/revision/idle polling remains rejected as the final design. The official AE 25.6 SDK still exposes no complete public push subscription. Supervised real-AE research on 25.6.0.101 now observes internal paths for native UI changes, ExtendScript, active-comp, Undo/Redo/playhead and an independent public-SDK AEGP helper mutation, with state correlation and script-origin post-endUndoGroup evidence. These LLDB breakpoints are measuring instrumentation, not a shipping API. The next gate is a compatibility/safety decision plus candidate-specific post-commit/stability and uninstrumented performance proof. See `docs/EVENT_SYNC_RESEARCH.md` and 2026-09-29 notification test records.
 
 **Milestone: CEP read/refresh PoC и panel lifecycle — implementation complete, local verification PASS.**
 
@@ -63,7 +63,7 @@ FSTR Line должна получать уведомления об измене
 - Нет ощутимого ухудшения отзывчивости и воспроизведения AE; это подтверждается сравнительными замерами, а не обещанием нулевой нагрузки.
 - Приёмка требует доказанного API-источника уведомлений и runtime-тестов в целевой версии AE.
 
-Статус: **BLOCKED — источник полного набора уведомлений ещё не подтверждён**. Это обязательное продуктовое требование, а не утверждение о текущих возможностях. Ограничение API не отменяет его автоматически; изменение требования требует согласования с пользователем. Research и coverage matrix: `docs/EVENT_SYNC_RESEARCH.md`.
+Статус: **RESEARCH COVERAGE OBSERVED / PRODUCTION BLOCKED**. На AE 25.6.0.101 подтверждены внутренние change paths и происхождение изменений от native UI, ExtendScript и отдельного AEGP-плагина. Но LLDB evidence не является production-подпиской. До приёмки обязательны shipping-compatible/failure-safe механизм, доказанные post-commit semantics для него, missed/duplicate/coalescing/error/panel-closed cases и сравнительные uninstrumented performance/playback замеры. Research и coverage matrix: `docs/EVENT_SYNC_RESEARCH.md`.
 
 ---
 

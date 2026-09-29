@@ -1,14 +1,113 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "requirement": "SYNC-001",
   "target": "After Effects 25.6.0.101 / macOS Apple Silicon",
-  "status": "BLOCKED",
-  "blockedReason": "Exact AE binaries and an authorized isolated AE runtime/debugger are unavailable in the current execution environment.",
-  "requiredOrigins": ["native-ui", "extendscript", "other-plugin"],
-  "requiredChanges": ["move-start-in-out", "trim-in", "trim-out", "layer-add", "layer-delete", "layer-reorder", "selection", "enabled", "solo", "locked", "audio-enabled", "active-comp", "project-open-close-switch", "playhead-scrub-playback", "undo", "redo"],
-  "controls": ["instrumentation-positive-control", "no-change-idle-negative-control", "panel-closed", "coalesced-batch", "rapid-successive-edits", "error-and-cancel", "save-reopen", "restart", "uninstrumented-performance-baseline"],
-  "candidate": null,
-  "coverageResults": [],
+  "status": "RESEARCH_COVERAGE_OBSERVED_PRODUCTION_BLOCKED",
+  "blockedReason": "Real internal change paths/origins are observed, but no shipping-compatible/safe notification mechanism has yet passed post-commit, stability, version-safety and uninstrumented performance acceptance.",
+  "requiredOrigins": [
+    "native-ui",
+    "extendscript",
+    "other-plugin"
+  ],
+  "requiredChanges": [
+    "move-start-in-out",
+    "trim-in",
+    "trim-out",
+    "layer-add",
+    "layer-delete",
+    "layer-reorder",
+    "selection",
+    "enabled",
+    "solo",
+    "locked",
+    "audio-enabled",
+    "active-comp",
+    "project-open-close-switch",
+    "playhead-scrub-playback",
+    "undo",
+    "redo"
+  ],
+  "controls": [
+    "instrumentation-positive-control",
+    "no-change-idle-negative-control",
+    "panel-closed",
+    "coalesced-batch",
+    "rapid-successive-edits",
+    "error-and-cancel",
+    "save-reopen",
+    "restart",
+    "uninstrumented-performance-baseline"
+  ],
+  "researchCandidate": {
+    "model": "union of exact-build internal change paths observed under supervised LLDB",
+    "commonProjectProcessing": {
+      "entry": "BEE 0x7af9f4 DoProcessProjectChanges(unsigned long long)",
+      "afterRenderThreadBoundary": "BEE 0x7afa7c",
+      "return": "BEE 0x7b055c",
+      "note": "background/idle cycles exist; not one logical event per hit"
+    },
+    "activeComp": [
+      "AfterFXLib CItem::ActivateVOut 0x167e9c",
+      "AfterFXLib CItem::DeactivateVOut 0x162934"
+    ],
+    "layerSwitch": "BEE BEEp_SetLayerSwitch 0x2a3460",
+    "productionHookApproved": false
+  },
+  "coverageResults": [
+    {
+      "origin": "native-ui",
+      "status": "OBSERVED",
+      "evidence": [
+        "Final Matrix native timing/add/delete/reorder/selection/switch/Undo/Redo/playhead windows",
+        "idle controls"
+      ]
+    },
+    {
+      "origin": "extendscript",
+      "status": "OBSERVED",
+      "evidence": [
+        "Final Matrix ExtendScript origin",
+        "PostCommit real marker/state positive control"
+      ]
+    },
+    {
+      "origin": "other-plugin",
+      "status": "OBSERVED",
+      "evidence": [
+        "FSTRPluginOrigin public-SDK helper provenance + exact stack + independent state oracle"
+      ]
+    },
+    {
+      "change": "active-comp",
+      "status": "OBSERVED",
+      "evidence": [
+        "Comp 1→Comp 2→Comp 1 state oracle + CItem ActivateVOut/DeactivateVOut"
+      ]
+    },
+    {
+      "property": "postCommit",
+      "scope": "script-origin positive control",
+      "status": "OBSERVED",
+      "evidence": [
+        "after-ProcessFromRenderThread and DoProcessProjectChanges return after endUndoGroup marker"
+      ]
+    },
+    {
+      "property": "postCommit",
+      "scope": "shipping mechanism/all required native families",
+      "status": "NOT_RUN"
+    },
+    {
+      "property": "performance",
+      "scope": "shipping mechanism uninstrumented",
+      "status": "NOT_RUN"
+    },
+    {
+      "property": "stability",
+      "scope": "shipping mechanism duplicates/coalescing/missed/error/panel-closed",
+      "status": "NOT_RUN"
+    }
+  ],
   "acceptance": {
     "fullAEOriginatedCoverage": true,
     "multipleChannelsAllowed": true,
