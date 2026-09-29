@@ -2,21 +2,23 @@
 
 Дата: 2026-09-29. Рабочая ветка: integration/host-safety-notifications, Draft PR #2. Main не слит и не изменён.
 
-## Runtime research
+## Runtime evidence
 
-Два реальных AE runtime trace подтверждают живые internal BEE/AfterFX paths, но полный notification source ещё не доказан. V3/V4 добавили transaction/content boundaries, exact action markers, labels/roles и bounded stack evidence.
+V5 interactive parent-terminal protocol на AE 25.6.0.101 отработал корректно: PASS, clean detach, 177 hits, все 8 шагов имеют точные start/done markers.
 
-## Текущий gate: Runtime v5
+Главный новый lead: `DoProcessProjectChanges` (`BEE.dylib:0x7afa7c`) находится в stack строго внутри timing, selection, switch, Undo, Redo и playhead и отсутствует в обоих idle windows. `Render_EndUndoGroup` покрывает часть timing/switch/playhead, а `BEE_CmdSeekItemToTime` оказался чистым playhead marker.
 
-V4 не дал пользователю интерактивных шагов: Terminal напечатал список и runtime завершился FAIL до первого action prompt. Архитектура исправлена, а не замаскирована.
+Это сильная гипотеза общего internal change path, но ещё не notification-source proof и не post-commit proof.
 
-Теперь Terminal UX полностью принадлежит внешнему launcher:
-**одно действие → пользователь делает его в AE → возвращается в Terminal → Enter → следующий шаг.**
+## Текущий gate — Runtime v6
 
-LLDB больше не читает /dev/tty и получает stdin=/dev/null. Parent launcher и LLDB controller синхронизируются приватными JSONL command/ack файлами в owned temp directory. Каждый start/done marker подтверждается LLDB до перехода дальше.
+Сохраняется проверенный интерактивный UX:
+**одно действие → вернуться в Terminal → Enter → следующий шаг**.
 
-Breakpoint set остаётся exact-address v4: BEE transaction/content boundaries, Undo/selection/switch candidates, AfterFX move/trim/switch action markers и playhead candidates. Callback не вызывает target private API и не читает target variables/project contents.
+Breakpoints сужены прямо на DoProcessProjectChanges, Render_EndUndoGroup и CmdSeekItemToTime. SetContentChanged/EndGroup оставлены как transaction comparators; selection/switch/Undo/Redo markers — только как ground-truth корреляция.
 
-Перед handoff обязательны unit protocol tests, exact package, real macOS parent/LLDB IPC attach smoke with breakpoint hits + start/done markers + clean detach, push+PR Linux/macOS PASS and exact artifact hash.
+Матрица v6: idle → move/trim → add layer → delete layer → reorder layer → selection → switch → Undo → Redo → active comp switch → playhead → idle.
+
+Цель v6: проверить structural layer/context coverage общего пути перед тестами ExtendScript и other-plugin origins.
 
 SYNC-001 всё ещё NOT RUN. Private production hook не интегрирован.

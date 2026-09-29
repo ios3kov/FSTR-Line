@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 5,
-  "protocolVersion": 5,
+  "schemaVersion": 6,
+  "protocolVersion": 6,
   "aeBundleId": "com.adobe.AfterEffects.application",
   "aeShortVersion": "25.6.0",
   "aeBundleVersion": "25.6.0.101",
   "sourceFocusedReportSha256": "0609b3de91f67f56e942708438f575f1d89fb46440e9bf0b95f98f3bf4165e93",
-  "sourceRuntimeReportSha256": "ff6cb21dcbc59c0d2dd0daea8105b0c9eae6c13ed0f56ad6c7a350f9e1748984",
+  "sourceRuntimeReportSha256": "888d47eadebf4c5ad8531d4ec4ed0e76c08e61a65764e1fd225707c8bc2390bd",
   "interactive": true,
   "durationSeconds": 540,
   "maxFrames": 8,
@@ -23,42 +23,34 @@
   },
   "breakpoints": [
     {
-      "label": "finish-transaction-if-any",
-      "role": "boundary-candidate",
+      "label": "process-project-changes",
+      "role": "global-change-candidate",
       "module": "BEE",
-      "fileAddress": "0x6499e4",
+      "fileAddress": "0x7afa7c",
       "minLocations": 1,
       "maxLocations": 1
     },
     {
-      "label": "finish-transaction",
+      "label": "render-end-undo-group",
       "role": "boundary-candidate",
       "module": "BEE",
-      "fileAddress": "0x64a0b0",
+      "fileAddress": "0x778c54",
       "minLocations": 1,
       "maxLocations": 1
     },
     {
-      "label": "start-transaction",
-      "role": "boundary-candidate",
+      "label": "cmd-seek-item-to-time",
+      "role": "playhead-candidate",
       "module": "BEE",
-      "fileAddress": "0x64a180",
+      "fileAddress": "0x626d58",
       "minLocations": 1,
       "maxLocations": 1
     },
     {
       "label": "set-content-changed",
-      "role": "boundary-candidate",
+      "role": "content-change-candidate",
       "module": "BEE",
       "fileAddress": "0x64a33c",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "undo-signal-emit",
-      "role": "boundary-candidate",
-      "module": "BEE",
-      "fileAddress": "0x64a704",
       "minLocations": 1,
       "maxLocations": 1
     },
@@ -71,18 +63,26 @@
       "maxLocations": 1
     },
     {
-      "label": "end-group-internal",
-      "role": "boundary-candidate",
+      "label": "layer-switch-internal",
+      "role": "mutation-marker",
       "module": "BEE",
-      "fileAddress": "0x644568",
+      "fileAddress": "0x2a3460",
       "minLocations": 1,
       "maxLocations": 1
     },
     {
-      "label": "push-undo-task",
-      "role": "boundary-candidate",
+      "label": "select-layer",
+      "role": "selection-marker",
       "module": "BEE",
-      "fileAddress": "0x64503c",
+      "fileAddress": "0x302a8",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "layerselection-set",
+      "role": "selection-marker",
+      "module": "AfterFXLib",
+      "fileAddress": "0x36a750",
       "minLocations": 1,
       "maxLocations": 1
     },
@@ -101,118 +101,6 @@
       "fileAddress": "0x645f24",
       "minLocations": 1,
       "maxLocations": 1
-    },
-    {
-      "label": "set-executing-command",
-      "role": "command-marker",
-      "module": "BEE",
-      "fileAddress": "0x649b3c",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "select-layer",
-      "role": "selection-candidate",
-      "module": "BEE",
-      "fileAddress": "0x302a8",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "selection-add",
-      "role": "selection-candidate",
-      "module": "BEE",
-      "fileAddress": "0x51de8",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "selection-remove",
-      "role": "selection-candidate",
-      "module": "BEE",
-      "fileAddress": "0x51bcc",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "selection-remove-all",
-      "role": "selection-candidate",
-      "module": "BEE",
-      "fileAddress": "0x51cb8",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "layerselection-set",
-      "role": "selection-candidate",
-      "module": "AfterFXLib",
-      "fileAddress": "0x36a750",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "layer-switch-internal",
-      "role": "mutation-candidate",
-      "module": "BEE",
-      "fileAddress": "0x2a3460",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "avlayer-param-changed",
-      "role": "mutation-candidate",
-      "module": "BEE",
-      "fileAddress": "0x1d2374",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "ui-move-layer",
-      "role": "action-marker",
-      "module": "AfterFXLib",
-      "fileAddress": "0x4af88",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "ui-move-trim-slip",
-      "role": "action-marker",
-      "module": "AfterFXLib",
-      "fileAddress": "0x4bbd4",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "ui-layer-time-cmd",
-      "role": "action-marker",
-      "module": "AfterFXLib",
-      "fileAddress": "0x6cf18",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "ui-layer-switch",
-      "role": "action-marker",
-      "module": "AfterFXLib",
-      "fileAddress": "0x41c6c",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "realtime-needle",
-      "role": "playhead-candidate",
-      "module": "AfterFXLib",
-      "fileAddress": "0x166140",
-      "minLocations": 1,
-      "maxLocations": 1
-    },
-    {
-      "label": "realtime-needle-v2",
-      "role": "playhead-candidate",
-      "module": "AfterFXLib",
-      "fileAddress": "0x9b3fbc",
-      "minLocations": 1,
-      "maxLocations": 1
     }
   ],
   "phases": [
@@ -223,6 +111,18 @@
     {
       "label": "native-layer-timing",
       "instructionRu": "Один раз передвинь ИЛИ подрежь обычный слой на таймлайне."
+    },
+    {
+      "label": "native-layer-add",
+      "instructionRu": "Добавь один слой. Проще всего: выдели слой и нажми Cmd+D, чтобы сделать дубликат."
+    },
+    {
+      "label": "native-layer-delete",
+      "instructionRu": "Удалите только что добавленный/дублированный слой клавишей Delete."
+    },
+    {
+      "label": "native-layer-reorder",
+      "instructionRu": "Перетащи один слой на одну позицию выше или ниже в списке слоёв."
     },
     {
       "label": "native-selection",
@@ -241,6 +141,10 @@
       "instructionRu": "Один раз нажми Cmd+Shift+Z — Повторить."
     },
     {
+      "label": "native-comp-switch",
+      "instructionRu": "Переключись на другую открытую композицию. Если второй композиции нет — открой заранее ещё одну и сейчас просто переключись на неё."
+    },
+    {
       "label": "native-playhead",
       "instructionRu": "Подвигай ползунок времени примерно 2 секунды и остановись."
     },
@@ -249,7 +153,7 @@
       "instructionRu": "Ничего не делай в After Effects примерно 3 секунды."
     }
   ],
-  "acceptance": "Terminal launcher owns every prompt. Each action window begins with a start acknowledgement and closes only after the user's Enter is acknowledged by LLDB.",
+  "acceptance": "Interactive v6 directly tests DoProcessProjectChanges, Render_EndUndoGroup and CmdSeekItemToTime across timing, structural layer changes, selection, switches, undo/redo, comp switch and playhead. Hits remain observational; post-commit and all-origin coverage are not yet proven.",
   "attachReadyTimeoutSeconds": 30,
   "ackTimeoutSeconds": 10,
   "shutdownTimeoutSeconds": 30
