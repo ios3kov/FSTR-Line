@@ -2,31 +2,43 @@
 
 Дата: 2026-09-29. Ветка: integration/host-safety-notifications, Draft PR #2. Main не изменён.
 
-## Реальный Context probe
+## Evidence summary
 
-`FSTR-AE-Context-20260929T080541Z-208329837f6e.zip`, SHA-256 `780327bb9297f69dc4473f565e2f9c2895ab8fa53c4172234a3d8735c48ec1e7`, PASS attach/capture/clean detach на AE 25.6.0.101.
+Real AE 25.6.0.101 evidence now confirms:
+- common project-change processing for native timing/add/delete/reorder/selection/switch/Undo/Redo/playhead;
+- ExtendScript origin before/after restart;
+- active composition transitions via exact `CItem::DeactivateVOut()` + `CItem::ActivateVOut()` correlated with state-oracle comp-name changes;
+- owned-file state oracle on real AE;
+- restart/reopen;
+- script-origin post-processing after `endUndoGroup`.
 
-### Active comp — OBSERVED
+Latest post-commit report:
+`FSTR-AE-Context-20260929T081250Z-b6f1f48ae274.zip`, SHA-256 `8611ed24247122810d604710165b75ca32913473f38225e421c237fd327245b6`.
 
-State oracle реально показал `Comp 1 → Comp 2 → Comp 1`. В обоих switch windows сработали exact `CItem::DeactivateVOut()` и `CItem::ActivateVOut()` по одному разу. Это закрывает active-comp positive-control gate для exact target build.
+Marker timing:
+- before 1790669562027 ms, enabled=1
+- after mutation 1790669562130 ms, enabled=0
+- after endUndoGroup 1790669562156 ms, enabled=0
+- first after-ProcessFromRenderThread boundary after endUndoGroup: +46.631 ms
+- first DoProcessProjectChanges return after endUndoGroup: +75.062 ms
 
-### State oracle — OBSERVED
+State snapshot after the action independently confirms enabled=0.
 
-Owned-file snapshot работает на реальном AE и возвращает comp/layer/time/selection/layer state. Timing edit также независимо подтверждён snapshot diff.
+This is positive evidence for the tested script origin, not a universal native post-commit contract. Idle project-processing cycles remain, so project-processing points are wake/work boundaries, not one logical event per mutation.
 
-### Project processing
+## Current final evidence gap — other-plugin provenance
 
-0x7af9f4 = DoProcessProjectChanges entry; 0x7afa7c = after ProcessFromRenderThread boundary; 0x7b055c = return. Idle-control содержит фоновые cycles, поэтому эти точки нельзя трактовать как one-event-per-user-action notification.
+Research confirmed a public-SDK-only diagnostic path:
+`GetActiveItem → GetCompFromItem → GetCompLayerByIndex(0) → GetLayerFlags → StartUndoGroup → SetLayerFlag(VIDEO_ACTIVE) → EndUndoGroup`.
 
-### Post-commit — всё ещё UNPROVEN из-за tooling bug
+A separate diagnostic AEGP helper is being added. It:
+- is not production FSTR;
+- registers `Window → FSTR Plugin Origin Test`;
+- mutates only the first layer's VIDEO_ACTIVE flag when explicitly invoked;
+- writes a PID/build-specific provenance JSONL log under /tmp;
+- uses public AEGP suites only;
+- has a distinct Build ID/source commit so observer hits can be correlated to an independent plugin-origin mutation.
 
-Marker-script упал на `File.flush()`, которого нет в target ExtendScript File API. Marker rows отсутствуют; этот subgate не засчитан.
+No automatic install/restart, merge/deploy, security change or production private-hook integration is performed by repository CI.
 
-Bug исправлен: маркеры теперь накапливаются в памяти и записываются одним `open("w") / writeln / close`. Следующий probe сокращён до:
-idle → automatic post-commit marker → idle.
-
-Active-comp/timing заново не проверяются.
-
-Other-plugin provenance остаётся открытым.
-
-SYNC-001 остаётся NOT RUN / не принят.
+SYNC-001 remains NOT RUN / not accepted until plugin-origin provenance is proven and remaining production performance/stability gates are addressed.
