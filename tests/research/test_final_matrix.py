@@ -1,4 +1,4 @@
-import importlib.util,subprocess,tempfile,unittest
+import importlib.util,json,subprocess,tempfile,unittest
 from pathlib import Path
 from unittest import mock
 ROOT=Path(__file__).resolve().parents[2]
@@ -30,6 +30,31 @@ class FinalMatrixTests(unittest.TestCase):
         self.assertTrue(row['timedOut'])
         self.assertEqual(row['returnCode'],None)
         self.assertIn('continues',row['error'])
+
+    def test_completed_prefix_stops_at_first_incomplete_phase(self):
+        phases=[{'label':'a'},{'label':'b'},{'label':'c'}]
+        rows=[{'kind':'snapshot-after','session':'pre-restart','phase':'a'},
+              {'kind':'snapshot-before','session':'pre-restart','phase':'b'},
+              {'kind':'snapshot-after','session':'pre-restart','phase':'c'}]
+        self.assertEqual(probe.completed_phase_prefix(phases,rows),1)
+
+    def test_resume_requires_same_pid_breakpoints_and_clean_abort_detach(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); old=root/'fstr-final-old'; session=old/'pre-restart'
+            session.mkdir(parents=True)
+            evidence=old/'evidence.jsonl'
+            evidence.write_text('{"kind":"snapshot-after","session":"pre-restart","phase":"a"}\n')
+            binary=Path(td)/'After Effects'; binary.write_text('')
+            candidates={'breakpoints':[{'label':'x'}],
+                        'preRestart':[{'label':'a'},{'label':'b'}]}
+            (session/'plan.json').write_text(json.dumps({
+                'pid':42,'executable':str(binary),'breakpoints':candidates['breakpoints']}))
+            (session/'result.json').write_text(json.dumps({
+                'status':'BLOCKED','stage':'aborted','detached':True}))
+            found=probe.find_resume_candidate(root,binary,42,candidates)
+            self.assertIsNotNone(found)
+            self.assertEqual(found['completed'],1)
+            self.assertIsNone(probe.find_resume_candidate(root,binary,43,candidates))
 
     def test_snapshot_changed_logic_is_raw_state_evidence_only(self):
         self.assertNotEqual('layers=2','layers=3')

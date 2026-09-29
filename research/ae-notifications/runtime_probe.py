@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-run final AE notification research matrix: native, script, stress, restart/reopen."""
 from __future__ import annotations
-import argparse, hashlib, json, os, re, subprocess, sys, tempfile, time, uuid, zipfile
+import argparse, hashlib, json, os, re, shutil, subprocess, sys, tempfile, time, uuid, zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -107,6 +107,60 @@ def snapshot(bundle_id):
 def append_evidence(path,row):
     runtime_protocol.append_jsonl(path,dict(row,wallTimeNs=time.time_ns(),monotonicNs=time.monotonic_ns()))
 
+
+def completed_phase_prefix(phases,evidence_rows,session='pre-restart'):
+    completed={row.get('phase') for row in evidence_rows
+               if row.get('kind')=='snapshot-after' and row.get('session')==session}
+    count=0
+    for phase in phases:
+        if phase.get('label') in completed:
+            count+=1
+        else:
+            break
+    return count
+
+def find_resume_candidate(output,binary,pid,candidates,max_age_seconds=86400):
+    now=time.time()
+    for root in sorted(Path(output).glob('fstr-final-*'),
+                       key=lambda p:p.stat().st_mtime if p.exists() else 0,reverse=True):
+        try:
+            if now-root.stat().st_mtime>max_age_seconds:
+                continue
+            evidence=root/'evidence.jsonl'
+            session=root/'pre-restart'
+            plan_path=session/'plan.json'
+            result_path=session/'result.json'
+            if not (evidence.is_file() and plan_path.is_file() and result_path.is_file()):
+                continue
+            if (root/'post-restart').exists():
+                continue
+            plan=json.loads(plan_path.read_text(encoding='utf-8'))
+            result=json.loads(result_path.read_text(encoding='utf-8'))
+            if int(plan.get('pid',-1))!=int(pid):
+                continue
+            if Path(plan.get('executable','')).resolve()!=Path(binary).resolve():
+                continue
+            if plan.get('breakpoints')!=candidates.get('breakpoints'):
+                continue
+            if result.get('stage')!='aborted' or not result.get('detached'):
+                continue
+            rows=runtime_protocol.read_complete_jsonl(evidence)
+            prefix=completed_phase_prefix(candidates['preRestart'],rows)
+            if 0<prefix<len(candidates['preRestart']):
+                return {'root':root,'completed':prefix,'rows':rows}
+        except (OSError,ValueError,TypeError,json.JSONDecodeError):
+            continue
+    return None
+
+def import_resume_candidate(candidate,work,evidence_path):
+    source=candidate['root']
+    for row in candidate['rows']:
+        runtime_protocol.append_jsonl(evidence_path,row)
+    shutil.copytree(source/'pre-restart',work/'pre-restart-partial')
+    append_evidence(evidence_path,{'kind':'resume-imported',
+        'sourceFolder':source.name,'completedPhases':candidate['completed'],
+        'continued':True})
+
 def run_observer_session(binary,pid,modules,candidates,phases,work,session_name,evidence_path):
     session=work/session_name; session.mkdir()
     control=session/'control.jsonl'; ack=session/'ack.jsonl'; _make_file(control); _make_file(ack)
@@ -211,15 +265,31 @@ def main(argv=None):
 
     print('FSTR FINAL MATRIX — один запуск. Native + ExtendScript + stress + restart/reopen.')
     print('Перед началом: тестовый проект должен быть СОХРАНЁН; желательно две композиции и минимум два слоя.')
-    input('Когда готов — нажми Enter → ')
-
-    baseline=run_jsx(candidates['aeBundleId'],ROOT/'FSTR-Burst.jsx',timeout=60)
-    append_evidence(evidence,{'kind':'performance-baseline','result':baseline})
-    if not baseline['ok']:
-        print('Baseline ExtendScript не завершился автоматически; performance сравнение будет BLOCKED, но матрица продолжится.')
 
     pid=require_one_pid(binary)
-    run_observer_session(binary,pid,modules,candidates,candidates['preRestart'],work,'pre-restart',evidence)
+    resume=find_resume_candidate(output,binary,pid,candidates)
+    sessions=[]
+    if resume:
+        completed=resume['completed']
+        print('Найден безопасно возобновляемый незавершённый Final Matrix: завершено %d/%d шагов pre-restart.'%
+              (completed,len(candidates['preRestart'])))
+        print('Тот же процесс After Effects всё ещё запущен. Продолжим с шага %d, предыдущие шаги повторять не надо.'%(completed+1))
+        input('Убедись, что тот же тестовый проект всё ещё открыт, и нажми Enter → ')
+        import_resume_candidate(resume,work,evidence)
+        sessions.append('pre-restart-partial')
+        baseline_rows=[r for r in resume['rows'] if r.get('kind')=='performance-baseline']
+        baseline=baseline_rows[-1].get('result',{}) if baseline_rows else {'ok':False,'timedOut':False}
+        remaining=candidates['preRestart'][completed:]
+        run_observer_session(binary,pid,modules,candidates,remaining,work,'pre-restart-resume',evidence)
+        sessions.append('pre-restart-resume')
+    else:
+        input('Когда готов — нажми Enter → ')
+        baseline=run_jsx(candidates['aeBundleId'],ROOT/'FSTR-Burst.jsx',timeout=60)
+        append_evidence(evidence,{'kind':'performance-baseline','result':baseline})
+        if not baseline['ok']:
+            print('Baseline ExtendScript не завершился автоматически; performance сравнение будет BLOCKED, но матрица продолжится.')
+        run_observer_session(binary,pid,modules,candidates,candidates['preRestart'],work,'pre-restart',evidence)
+        sessions.append('pre-restart')
 
     print('\n=== RESTART / REOPEN ===')
     print('Сохрани тестовый проект и ЗАКРОЙ After Effects полностью вручную. Скрипт AE не закрывает.')
@@ -231,6 +301,7 @@ def main(argv=None):
     append_evidence(evidence,{'kind':'restart-observed','oldPid':pid,'newPid':new_pid,
                               'pidChanged':pid!=new_pid})
     run_observer_session(binary,new_pid,modules,candidates,candidates['postRestart'],work,'post-restart',evidence)
+    sessions.append('post-restart')
 
     observed_burst=[r for r in runtime_protocol.read_complete_jsonl(evidence)
                     if r.get('kind')=='script-result' and r.get('phase')=='extendscript-burst']
@@ -245,7 +316,7 @@ def main(argv=None):
     append_evidence(evidence,{'kind':'performance-comparison',**perf})
 
     safe={'schemaVersion':1,'kind':'final-runtime-matrix','status':'PASS','application':meta,
-          'collectorBuild':manifest,'sessions':['pre-restart','post-restart'],
+          'collectorBuild':manifest,'sessions':sessions,
           'performance':perf,
           'limitations':['Other-plugin origin is only exercised if the user has a third-party plugin that changes AE state.',
                          'Snapshot-after-action proves observed final state, not that DoProcessProjectChanges entry is itself post-commit.',
@@ -255,12 +326,15 @@ def main(argv=None):
     with zipfile.ZipFile(archive,'x',compression=zipfile.ZIP_DEFLATED) as z:
         z.writestr('summary.json',json.dumps(redact(safe),indent=2)+'\n')
         z.write(evidence,'evidence.jsonl')
-        for session_name in ('pre-restart','post-restart'):
+        for session_name in sessions:
             session=work/session_name
-            z.write(session/'trace.jsonl',session_name+'/trace.jsonl')
-            z.write(session/'result.json',session_name+'/result.json')
-            log=redact((session/'lldb.log').read_text(encoding='utf-8',errors='replace'))
-            z.writestr(session_name+'/lldb-log.txt',log[-1024*1024:])
+            if (session/'trace.jsonl').exists():
+                z.write(session/'trace.jsonl',session_name+'/trace.jsonl')
+            if (session/'result.json').exists():
+                z.write(session/'result.json',session_name+'/result.json')
+            if (session/'lldb.log').exists():
+                log=redact((session/'lldb.log').read_text(encoding='utf-8',errors='replace'))
+                z.writestr(session_name+'/lldb-log.txt',log[-1024*1024:])
     digest=sha256(archive); Path(str(archive)+'.sha256').write_text(digest+'  '+archive.name+'\n')
     for child in sorted(work.rglob('*'),reverse=True):
         if child.is_file(): child.unlink()
