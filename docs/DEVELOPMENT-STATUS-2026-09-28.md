@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+Undo completion producer located in SetExecutingUndo's activity transition.
+Scoped teardown can reach it during exception cleanup, so completion must not
+be treated as mutation success. Static evidence only:
+`docs/TEST_RECORDS/UNDO-COMPLETION-PATH-2026-09-29.md`.
+
 UI dispatch ordering research establishes an inline main-thread callback path,
 so dispatch does not itself prove post-commit semantics. Undo-completed emitter
 and payload are located, but caller ordering and coverage remain unproved.
