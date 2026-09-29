@@ -41,12 +41,12 @@ def exact_identity(app,candidates):
     return app,binary,meta
 
 def find_pids(binary,runner=subprocess.run):
-    done=runner(['/bin/ps','-axo','pid=,command='],capture_output=True,text=True,timeout=10)
+    done=runner(['/bin/ps','-axo','pid=,comm='],capture_output=True,text=True,timeout=10)
     if done.returncode: raise Blocked('Could not enumerate local processes')
     expected=str(Path(binary).resolve()); matches=[]
     for line in done.stdout.splitlines():
         m=re.match(r'^\s*(\d+)\s+(.*)$',line)
-        if m and (m.group(2)==expected or m.group(2).startswith(expected+' ')):
+        if m and m.group(2).strip()==expected:
             matches.append(int(m.group(1)))
     return matches
 
