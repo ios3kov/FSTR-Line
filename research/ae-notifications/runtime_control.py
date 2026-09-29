@@ -1,9 +1,10 @@
 """LLDB controller for an already-running, explicitly identified AE test process."""
 from __future__ import annotations
-import json, os, subprocess, sys, time, uuid
+import json, time, uuid
 from pathlib import Path
 import lldb
 import trace_callback
+import interactive_prompt
 
 def _write(path,data):
     with Path(path).open('x',encoding='utf-8') as f:
@@ -35,21 +36,13 @@ def _create_breakpoint(target,module,module_name,item):
         return bp,{'regex':item['regex']}
     raise RuntimeError('Breakpoint has neither fileAddress nor regex: '+item['label'])
 
-def _announce(phase,enabled):
-    text=phase.get('announcement') or phase.get('instruction') or phase['label']
-    print('\aFSTR ACTION: '+text,flush=True)
-    if enabled and Path('/usr/bin/say').is_file():
-        try:
-            subprocess.Popen(['/usr/bin/say',text],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        except OSError:
-            pass
-
 def run(debugger,plan_name):
     plan=json.loads(Path(plan_name).read_text(encoding='utf-8'))
     result_path=Path(plan['resultPath']); trace_path=Path(plan['tracePath'])
     result={'status':'FAIL',
             'scope':'observational LLDB breakpoint trace; no expressions/private target calls/project-variable reads/deliberate data writes',
-            'SYNC-001':'NOT RUN','pid':plan.get('pid'),'breakpoints':[],'detached':False}
+            'SYNC-001':'NOT RUN','pid':plan.get('pid'),'breakpoints':[],'detached':False,
+            'interactive':bool(plan.get('interactive',False))}
     target=None; process=None; attached=False
     debugger.SetAsync(False)
     try:
@@ -86,25 +79,46 @@ def run(debugger,plan_name):
                 raise RuntimeError('Breakpoint location count outside declared bounds: '+item['label'])
             bp.SetScriptCallbackFunction('trace_callback.on_breakpoint')
             bp_meta[bp.GetID()]={'label':item['label'],'role':item.get('role','candidate')}
-        trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
-                                     breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
-                                     max_seconds=int(plan['durationSeconds'])+30,
-                                     max_frames=int(plan.get('maxFrames',8)))
-        trace_callback.mark_phase('attach-verified')
-        debugger.SetAsync(True)
-        cont=process.Continue()
-        if cont.Fail():
-            raise RuntimeError('Could not continue attached process: '+str(cont))
-        started=time.monotonic()
-        for phase in plan['phases']:
-            target_time=started+float(phase['offsetSeconds'])
-            while time.monotonic()<target_time:
-                time.sleep(min(0.25,target_time-time.monotonic()))
-            trace_callback.mark_phase(phase['label'])
-            _announce(phase,bool(plan.get('voiceAnnouncements',False)))
-        end=started+float(plan['durationSeconds'])
-        while time.monotonic()<end:
-            time.sleep(min(0.25,end-time.monotonic()))
+
+        if plan.get('interactive',False):
+            # Target is still paused here, so the initial Enter cannot race with AE activity.
+            with open('/dev/tty','r+',encoding='utf-8',buffering=1) as tty:
+                tty.write('\nDebugger подключён, AE временно на паузе. Нажми Enter, чтобы начать интерактивную запись.\n> ')
+                tty.flush()
+                interactive_prompt._wait_readline(tty,int(plan.get('interactiveStartTimeoutSeconds',60)))
+            trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
+                                         breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
+                                         max_seconds=int(plan['durationSeconds'])+30,
+                                         max_frames=int(plan.get('maxFrames',8)))
+            trace_callback.mark_phase('attach-verified')
+            debugger.SetAsync(True)
+            cont=process.Continue()
+            if cont.Fail():
+                raise RuntimeError('Could not continue attached process: '+str(cont))
+            interactive_prompt.run_interactive_phases(
+                plan['phases'],trace_callback.mark_phase,
+                start_timeout=int(plan.get('interactiveStartTimeoutSeconds',60)),
+                step_timeout=int(plan.get('interactiveStepTimeoutSeconds',60)))
+        else:
+            trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
+                                         breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
+                                         max_seconds=int(plan['durationSeconds'])+30,
+                                         max_frames=int(plan.get('maxFrames',8)))
+            trace_callback.mark_phase('attach-verified')
+            debugger.SetAsync(True)
+            cont=process.Continue()
+            if cont.Fail():
+                raise RuntimeError('Could not continue attached process: '+str(cont))
+            started=time.monotonic()
+            for phase in plan['phases']:
+                target_time=started+float(phase['offsetSeconds'])
+                while time.monotonic()<target_time:
+                    time.sleep(min(0.25,target_time-time.monotonic()))
+                trace_callback.mark_phase(phase['label'])
+            end=started+float(plan['durationSeconds'])
+            while time.monotonic()<end:
+                time.sleep(min(0.25,end-time.monotonic()))
+
         debugger.SetAsync(False)
         stop_error=process.Stop()
         if stop_error.Fail():

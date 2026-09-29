@@ -1,11 +1,16 @@
 {
-  "schemaVersion": 3,
-  "protocolVersion": 3,
+  "schemaVersion": 4,
+  "protocolVersion": 4,
   "aeBundleId": "com.adobe.AfterEffects.application",
   "aeShortVersion": "25.6.0",
   "aeBundleVersion": "25.6.0.101",
   "sourceFocusedReportSha256": "0609b3de91f67f56e942708438f575f1d89fb46440e9bf0b95f98f3bf4165e93",
   "sourceRuntimeReportSha256": "ff6cb21dcbc59c0d2dd0daea8105b0c9eae6c13ed0f56ad6c7a350f9e1748984",
+  "interactive": true,
+  "interactiveStartTimeoutSeconds": 60,
+  "interactiveStepTimeoutSeconds": 60,
+  "durationSeconds": 540,
+  "maxFrames": 8,
   "modules": {
     "BEE": {
       "relativePath": "Contents/Frameworks/BEE.dylib",
@@ -27,39 +32,32 @@
     {"label":"end-group","role":"boundary-candidate","module":"BEE","fileAddress":"0x6444ac","minLocations":1,"maxLocations":1},
     {"label":"end-group-internal","role":"boundary-candidate","module":"BEE","fileAddress":"0x644568","minLocations":1,"maxLocations":1},
     {"label":"push-undo-task","role":"boundary-candidate","module":"BEE","fileAddress":"0x64503c","minLocations":1,"maxLocations":1},
-
     {"label":"undo-command","role":"command-marker","module":"BEE","fileAddress":"0x645958","minLocations":1,"maxLocations":1},
     {"label":"redo-command","role":"command-marker","module":"BEE","fileAddress":"0x645f24","minLocations":1,"maxLocations":1},
     {"label":"set-executing-command","role":"command-marker","module":"BEE","fileAddress":"0x649b3c","minLocations":1,"maxLocations":1},
-
     {"label":"select-layer","role":"selection-candidate","module":"BEE","fileAddress":"0x302a8","minLocations":1,"maxLocations":1},
     {"label":"selection-add","role":"selection-candidate","module":"BEE","fileAddress":"0x51de8","minLocations":1,"maxLocations":1},
     {"label":"selection-remove","role":"selection-candidate","module":"BEE","fileAddress":"0x51bcc","minLocations":1,"maxLocations":1},
     {"label":"selection-remove-all","role":"selection-candidate","module":"BEE","fileAddress":"0x51cb8","minLocations":1,"maxLocations":1},
     {"label":"layerselection-set","role":"selection-candidate","module":"AfterFXLib","fileAddress":"0x36a750","minLocations":1,"maxLocations":1},
-
     {"label":"layer-switch-internal","role":"mutation-candidate","module":"BEE","fileAddress":"0x2a3460","minLocations":1,"maxLocations":1},
     {"label":"avlayer-param-changed","role":"mutation-candidate","module":"BEE","fileAddress":"0x1d2374","minLocations":1,"maxLocations":1},
-
     {"label":"ui-move-layer","role":"action-marker","module":"AfterFXLib","fileAddress":"0x4af88","minLocations":1,"maxLocations":1},
     {"label":"ui-move-trim-slip","role":"action-marker","module":"AfterFXLib","fileAddress":"0x4bbd4","minLocations":1,"maxLocations":1},
     {"label":"ui-layer-time-cmd","role":"action-marker","module":"AfterFXLib","fileAddress":"0x6cf18","minLocations":1,"maxLocations":1},
     {"label":"ui-layer-switch","role":"action-marker","module":"AfterFXLib","fileAddress":"0x41c6c","minLocations":1,"maxLocations":1},
-
     {"label":"realtime-needle","role":"playhead-candidate","module":"AfterFXLib","fileAddress":"0x166140","minLocations":1,"maxLocations":1},
     {"label":"realtime-needle-v2","role":"playhead-candidate","module":"AfterFXLib","fileAddress":"0x9b3fbc","minLocations":1,"maxLocations":1}
   ],
   "phases": [
-    {"offsetSeconds":0,"label":"idle-control","instruction":"Do nothing.","announcement":"Начало теста. Ничего не делайте двенадцать секунд."},
-    {"offsetSeconds":12,"label":"native-layer-timing","instruction":"Move or trim one normal AV layer once.","announcement":"Сейчас один раз передвиньте или подрежьте слой."},
-    {"offsetSeconds":32,"label":"native-selection","instruction":"Select exactly one different layer.","announcement":"Сейчас выделите один другой слой."},
-    {"offsetSeconds":48,"label":"native-switches","instruction":"Toggle exactly one layer switch.","announcement":"Сейчас переключите один глаз, соло, замок или аудио."},
-    {"offsetSeconds":64,"label":"native-undo","instruction":"Undo exactly once.","announcement":"Сейчас один раз нажмите отменить."},
-    {"offsetSeconds":80,"label":"native-redo","instruction":"Redo exactly once.","announcement":"Сейчас один раз нажмите повторить."},
-    {"offsetSeconds":96,"label":"native-playhead","instruction":"Scrub the playhead for about two seconds.","announcement":"Сейчас подвигайте ползунок времени примерно две секунды."},
-    {"offsetSeconds":112,"label":"idle-after","instruction":"Do nothing.","announcement":"Теперь ничего не делайте до окончания теста."}
+    {"label":"idle-control","instructionRu":"Ничего не делай в After Effects примерно 3 секунды."},
+    {"label":"native-layer-timing","instructionRu":"Один раз передвинь ИЛИ подрежь обычный слой на таймлайне."},
+    {"label":"native-selection","instructionRu":"Один раз выдели другой слой."},
+    {"label":"native-switches","instructionRu":"Один раз переключи глазик, Solo, Lock или Audio у слоя."},
+    {"label":"native-undo","instructionRu":"Один раз нажми Cmd+Z — Отменить."},
+    {"label":"native-redo","instructionRu":"Один раз нажми Cmd+Shift+Z — Повторить."},
+    {"label":"native-playhead","instructionRu":"Подвигай ползунок времени примерно 2 секунды и остановись."},
+    {"label":"idle-after","instructionRu":"Ничего не делай в After Effects примерно 3 секунды."}
   ],
-  "durationSeconds": 125,
-  "voiceAnnouncements": true,
-  "acceptance": "Observation only. Labels/roles/stacks are correlation evidence, not notification proof; post-commit and full SYNC-001 remain separate gates."
+  "acceptance": "Each action window begins with a start marker and closes only after the user presses Enter. Hits remain correlation evidence, not notification proof."
 }

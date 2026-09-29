@@ -10,7 +10,7 @@ sys.path.insert(0,str(ROOT))
 import collect_app
 
 TOOLS=('Runtime-AE.command','runtime_probe.py','runtime_control.py','trace_callback.py',
-       'runtime_candidates.json','collect_app.py')
+       'interactive_prompt.py','runtime_candidates.json','collect_app.py')
 
 class Blocked(Exception): pass
 
@@ -85,12 +85,21 @@ def main(argv=None):
     plan={'schemaVersion':1,'runId':'runtime_'+uuid.uuid4().hex,'pid':pid,
           'executable':str(binary),'modules':modules,'breakpoints':candidates['breakpoints'],
           'phases':candidates['phases'],'durationSeconds':candidates['durationSeconds'],
+          'interactive':bool(candidates.get('interactive',False)),
+          'interactiveStartTimeoutSeconds':int(candidates.get('interactiveStartTimeoutSeconds',60)),
+          'interactiveStepTimeoutSeconds':int(candidates.get('interactiveStepTimeoutSeconds',60)),
+          'maxFrames':int(candidates.get('maxFrames',8)),
           'maxEvents':5000,'tracePath':str(work/'trace.jsonl'),'resultPath':str(work/'result.json')}
     (work/'plan.json').write_text(json.dumps(plan,indent=2)+'\n',encoding='utf-8')
     print('Attach-only observer. It will NOT launch AE or call private functions.')
     print('Use a disposable/saved test project. Do not use an unsaved work session.')
-    for p in candidates['phases']:
-        print(f"+{p['offsetSeconds']:>2}s  {p['label']}: {p['instruction']}")
+    if candidates.get('interactive',False):
+        print('Interactive mode: one instruction at a time. Do the action, return to Terminal, press Enter.')
+        for index,p in enumerate(candidates['phases'],1):
+            print(f"{index}. {p['instructionRu']}")
+    else:
+        for p in candidates['phases']:
+            print(f"+{p['offsetSeconds']:>2}s  {p['label']}: {p['instruction']}")
     call='script runtime_control.run(lldb.debugger, '+json.dumps(str(work/'plan.json'))+')'
     done=subprocess.run(['xcrun','lldb','--batch','--no-lldbinit',
         '-o','command script import '+str(ROOT/'trace_callback.py'),
