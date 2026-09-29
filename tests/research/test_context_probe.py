@@ -27,6 +27,14 @@ class ContextProbeTests(unittest.TestCase):
         self.assertEqual(out['activeComp'],'OBSERVED')
         self.assertEqual(out['stateOracle'],'OBSERVED')
 
+    def test_marker_source_has_no_unsupported_flush_and_writes_all_markers(self):
+        source=(ROOT/'research/ae-notifications/FSTR-PostCommit-Marker.jsx').read_text(encoding='utf-8')
+        self.assertNotIn('.flush(',source)
+        self.assertIn('before|',source)
+        self.assertIn('after-mutation|',source)
+        self.assertIn('after-end-undo|',source)
+        self.assertIn('out.close()',source)
+
     def test_script_marker_accepts_return_after_end_undo(self):
         base=1_700_000_000_000
         trace=[

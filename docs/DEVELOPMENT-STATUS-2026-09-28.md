@@ -2,48 +2,31 @@
 
 Дата: 2026-09-29. Ветка: integration/host-safety-notifications, Draft PR #2. Main не изменён.
 
-## Final Matrix / common path
+## Реальный Context probe
 
-Final Matrix остаётся сильным evidence для общего native+ExtendScript change path, restart/reopen и idle controls. SYNC-001 ещё не принят из-за active-comp, post-commit и other-plugin provenance.
+`FSTR-AE-Context-20260929T080541Z-208329837f6e.zip`, SHA-256 `780327bb9297f69dc4473f565e2f9c2895ab8fa53c4172234a3d8735c48ec1e7`, PASS attach/capture/clean detach на AE 25.6.0.101.
 
-## Deep Static — реальный AE результат получен
+### Active comp — OBSERVED
 
-`FSTR-AE-Deep-20260929T075012Z-33e1ea673c0b.zip`, SHA-256 `1d5b9e6b6a8cadbe360c93d980caa5a4123bafd06a86d35e8e6fc3999b84998d`, PASS на exact AE 25.6.0.101 BEE/AfterFXLib.
+State oracle реально показал `Comp 1 → Comp 2 → Comp 1`. В обоих switch windows сработали exact `CItem::DeactivateVOut()` и `CItem::ActivateVOut()` по одному разу. Это закрывает active-comp positive-control gate для exact target build.
 
-Критическая коррекция:
-- `DoProcessProjectChanges` entry = **0x7af9f4**;
-- исторический runtime boundary **0x7afa7c** = offset +136, сразу после возврата из `BEE_ThreadedRenderUpdateQueue::ProcessFromRenderThread(...)`, а не entry;
-- единственный static return = **0x7b055c**.
+### State oracle — OBSERVED
 
-Historical hits на 0x7afa7c не инвалидируются, но теперь называются `after-process-from-render-thread`.
+Owned-file snapshot работает на реальном AE и возвращает comp/layer/time/selection/layer state. Timing edit также независимо подтверждён snapshot diff.
 
-Concrete active-comp leads:
-`CPanoProjComp::Activate/Deactivate/ReActivate`,
-`CPanoProjItem::Activate/Deactivate/ReActivate`,
-`CItem::ActivateVOut/DeactivateVOut`,
-`ScActivateItemPanel` ctor.
+### Project processing
 
-## State oracle
+0x7af9f4 = DoProcessProjectChanges entry; 0x7afa7c = after ProcessFromRenderThread boundary; 0x7b055c = return. Idle-control содержит фоновые cycles, поэтому эти точки нельзя трактовать как one-event-per-user-action notification.
 
-Owned-file oracle implementation исправлен и CI-verified. Historical Matrix snapshots не переоцениваются; real validation будет в следующем узком probe.
+### Post-commit — всё ещё UNPROVEN из-за tooling bug
 
-## Текущий gate — narrow Context/PostCommit positive control
+Marker-script упал на `File.flush()`, которого нет в target ExtendScript File API. Marker rows отсутствуют; этот subgate не засчитан.
 
-Никакого broad matrix. Один короткий прогон:
-idle → comp A→B → comp B→A → timing edit → automatic script marker → idle.
+Bug исправлен: маркеры теперь накапливаются в памяти и записываются одним `open("w") / writeln / close`. Следующий probe сокращён до:
+idle → automatic post-commit marker → idle.
 
-Active-comp PASS требует одновременно:
-1. snapshot comp-name реально изменился;
-2. exact activate/deactivate candidate сработал в том же окне;
-3. idle не показывает ложную активность этого канала.
+Active-comp/timing заново не проверяются.
 
-Post-processing evidence отдельно сравнивает script wall-clock marker after-endUndoGroup с:
-- entry 0x7af9f4,
-- after-render-thread boundary 0x7afa7c,
-- return 0x7b055c.
-
-Даже успешный script timing не будет автоматически обобщён на native post-commit.
-
-Other-plugin provenance остаётся отдельным незакрытым gate.
+Other-plugin provenance остаётся открытым.
 
 SYNC-001 остаётся NOT RUN / не принят.

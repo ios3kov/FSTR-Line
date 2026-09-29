@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 1,
-  "protocolVersion": 1,
+  "schemaVersion": 2,
+  "protocolVersion": 2,
   "aeBundleId": "com.adobe.AfterEffects.application",
   "aeShortVersion": "25.6.0",
   "aeBundleVersion": "25.6.0.101",
-  "sourceDeepReportSha256": "1d5b9e6b6a8cadbe360c93d980caa5a4123bafd06a86d35e8e6fc3999b84998d",
-  "durationSeconds": 360,
+  "sourceContextReportSha256": "780327bb9297f69dc4473f565e2f9c2895ab8fa53c4172234a3d8735c48ec1e7",
+  "durationSeconds": 180,
   "maxFrames": 12,
   "attachReadyTimeoutSeconds": 30,
   "ackTimeoutSeconds": 10,
@@ -29,24 +29,17 @@
     {"label":"render-end-undo-group","role":"transaction-marker","module":"BEE","fileAddress":"0x778c54","minLocations":1,"maxLocations":1},
     {"label":"set-content-changed","role":"transaction-marker","module":"BEE","fileAddress":"0x64a33c","minLocations":1,"maxLocations":1},
     {"label":"end-group","role":"transaction-marker","module":"BEE","fileAddress":"0x6444ac","minLocations":1,"maxLocations":1},
-
-    {"label":"pano-comp-reactivate","role":"active-comp-candidate","module":"AfterFXLib","fileAddress":"0xadb24","minLocations":1,"maxLocations":1},
-    {"label":"pano-comp-activate","role":"active-comp-candidate","module":"AfterFXLib","fileAddress":"0xae23c","minLocations":1,"maxLocations":1},
-    {"label":"pano-comp-deactivate","role":"active-comp-candidate","module":"AfterFXLib","fileAddress":"0xae268","minLocations":1,"maxLocations":1},
-    {"label":"pano-item-reactivate","role":"active-item-candidate","module":"AfterFXLib","fileAddress":"0x197d4c","minLocations":1,"maxLocations":1},
-    {"label":"pano-item-activate","role":"active-item-candidate","module":"AfterFXLib","fileAddress":"0x197e58","minLocations":1,"maxLocations":1},
-    {"label":"pano-item-deactivate","role":"active-item-candidate","module":"AfterFXLib","fileAddress":"0x197eb0","minLocations":1,"maxLocations":1},
-    {"label":"item-activate-vout","role":"active-view-candidate","module":"AfterFXLib","fileAddress":"0x167e9c","minLocations":1,"maxLocations":1},
-    {"label":"item-deactivate-vout","role":"active-view-candidate","module":"AfterFXLib","fileAddress":"0x162934","minLocations":1,"maxLocations":1},
-    {"label":"activate-item-panel-ctor","role":"active-panel-candidate","module":"AfterFXLib","fileAddress":"0x7166d8","minLocations":1,"maxLocations":1}
+    {"label":"layer-switch-internal","role":"mutation-marker","module":"BEE","fileAddress":"0x2a3460","minLocations":1,"maxLocations":1}
   ],
   "phases": [
     {"label":"idle-control","kind":"manual","instructionRu":"Ничего не делай в After Effects примерно 3 секунды."},
-    {"label":"comp-switch","kind":"manual","instructionRu":"Переключись на ДРУГУЮ уже открытую композицию."},
-    {"label":"comp-switch-back","kind":"manual","instructionRu":"Переключись обратно на исходную композицию."},
-    {"label":"layer-timing","kind":"manual","instructionRu":"Один раз передвинь или подрежь один из первых 8 слоёв активной композиции."},
-    {"label":"script-postcommit","kind":"marker-script","instructionRu":"Автоматический script-origin/post-commit тест. Ничего не делай в AE; нажми Enter для запуска."},
+    {"label":"script-postcommit","kind":"marker-script","instructionRu":"Автоматический post-commit marker. Ничего не делай в AE; нажми Enter для запуска."},
     {"label":"idle-after","kind":"manual","instructionRu":"Ничего не делай примерно 3 секунды."}
   ],
-  "acceptance": "Active-comp candidate must correlate with an actual snapshot comp-name transition and remain quiet in idle. State oracle must produce real nonzero project state. Project-change return/post-render boundaries remain private research leads; post-commit is accepted only if timing/state evidence supports it without contradictory later markers."
+  "historicalEvidence": {
+    "activeComp": "OBSERVED",
+    "stateOracle": "OBSERVED",
+    "sourceReportSha256": "780327bb9297f69dc4473f565e2f9c2895ab8fa53c4172234a3d8735c48ec1e7"
+  },
+  "acceptance": "Marker file must contain before, after-mutation and after-end-undo timestamps. State oracle must remain valid. The probe tests whether post-render-thread boundary and function return occur after the script endUndoGroup marker; success is script-origin timing evidence only, not universal native post-commit proof."
 }

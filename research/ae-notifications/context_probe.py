@@ -133,7 +133,7 @@ def phase_windows(trace):
 def analyze(trace,evidence,marker):
     windows=phase_windows(trace)
     hits=[r for r in trace if r.get('kind')=='candidate-hit']
-    result={'windows':{},'activeComp':'UNPROVEN','stateOracle':'UNPROVEN','postProcessing':'UNPROVEN'}
+    result={'windows':{},'activeComp':'HISTORICAL_OBSERVED','stateOracle':'UNPROVEN','postProcessing':'UNPROVEN'}
     snap={}
     for e in evidence:
         if e.get('kind') in ('snapshot-before','snapshot-after'):
@@ -200,8 +200,8 @@ def main(argv=None):
             '-o','command script import '+str(ROOT/'runtime_control.py'),'-o',call],
             stdin=subprocess.DEVNULL,stdout=stream,stderr=subprocess.STDOUT,text=True)
         runtime_protocol.wait_for_record(ack,kind='ready',sequence=0,process=proc,timeout=targets['attachReadyTimeoutSeconds'])
-        print('FSTR Context/PostCommit Probe — узкий тест, без restart.')
-        print('Нужны две уже открытые композиции и хотя бы один слой.')
+        print('FSTR PostCommit Probe — только оставшийся post-commit subgate.')
+        print('Нужна активная композиция хотя бы с одним слоем. Active-comp уже подтверждён предыдущим отчётом.')
         def mark(label):
             nonlocal sequence
             sequence+=1
@@ -217,8 +217,10 @@ def main(argv=None):
                     input('Нажми Enter → ')
                     marker_result=run_marker(targets['aeBundleId'],work/'markers')
                     runtime_protocol.append_jsonl(evidence,{'kind':'marker-script','phase':phase['label'],'result':marker_result})
-                    if not marker_result['bridge'].get('ok'):
-                        print('Marker-script не завершился автоматически; этот post-processing subgate будет BLOCKED.')
+                    labels={m.get('label') for m in marker_result.get('markers',[])}
+                    required={'before','after-mutation','after-end-undo'}
+                    if not marker_result['bridge'].get('ok') or not required.issubset(labels):
+                        print('Marker-script не дал полный набор маркеров; post-commit subgate будет BLOCKED, но тест продолжится.')
                 else:
                     input('Сделай действие в AE, вернись в Terminal и нажми Enter → ')
                 mark(phase['label']+'-done')
@@ -249,7 +251,7 @@ def main(argv=None):
                          'DoProcessProjectChangesReturn':'0x7b055c'},
           'limitations':['Private internal addresses are exact-build research only.',
                          'OBSERVED_AFTER_SCRIPT_END_UNDO is timing evidence for the tested script origin, not universal native post-commit proof.',
-                         'Active-comp acceptance requires both snapshot comp-name change and exact activation-candidate hit.'],
+                         'Active-comp/state-oracle were already observed in sourceContextReportSha256; this run does not repeat that matrix.'],
           'SYNC-001':'NOT RUN'}
     run_id=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'-'+uuid.uuid4().hex[:12]
     archive=output/('FSTR-AE-Context-'+run_id+'.zip')
