@@ -61,6 +61,21 @@ producer integration requirement. `NotificationDelivery.read()` requires the
 new `readNotificationSnapshot()` method; the ordinary UI-facing `readSnapshot()`
 still rejects at its deadline and does not supply that contract.
 
+## Clean verification and review follow-up
+
+Clean implementation `0b9790034c8e7f6797ff102b933bafc670975ded` passed
+68 unit/contract tests, CEP build, all 34 runtime harness tests and package
+integrity (all commands exit 0). Build ID `fstr-cep-0b9790034c8e`;
+manifest SHA-256 `9986cf3622d470e099b4d3aa3e0b796f86c4ac3dc6e77f506394592bfcfae9bd`.
+
+Subsequent review tightened completion ownership: an incomplete-call error
+carries that call's completion Promise. The notification read does not look up
+mutable adapter state and accidentally wait for a different queued call.
+An added interleaving test passes with the full 69-test suite during development.
+This follow-up changes the artifact; the preceding clean package is historical
+evidence, not its verification. Repeat clean build/package/runtime gates and
+use the pushed commit's CI checks/artifact as the final source-bound record.
+
 Real AE timeout/recovery, runtime identity and playback impact: NOT RUN for this
 change. No new package is delivered for installation. The source gate remains
 open; see `NATIVE-SUBSCRIPTION-ABI-2026-09-29.md`.

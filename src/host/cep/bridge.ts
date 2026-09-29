@@ -14,6 +14,9 @@ export interface BridgeAttempt {
   readonly elapsedMs: number;
   readonly outcome: "empty" | "response" | "transport-error";
 }
+class IncompleteHostCallError extends Error {
+  constructor(message: string, readonly completion: Promise<void>) { super(message); }
+}
 export class CEPAdapter implements HostAdapter {
   private readonly timeoutMs: number;
   private operationTail: Promise<void> = Promise.resolve();
@@ -33,7 +36,7 @@ export class CEPAdapter implements HostAdapter {
   async readNotificationSnapshot(): Promise<CompositionSnapshot> {
     try { return await this.readSnapshot(); }
     catch (error) {
-      await this.pendingEval?.completion;
+      if (error instanceof IncompleteHostCallError) await error.completion;
       throw error;
     }
   }
@@ -78,7 +81,7 @@ export class CEPAdapter implements HostAdapter {
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const guarded = () => {
       if (this.pendingEval !== undefined) {
-        throw new Error("HOST_CALL_PENDING: previous AE call has not returned; wait for its callback or recover the host session. Reload is not proof of cancellation.");
+        throw new IncompleteHostCallError("HOST_CALL_PENDING: previous AE call has not returned; wait for its callback or recover the host session. Reload is not proof of cancellation.", this.pendingEval.completion);
       }
       return operation();
     };
@@ -93,7 +96,10 @@ export class CEPAdapter implements HostAdapter {
       const token = { completion: new Promise<void>((resolveCompletion) => { completed = resolveCompletion; }) };
       this.pendingEval = token;
       const timer = setTimeout(() => {
-        if (!settled) { settled = true; reject(new Error(`CEP evalScript timed out after ${this.timeoutMs}ms`)); }
+        if (!settled) {
+          settled = true;
+          reject(new IncompleteHostCallError(`CEP evalScript timed out after ${this.timeoutMs}ms`, token.completion));
+        }
       }, this.timeoutMs);
       try {
         this.bridge.evalScript(script, (result) => {
@@ -107,7 +113,10 @@ export class CEPAdapter implements HostAdapter {
       } catch (error) {
         // A synchronous bridge exception does not establish whether dispatch
         // happened. Keep the guard until a callback or real host recovery.
-        if (!settled) { settled = true; clearTimeout(timer); reject(error); }
+        if (!settled) {
+          settled = true; clearTimeout(timer);
+          reject(new IncompleteHostCallError(error instanceof Error ? error.message : "CEP dispatch failed", token.completion));
+        }
       }
     });
   }

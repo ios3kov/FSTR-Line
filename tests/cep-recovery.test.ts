@@ -134,3 +134,25 @@ test("notification read passes successful snapshots and completed host errors no
   next = JSON.stringify({ protocolVersion: 1, ok: false, error: { code: "NO_ACTIVE_COMP", message: "closed" } });
   await assert.rejects(adapter.readNotificationSnapshot(), /closed/);
 });
+
+test("notification completion belongs to the failed call, not a later queued call", async () => {
+  const callbacks: ((value: string) => void)[] = [];
+  let next: Promise<unknown> | undefined;
+  let startNext = true;
+  const adapter = new CEPAdapter({ evalScript(_script, callback) { callbacks.push(callback); } }, {
+    timeoutMs: 5,
+    onAttempt(attempt) {
+      if (startNext && attempt.outcome === "transport-error") {
+        startNext = false;
+        callbacks[0]!(reply);
+        next = adapter.readSnapshot();
+        void next.catch(() => undefined);
+      }
+    },
+  });
+  await assert.rejects(adapter.readNotificationSnapshot(), /timed out/);
+  assert.equal(callbacks.length, 2);
+  // The first notification read must reject without waiting for this callback.
+  callbacks[1]!(reply);
+  assert.deepEqual(await next, current);
+});
