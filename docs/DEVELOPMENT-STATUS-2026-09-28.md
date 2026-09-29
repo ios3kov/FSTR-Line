@@ -2,43 +2,31 @@
 
 Дата: 2026-09-29. Ветка: integration/host-safety-notifications, Draft PR #2. Main не изменён.
 
-## Evidence summary
+## Evidence already observed
 
-Real AE 25.6.0.101 evidence now confirms:
-- common project-change processing for native timing/add/delete/reorder/selection/switch/Undo/Redo/playhead;
-- ExtendScript origin before/after restart;
-- active composition transitions via exact `CItem::DeactivateVOut()` + `CItem::ActivateVOut()` correlated with state-oracle comp-name changes;
-- owned-file state oracle on real AE;
-- restart/reopen;
-- script-origin post-processing after `endUndoGroup`.
+Real AE 25.6.0.101 evidence confirms native project-change coverage, ExtendScript origin, active-comp transitions, real state oracle, restart/reopen and script-origin post-processing after endUndoGroup.
 
-Latest post-commit report:
-`FSTR-AE-Context-20260929T081250Z-b6f1f48ae274.zip`, SHA-256 `8611ed24247122810d604710165b75ca32913473f38225e421c237fd327245b6`.
+## Other-plugin helper — helper mutation observed, direct correlation still pending
 
-Marker timing:
-- before 1790669562027 ms, enabled=1
-- after mutation 1790669562130 ms, enabled=0
-- after endUndoGroup 1790669562156 ms, enabled=0
-- first after-ProcessFromRenderThread boundary after endUndoGroup: +46.631 ms
-- first DoProcessProjectChanges return after endUndoGroup: +75.062 ms
+Real report `FSTR-AE-PluginOrigin-20260929T084238Z-fcf93b543315.zip`, SHA-256 `111c386934f41448c56b3e79908fb9b4d0f593b37d4d2b9c65d8334829f6493c`.
 
-State snapshot after the action independently confirms enabled=0.
+The installed diagnostic AEGP helper is real and functional:
+- exact Build ID/source receipt present;
+- public-SDK mutation log shows first-layer VIDEO_ACTIVE `1 → 0`;
+- independent state oracle also shows L1 `1 → 0`.
 
-This is positive evidence for the tested script origin, not a universal native post-commit contract. Idle project-processing cycles remain, so project-processing points are wake/work boundaries, not one logical event per mutation.
+The direct-channel observer did not overlap the mutation: the action window lasted ~50.6 ms and detached roughly 2.47 s before the relevant helper mutation. Hence directHitCounts={} is a timing/protocol failure, not negative candidate evidence.
 
-## Current final evidence gap — other-plugin provenance
+## Current fix
 
-Research confirmed a public-SDK-only diagnostic path:
-`GetActiveItem → GetCompFromItem → GetCompLayerByIndex(0) → GetLayerFlags → StartUndoGroup → SetLayerFlag(VIDEO_ACTIVE) → EndUndoGroup`.
+Observe workflow is now mutation-driven instead of Enter-driven:
+1. observer records current helper-log sequence baseline;
+2. writes `plugin-origin-start`;
+3. user clicks Window → FSTR Plugin Origin Test once;
+4. Terminal automatically waits for a new exact-Build-ID `mutationEnd`;
+5. keeps LLDB active another 1.5 s for downstream processing;
+6. writes done and detaches.
 
-A separate diagnostic AEGP helper is being added. It:
-- is not production FSTR;
-- registers `Window → FSTR Plugin Origin Test`;
-- mutates only the first layer's VIDEO_ACTIVE flag when explicitly invoked;
-- writes a PID/build-specific provenance JSONL log under /tmp;
-- uses public AEGP suites only;
-- has a distinct Build ID/source commit so observer hits can be correlated to an independent plugin-origin mutation.
+No helper rebuild/reinstall is required. Updated observer explicitly accepts the currently installed helper source commit `d5a86afe...`.
 
-No automatic install/restart, merge/deploy, security change or production private-hook integration is performed by repository CI.
-
-SYNC-001 remains NOT RUN / not accepted until plugin-origin provenance is proven and remaining production performance/stability gates are addressed.
+SYNC-001 remains NOT RUN / not accepted until this corrected overlap run proves other-plugin direct-channel correlation and production performance/stability gates are addressed.

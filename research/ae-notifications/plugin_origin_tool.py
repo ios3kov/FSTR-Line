@@ -196,6 +196,21 @@ def read_jsonl(path):
     if not Path(path).is_file(): return []
     return [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
 
+def wait_for_new_mutation(log_path, build_id, after_sequence, process, timeout=60):
+    deadline=time.monotonic()+timeout
+    while time.monotonic()<deadline:
+        rows=read_jsonl(log_path)
+        matches=[r for r in rows
+                 if r.get('kind')=='mutationEnd'
+                 and r.get('buildId')==build_id
+                 and int(r.get('sequence',0))>int(after_sequence)]
+        if matches:
+            return matches[-1]
+        if process.poll() is not None:
+            raise Blocked('Observer ended before helper mutation was observed')
+        time.sleep(.05)
+    raise Blocked('Timed out waiting for Window → FSTR Plugin Origin Test mutation')
+
 def observe(args):
     manifest=load_manifest(); targets=json.loads((ROOT/'plugin_origin_targets.json').read_text())
     app=Path(args.app).expanduser() if args.app else collect_app.choose_app()
@@ -207,6 +222,9 @@ def observe(args):
     receipt=json.loads(receipt_path.read_text())
     if not receipt.get('diagnosticOnly') or receipt.get('targetAE')!='25.6.0.101': raise Blocked('Installed helper receipt invalid')
     build_id=receipt.get('buildId'); source_commit=receipt.get('sourceCommit')
+    expected_helper_commit=targets.get('acceptedHelperSourceCommit')
+    if expected_helper_commit and source_commit!=expected_helper_commit:
+        raise Blocked('Installed helper source commit is not accepted by this observer kit')
     log_path=Path('/tmp')/('FSTRPluginOrigin-'+str(pid)+'-'+str(build_id)+'.jsonl')
     deadline=time.monotonic()+10
     while time.monotonic()<deadline and not log_path.is_file(): time.sleep(.1)
@@ -214,6 +232,7 @@ def observe(args):
     initial_log=read_jsonl(log_path)
     if not any(r.get('kind')=='loaded' and r.get('buildId')==build_id and r.get('statusCode')==0 for r in initial_log):
         raise Blocked('Helper loaded record missing or failed')
+    initial_sequence=max((int(r.get('sequence',0)) for r in initial_log if r.get('buildId')==build_id), default=0)
     modules=[]
     for key,spec in targets['modules'].items():
         p=(app/spec['relativePath']).resolve(strict=True)
@@ -243,8 +262,13 @@ def observe(args):
             nonlocal sequence
             sequence+=1; runtime_protocol.send_phase(control,ack,sequence,label,proc,timeout=targets['ackTimeoutSeconds'])
         mark('plugin-origin-start')
-        print('In After Effects choose: Window → FSTR Plugin Origin Test')
-        input('After the first layer eye toggles, return here and press Enter → ')
+        print('In After Effects choose ONCE: Window → FSTR Plugin Origin Test')
+        print('Terminal will detect the helper mutation automatically. Do NOT press Enter.')
+        observed_mutation=wait_for_new_mutation(
+            log_path,build_id,initial_sequence,proc,
+            timeout=int(targets.get('mutationTimeoutSeconds',60)))
+        print('Helper mutation detected. Waiting briefly for downstream AE processing...')
+        time.sleep(float(targets.get('downstreamGraceSeconds',1.5)))
         mark('plugin-origin-done')
         sequence+=1; runtime_protocol.send_finish(control,sequence)
         try: proc.wait(timeout=targets['shutdownTimeoutSeconds'])
@@ -258,6 +282,8 @@ def observe(args):
     start=phases.get('plugin-origin-start',{}).get('wallTimeNs'); end=phases.get('plugin-origin-done',{}).get('wallTimeNs')
     if not start or not end: raise Blocked('Action phase boundaries missing')
     mutations=[r for r in plugin_log if r.get('kind')=='mutationEnd' and start<=r.get('wallTimeNs',0)<=end and r.get('buildId')==build_id]
+    if observed_mutation.get('wallTimeNs',0)<start or observed_mutation.get('wallTimeNs',0)>end:
+        raise Blocked('Detected helper mutation fell outside observer action window')
     hits=[r for r in trace if r.get('kind')=='candidate-hit' and start<=r.get('wallTimeNs',0)<=end]
     counts=Counter(r.get('label') for r in hits)
     mutation=mutations[-1] if mutations else None
