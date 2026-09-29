@@ -1,41 +1,48 @@
-import io
-import importlib.util
+import io,json,tempfile,types,unittest
 from pathlib import Path
-import unittest
+import importlib.util
 
-MODULE=Path(__file__).resolve().parents[2]/'research/ae-notifications/interactive_prompt.py'
-spec=importlib.util.spec_from_file_location('interactive_prompt',MODULE)
+ROOT=Path(__file__).resolve().parents[2]
+MODULE=ROOT/'research/ae-notifications/runtime_protocol.py'
+spec=importlib.util.spec_from_file_location('runtime_protocol',MODULE)
 protocol=importlib.util.module_from_spec(spec); spec.loader.exec_module(protocol)
 
-class InteractiveProtocolTests(unittest.TestCase):
-    def test_every_action_waits_for_enter_and_marks_start_done(self):
-        tty=io.StringIO('\n\n\n')
-        marks=[]
+class RuntimeProtocolTests(unittest.TestCase):
+    def test_parent_prompts_one_step_then_enter_then_next(self):
+        sent=[]; prompts=[]
         phases=[
-            {'label':'one','instructionRu':'Сделай первое действие.'},
-            {'label':'two','instructionRu':'Сделай второе действие.'},
+            {'label':'one','instructionRu':'Первое действие.'},
+            {'label':'two','instructionRu':'Второе действие.'},
         ]
-        protocol.run_interactive_phases(
-            phases,marks.append,tty=tty,start_timeout=1,step_timeout=1,
-            wait_readline=lambda stream,timeout: stream.readline())
-        self.assertEqual(marks,['one-start','one-done','two-start','two-done'])
-        output=tty.getvalue()
-        self.assertIn('ШАГ 1/2',output)
-        self.assertIn('нажми Enter',output)
+        answers=iter(['',''])
+        protocol.run_user_steps(
+            phases,sent.append,input_fn=lambda prompt:(prompts.append(prompt),next(answers))[1],
+            output_fn=lambda value: prompts.append(value))
+        self.assertEqual(sent,['one-start','one-done','two-start','two-done'])
+        joined='\n'.join(prompts)
+        self.assertIn('ШАГ 1/2',joined); self.assertIn('ШАГ 2/2',joined); self.assertIn('Enter',joined)
 
-    def test_timeout_stops_before_next_phase(self):
-        tty=io.StringIO()
-        marks=[]
-        with self.assertRaises(TimeoutError):
-            protocol.run_interactive_phases(
-                [{'label':'one','instructionRu':'Действие.'}],marks.append,tty=tty,
-                wait_readline=lambda stream,timeout: (_ for _ in ()).throw(TimeoutError('fixture')))
-        self.assertEqual(marks,[])
+    def test_jsonl_phase_ack_round_trip(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); control=root/'control'; ack=root/'ack'
+            control.touch(); ack.touch()
+            class Proc:
+                def poll(self): return None
+            protocol.append_jsonl(ack,{'kind':'phase-ack','sequence':7,'label':'x-start'})
+            protocol.send_phase(control,ack,7,'x-start',Proc(),1)
+            rows=protocol.read_complete_jsonl(control)
+            self.assertEqual(rows,[{'kind':'phase','sequence':7,'label':'x-start'}])
+
+    def test_wait_detects_child_exit(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/'ack'; path.touch()
+            class Proc:
+                def poll(self): return 2
+            with self.assertRaises(RuntimeError):
+                protocol.wait_for_record(path,kind='ready',sequence=0,process=Proc(),timeout=.2)
 
     def test_invalid_phase_rejected_before_prompt(self):
-        tty=io.StringIO('\n')
         with self.assertRaises(ValueError):
-            protocol.run_interactive_phases(
-                [{'label':'bad label','instructionRu':'Действие.'}],lambda x:None,tty=tty)
+            protocol.run_user_steps([{'label':'bad label','instructionRu':'x'}],lambda _:None)
 
 if __name__=='__main__': unittest.main()

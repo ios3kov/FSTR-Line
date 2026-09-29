@@ -4,7 +4,7 @@ import json, time, uuid
 from pathlib import Path
 import lldb
 import trace_callback
-import interactive_prompt
+import runtime_protocol
 
 def _write(path,data):
     with Path(path).open('x',encoding='utf-8') as f:
@@ -36,14 +36,18 @@ def _create_breakpoint(target,module,module_name,item):
         return bp,{'regex':item['regex']}
     raise RuntimeError('Breakpoint has neither fileAddress nor regex: '+item['label'])
 
+def _ack(path,kind,sequence=0,**extra):
+    runtime_protocol.append_jsonl(path,dict(kind=kind,sequence=sequence,**extra))
+
 def run(debugger,plan_name):
     plan=json.loads(Path(plan_name).read_text(encoding='utf-8'))
     result_path=Path(plan['resultPath']); trace_path=Path(plan['tracePath'])
+    control_path=Path(plan['controlPath']); ack_path=Path(plan['ackPath'])
     result={'status':'FAIL',
-            'scope':'observational LLDB breakpoint trace; no expressions/private target calls/project-variable reads/deliberate data writes',
+            'scope':'observational LLDB breakpoint trace; terminal interaction stays in parent launcher',
             'SYNC-001':'NOT RUN','pid':plan.get('pid'),'breakpoints':[],'detached':False,
-            'interactive':bool(plan.get('interactive',False))}
-    target=None; process=None; attached=False
+            'interactive':True}
+    target=None; process=None; attached=False; capture_started=False
     debugger.SetAsync(False)
     try:
         target=debugger.CreateTarget(plan['executable'])
@@ -80,61 +84,79 @@ def run(debugger,plan_name):
             bp.SetScriptCallbackFunction('trace_callback.on_breakpoint')
             bp_meta[bp.GetID()]={'label':item['label'],'role':item.get('role','candidate')}
 
-        if plan.get('interactive',False):
-            # Target is still paused here, so the initial Enter cannot race with AE activity.
-            with open('/dev/tty','r+',encoding='utf-8',buffering=1) as tty:
-                tty.write('\nDebugger подключён, AE временно на паузе. Нажми Enter, чтобы начать интерактивную запись.\n> ')
-                tty.flush()
-                interactive_prompt._wait_readline(tty,int(plan.get('interactiveStartTimeoutSeconds',60)))
-            trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
-                                         breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
-                                         max_seconds=int(plan['durationSeconds'])+30,
-                                         max_frames=int(plan.get('maxFrames',8)))
-            trace_callback.mark_phase('attach-verified')
-            debugger.SetAsync(True)
-            cont=process.Continue()
-            if cont.Fail():
-                raise RuntimeError('Could not continue attached process: '+str(cont))
-            interactive_prompt.run_interactive_phases(
-                plan['phases'],trace_callback.mark_phase,
-                start_timeout=int(plan.get('interactiveStartTimeoutSeconds',60)),
-                step_timeout=int(plan.get('interactiveStepTimeoutSeconds',60)))
-        else:
-            trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
-                                         breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
-                                         max_seconds=int(plan['durationSeconds'])+30,
-                                         max_frames=int(plan.get('maxFrames',8)))
-            trace_callback.mark_phase('attach-verified')
-            debugger.SetAsync(True)
-            cont=process.Continue()
-            if cont.Fail():
-                raise RuntimeError('Could not continue attached process: '+str(cont))
-            started=time.monotonic()
-            for phase in plan['phases']:
-                target_time=started+float(phase['offsetSeconds'])
-                while time.monotonic()<target_time:
-                    time.sleep(min(0.25,target_time-time.monotonic()))
-                trace_callback.mark_phase(phase['label'])
-            end=started+float(plan['durationSeconds'])
-            while time.monotonic()<end:
-                time.sleep(min(0.25,end-time.monotonic()))
+        trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
+                                     breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
+                                     max_seconds=int(plan['durationSeconds'])+30,
+                                     max_frames=int(plan.get('maxFrames',8)))
+        capture_started=True
+        trace_callback.mark_phase('attach-verified')
+        debugger.SetAsync(True)
+        cont=process.Continue()
+        if cont.Fail():
+            raise RuntimeError('Could not continue attached process: '+str(cont))
+        _ack(ack_path,'ready',0)
+
+        expected_sequence=1
+        deadline=time.monotonic()+float(plan['durationSeconds'])
+        finished=False
+        aborted=False
+        with control_path.open('r',encoding='utf-8') as control:
+            while time.monotonic()<deadline:
+                line=control.readline()
+                if not line:
+                    state=process.GetState()
+                    if state in (lldb.eStateExited,lldb.eStateCrashed,lldb.eStateDetached):
+                        raise RuntimeError('Target process ended during interactive capture')
+                    time.sleep(0.05)
+                    continue
+                row=json.loads(line)
+                if not isinstance(row,dict):
+                    raise RuntimeError('Invalid control row')
+                sequence=int(row.get('sequence',0))
+                if sequence!=expected_sequence:
+                    raise RuntimeError('Control sequence mismatch')
+                kind=row.get('kind')
+                if kind=='phase':
+                    label=row.get('label')
+                    trace_callback.mark_phase(label)
+                    _ack(ack_path,'phase-ack',sequence,label=label)
+                elif kind=='finish':
+                    trace_callback.mark_phase('capture-finished')
+                    _ack(ack_path,'finish-ack',sequence)
+                    finished=True
+                    break
+                elif kind=='abort':
+                    trace_callback.mark_phase('capture-aborted')
+                    _ack(ack_path,'abort-ack',sequence)
+                    aborted=True
+                    break
+                else:
+                    raise RuntimeError('Unknown control command')
+                expected_sequence+=1
+            else:
+                raise RuntimeError('Interactive control protocol timed out')
 
         debugger.SetAsync(False)
-        stop_error=process.Stop()
-        if stop_error.Fail():
-            raise RuntimeError('Could not pause process for clean detach: '+str(stop_error))
-        trace_callback.mark_phase('capture-finished')
-        trace_callback.stop_capture()
+        if process.GetState()==lldb.eStateRunning:
+            stop_error=process.Stop()
+            if stop_error.Fail():
+                raise RuntimeError('Could not pause process for clean detach: '+str(stop_error))
+        trace_callback.stop_capture(); capture_started=False
         detach_error=process.Detach()
         if detach_error.Fail():
             raise RuntimeError('Detach failed: '+str(detach_error))
         attached=False
-        result.update(status='PASS',stage='complete',detached=True,
-                      note='PASS means observer ran and detached, not notification coverage.')
+        if finished and not aborted:
+            result.update(status='PASS',stage='complete',detached=True,
+                          note='PASS means observer ran and detached, not notification coverage.')
+        else:
+            result.update(status='BLOCKED',stage='aborted',detached=True,
+                          note='Interactive capture aborted before completion.')
         _write(result_path,result)
     except Exception as error:
-        try: trace_callback.stop_capture()
-        except Exception: pass
+        if capture_started:
+            try: trace_callback.stop_capture()
+            except Exception: pass
         result.update(status='FAIL' if attached else result.get('status','FAIL'),
                       stage=result.get('stage','runtime'),error=str(error))
         if attached and process and process.IsValid():

@@ -16,6 +16,7 @@ class ResearchScriptSyntaxTests(unittest.TestCase):
         paths=[
             ROOT/'research/ae-notifications/runtime_probe.py',
             ROOT/'research/ae-notifications/runtime_control.py',
+            ROOT/'research/ae-notifications/runtime_protocol.py',
             ROOT/'research/ae-notifications/focused_static.py',
             ROOT/'research/ae-notifications/trace_callback.py',
         ]

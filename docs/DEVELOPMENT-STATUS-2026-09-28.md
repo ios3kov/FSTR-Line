@@ -2,26 +2,21 @@
 
 Дата: 2026-09-29. Рабочая ветка: integration/host-safety-notifications, Draft PR #2. Main не слит и не изменён.
 
-## Реальные AE evidence
+## Runtime research
 
-Два реальных runtime trace уже получены на AE 25.6.0.101. Они подтвердили живые BEE/AfterFX internal paths, но command-level Undo/selection markers шумные и второй trace не смог надёжно разделить поздние действия по таймеру.
+Два реальных AE runtime trace подтверждают живые internal BEE/AfterFX paths, но полный notification source ещё не доказан. V3/V4 добавили transaction/content boundaries, exact action markers, labels/roles и bounded stack evidence.
 
-## Текущий gate: Runtime v4 — интерактивно через Enter
+## Текущий gate: Runtime v5
 
-По пользовательскому запросу таймеры для действий удалены полностью.
+V4 не дал пользователю интерактивных шагов: Terminal напечатал список и runtime завершился FAIL до первого action prompt. Архитектура исправлена, а не замаскирована.
 
-Сценарий:
-1. Terminal показывает ровно одно действие.
-2. Пользователь выполняет его в After Effects.
-3. Возвращается в Terminal и нажимает Enter.
-4. Observer пишет DONE marker и только тогда показывает следующий шаг.
+Теперь Terminal UX полностью принадлежит внешнему launcher:
+**одно действие → пользователь делает его в AE → возвращается в Terminal → Enter → следующий шаг.**
 
-Каждая action window имеет отдельные `<label>-start` / `<label>-done` markers. Это устраняет неоднозначность человеческой задержки предыдущих timed traces.
+LLDB больше не читает /dev/tty и получает stdin=/dev/null. Parent launcher и LLDB controller синхронизируются приватными JSONL command/ack файлами в owned temp directory. Каждый start/done marker подтверждается LLDB до перехода дальше.
 
-Набор exact-address кандидатов сохраняет v3: transaction/content boundaries, Undo/selection/switch paths, AfterFX move/trim/switch action markers и playhead candidates. Callback пишет label/role и bounded top-8 stack metadata без target variables/expressions.
+Breakpoint set остаётся exact-address v4: BEE transaction/content boundaries, Undo/selection/switch candidates, AfterFX move/trim/switch action markers и playhead candidates. Callback не вызывает target private API и не читает target variables/project contents.
 
-Интерактивное ожидание идёт через `/dev/tty`; каждый Enter ограничен 60 секундами, а error/timeout обязан привести к clean detach. Голосовые команды больше не используются.
-
-Перед handoff обязательны push+PR Linux/macOS PASS, unit-тест Enter protocol, exact package, runtime attach smoke, clean source и artifact hash.
+Перед handoff обязательны unit protocol tests, exact package, real macOS parent/LLDB IPC attach smoke with breakpoint hits + start/done markers + clean detach, push+PR Linux/macOS PASS and exact artifact hash.
 
 SYNC-001 всё ещё NOT RUN. Private production hook не интегрирован.

@@ -4,7 +4,7 @@ import hashlib,json,shutil,subprocess,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]; SRC=ROOT/'research/ae-notifications'
 NAMES=('Runtime-AE.command','runtime_probe.py','runtime_control.py','trace_callback.py',
-       'interactive_prompt.py','runtime_candidates.json','collect_app.py')
+       'runtime_protocol.py','runtime_candidates.json','collect_app.py')
 def git(*a): return subprocess.check_output(['git','-C',str(ROOT),*a],text=True).strip()
 def main():
     if git('status','--porcelain'): raise SystemExit('Dirty source: runtime handoff refused')
