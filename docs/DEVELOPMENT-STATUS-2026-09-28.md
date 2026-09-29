@@ -2,6 +2,18 @@
 
 Дата: 2026-09-29. Ветка: integration/host-safety-notifications, Draft PR #2. Main не изменён.
 
+## Delivery implementation stage
+
+Implemented an isolated read-side notification delivery state machine and
+contract: `docs/NOTIFICATION_DELIVERY.md`. It validates exact compatibility
+identity, serializes reads, coalesces bursts, suppresses obsolete replies,
+reconciles observable sequence gaps and stops on errors/deadlines. No private
+AE producer is installed or wired to the panel. The existing CEP adapter's
+early timeout settlement needs a transport integration decision before reuse.
+
+Verification and limitations: `docs/TEST_RECORDS/NOTIFICATION-DELIVERY-2026-09-29.md`.
+This stage does not close any real-AE shipping source/performance gate below.
+
 ## SYNC-001 research coverage
 
 **Origins/coverage research: OBSERVED. Production integration: BLOCKED.**
