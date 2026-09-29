@@ -57,6 +57,10 @@ follows from this static inspection.
 
 ## Decision
 
+Follow-up native client and lifetime evidence:
+`NATIVE-SUBSCRIPTION-LIFETIME-2026-09-29.md`. It narrows owner/disconnect
+semantics without establishing a safe shipping ABI or complete source.
+
 Static discovery PASS for these narrow facts. Native subscription execution
 NOT RUN. No candidate is selected for production: casting a guessed prototype
 to one of these symbols would skip the callback/return/lifetime safety gate.

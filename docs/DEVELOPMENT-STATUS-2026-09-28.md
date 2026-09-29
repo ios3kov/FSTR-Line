@@ -4,6 +4,11 @@
 
 ## Delivery implementation stage
 
+Native lifetime follow-up identifies copied callbacks surviving registration
+removal; Disconnect is not a proven quiescence fence. An owned C++ control
+passes ASan/UBSan, but is not an AE runtime test. See
+`docs/TEST_RECORDS/NATIVE-SUBSCRIPTION-LIFETIME-2026-09-29.md`.
+
 Native subscription triage now identifies real exported connect/listener
 candidates, but private ABI, ownership and full Timeline coverage remain
 unproved. See `docs/TEST_RECORDS/NATIVE-SUBSCRIPTION-ABI-2026-09-29.md`.
