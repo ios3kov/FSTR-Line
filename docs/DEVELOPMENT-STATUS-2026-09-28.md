@@ -72,3 +72,9 @@ LLDB breakpoints are not a shipping mechanism. Production acceptance still requi
 Polling/revision/idle/focus/self-events remain non-compliant substitutes.
 
 SYNC-001 remains NOT RUN as a production integration gate.
+
+## После текущего плана
+
+FSTR Layer Groups — идея раскрывающихся групп слоёв без precomp добавлена
+в будущую разработку. Вернуться после завершения текущего плана; текущий
+scope не расширяется. См. раздел 18 в `docs/PRODUCTION_PLAN.md`.
