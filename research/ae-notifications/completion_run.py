@@ -123,10 +123,17 @@ def run(app, pid, output, fixture_identity=None):
                 'separate':'app.beginUndoGroup("FSTR first");try{l.enabled=false;}finally{app.endUndoGroup();}app.beginUndoGroup("FSTR second");try{l.enabled=true;}finally{app.endUndoGroup();}',
                 'noop':'app.beginUndoGroup("FSTR noop");try{l.enabled=l.enabled;}finally{app.endUndoGroup();}',
                 'single-off':'app.beginUndoGroup("FSTR off");try{l.enabled=false;}finally{app.endUndoGroup();}',
-                'single-on':'app.beginUndoGroup("FSTR on");try{l.enabled=true;}finally{app.endUndoGroup();}'
+                'single-on':'app.beginUndoGroup("FSTR on");try{l.enabled=true;}finally{app.endUndoGroup();}',
+                'partial-error':('var caught=false;app.beginUndoGroup("FSTR controlled error");'
+                    'try{l.enabled=false;throw new Error("FSTR controlled test failure");}'
+                    'catch(e){if(e.message==="FSTR controlled test failure")caught=true;else throw e;}'
+                    'finally{app.endUndoGroup();}'
+                    'if(!caught)throw new Error("Controlled exception was not observed");'),
+                'recovery':'app.beginUndoGroup("FSTR recovery");try{l.enabled=true;}finally{app.endUndoGroup();}'
             }
             expected = {'grouped':True,'separate':True,'noop':True,
-                        'single-off':False,'single-on':True}
+                        'single-off':False,'single-on':True,
+                        'partial-error':False,'recovery':True}
             for label, body in cases.items():
                 sequence += 1
                 protocol.send_phase(work/'control.jsonl',work/'ack.jsonl',sequence,label+'-start',process,10)
