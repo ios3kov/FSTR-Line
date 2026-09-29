@@ -83,6 +83,8 @@ def run(debugger,plan_name):
                 raise RuntimeError('Breakpoint location count outside declared bounds: '+item['label'])
             bp.SetScriptCallbackFunction('trace_callback.on_breakpoint')
             bp_meta[bp.GetID()]={'label':item['label'],'role':item.get('role','candidate')}
+            if 'contextRegister' in item:
+                bp_meta[bp.GetID()]['contextRegister']=item['contextRegister']
 
         trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
                                      breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),

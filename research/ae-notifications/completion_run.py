@@ -42,6 +42,10 @@ def execute(work, label, body):
 def run(app, pid, output):
     identity = completion_preflight.preflight(app, pid)
     targets = json.loads((ROOT / 'completion_targets.json').read_text())
+    # Inspected arm64 setter bodies preserve their context pointer in x19 at
+    # these eight exact-build sites. No target memory is dereferenced.
+    for point in targets['breakpoints']:
+        point['contextRegister']='x19'
     output.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix='completion-', dir=output))
     os.chmod(work, 0o700)

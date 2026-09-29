@@ -25,6 +25,34 @@ def location(bp_id=1):
 class TraceTests(unittest.TestCase):
     def tearDown(self): trace.stop_capture()
 
+    def test_context_tokens_are_local_and_hide_pointer_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'trace.jsonl'
+            trace.start_capture(path,'fixture',42,{UID:'a'*64},
+                                breakpoints={1:{'label':'edge','contextRegister':'x19'}})
+            for pointer in (987654321,123456789,987654321):
+                f=frame()
+                f.FindRegister=lambda name: types.SimpleNamespace(
+                    IsValid=lambda:True,GetError=lambda:types.SimpleNamespace(Success=lambda:True),
+                    GetValueAsUnsigned=lambda default:pointer)
+                self.assertFalse(trace.on_breakpoint(f,location(),{}))
+            trace.stop_capture()
+            hits=[json.loads(x) for x in path.read_text().splitlines() if 'candidate-hit' in x]
+            self.assertEqual([x['contextToken'] for x in hits],['context-1','context-2','context-1'])
+            for pointer in (987654321,123456789):
+                self.assertNotIn(str(pointer),path.read_text())
+                self.assertNotIn(hex(pointer),path.read_text())
+
+    def test_context_register_failure_pauses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'trace.jsonl'
+            trace.start_capture(path,'fixture',42,{UID:'a'*64},
+                                breakpoints={1:{'label':'edge','contextRegister':'x19'}})
+            f=frame();f.FindRegister=lambda name:types.SimpleNamespace(IsValid=lambda:False)
+            self.assertTrue(trace.on_breakpoint(f,location(),{}))
+            trace.stop_capture()
+            self.assertIn('capture-error',path.read_text())
+
     def test_no_implicit_capture_or_resume(self):
         self.assertTrue(trace.on_breakpoint(frame(),location(),{}))
 

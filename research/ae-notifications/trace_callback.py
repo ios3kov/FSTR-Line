@@ -38,13 +38,18 @@ def start_capture(path,run_id,expected_pid,modules,breakpoints=None,max_events=5
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',label) or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',role):
             raise ValueError('Invalid breakpoint label/role')
         bp_meta[bp_id]={'label':label,'role':role}
+        register=value.get('contextRegister')
+        if register is not None:
+            if register != 'x19':
+                raise ValueError('Unsupported context register')
+            bp_meta[bp_id]['contextRegister']=register
     with _lock:
         if _capture is not None:
             raise RuntimeError('A capture is already active')
         fd=os.open(Path(path),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
         stream=os.fdopen(fd,'w',encoding='utf-8')
         _capture={'stream':stream,'runId':run_id,'pid':expected_pid,'modules':normalized,
-                  'breakpoints':bp_meta,'maxFrames':max_frames,
+                  'breakpoints':bp_meta,'maxFrames':max_frames,'contexts':{},
                   'started':time.monotonic_ns(),'sequence':0,'hits':0,
                   'maxEvents':max_events,'maxNs':int(max_seconds*1e9),'stopped':False}
         _write({'kind':'capture-start','moduleIdentities':normalized,
@@ -115,6 +120,21 @@ def on_breakpoint(frame,bp_loc,internal_dict):
                 raise ValueError('Unidentified module UUID')
             bp_id=bp_loc.GetBreakpoint().GetID()
             meta=_capture['breakpoints'].get(bp_id,{'label':'unlabeled','role':'candidate'})
+            context={}
+            if meta.get('contextRegister'):
+                register=frame.FindRegister(meta['contextRegister'])
+                if not register.IsValid() or not register.GetError().Success():
+                    raise ValueError('Context register unavailable')
+                value=register.GetValueAsUnsigned(0)
+                if not value:
+                    raise ValueError('Context register is null/unreadable')
+                # Session-local labels only: never log raw pointer values.
+                key=(module_uuid,value)
+                contexts=_capture['contexts']
+                if key not in contexts:
+                    contexts[key]='context-'+str(len(contexts)+1)
+                context={'contextToken':contexts[key],
+                         'contextIdentityScope':'capture-local-address-not-lifetime'}
             _capture['hits']+=1
             _write({'kind':'candidate-hit','source':'lldb-breakpoint','commitPhase':'UNKNOWN',
                     'pid':_capture['pid'],'threadId':thread.GetThreadID(),
@@ -122,7 +142,7 @@ def on_breakpoint(frame,bp_loc,internal_dict):
                     'label':meta['label'],'role':meta['role'],
                     'moduleUUID':module_uuid,'unslidAddress':hex(address.GetFileAddress()),
                     'function':frame.GetFunctionName(),'stack':_stack(thread),
-                    'isNotificationProven':False})
+                    'isNotificationProven':False,**context})
             return False
         except Exception as error:
             _capture['stopped']=True
