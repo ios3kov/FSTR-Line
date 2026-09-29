@@ -8,6 +8,9 @@ Command/group/Undo/Redo setters share completion on aggregate activity ending,
 not on each layer mutation. The static matrix and next correlation scenarios
 are in `docs/TEST_RECORDS/COMMAND-COMPLETION-MATRIX-2026-09-29.md`.
 This does not close source coverage or post-commit acceptance.
+An owned executable model now checks all 128 boolean transitions and grouped
+traces; 98 research tests pass locally. This validates the model's consistency,
+not event delivery in AE.
 
 Undo completion producer located in SetExecutingUndo's activity transition.
 Scoped teardown can reach it during exception cleanup, so completion must not

@@ -65,3 +65,22 @@ Verification: complete bounded function disassembly, cross-check against prior
 Undo record, documentation review and `git diff --check`. Application build,
 regression and profiling reruns are N/A for this documentation-only change
 (rules section 9). Runtime acceptance and compatibility review remain open.
+
+## Follow-up: executable owned model
+
+Baseline for this follow-up: 5c6c729. Added
+`tests/research/test_command_activity_model.py`, an isolated boolean model of
+the inspected suppression branches, not Adobe implementation or ABI code.
+All 128 state/field/value combinations agree with aggregate activity edges.
+Six tests also cover two commands in one group versus separate commands,
+repeated flags, overlapping Undo/Redo flags, and the inability of an activity
+trace alone to distinguish success/error/no-op outcomes. Hypothetical traces
+are explicitly not real-AE observations. Reentrancy, threading, actual setter
+call sites and downstream commit ordering are outside this model.
+
+Verification on macOS arm64: `python3 -B -m unittest discover -s tests/research
+-p 'test_*.py'` — 98 tests PASS, including six new model tests. The existing
+CI discovery automatically includes them. No product source changed; this
+follow-up adds research tests and does not create a shipping artifact.
+Next acceptance still requires controlled real-event correlation, not more
+model cases as a substitute for missing runtime evidence.
