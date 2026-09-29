@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import uuid
 import sys
+import re
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
@@ -39,7 +40,34 @@ def execute(work, label, body):
     return json.loads(output.read_text())
 
 
-def run(app, pid, output):
+def fixture_guard(fixture):
+    name = fixture['name']
+    if (not isinstance(name, str) or not re.fullmatch(r'FSTR completion test [0-9a-f]{12}', name)
+            or type(fixture['compId']) is not int or fixture['compId'] <= 0
+            or type(fixture['layerId']) is not int or fixture['layerId'] <= 0):
+        raise ValueError('Invalid owned fixture identity')
+    return ('if(!app.project)throw new Error("No project");'
+            'var c=null;for(var i=1;i<=app.project.numItems;i++){'
+            'var x=app.project.item(i);if(x.id===' + str(fixture['compId']) + ')c=x;}'
+            'if(!c||c.name!==' + json.dumps(name) + '||c.numLayers!==1)throw new Error("fixture changed");'
+            'var l=c.layer(1);if(l.id!==' + str(fixture['layerId']) +
+            '||l.name!=="FSTR owned test layer")throw new Error("layer changed");')
+
+
+def verify_read(result, fixture, enabled):
+    if (type(result) is not dict or result.get('compId') != fixture['compId']
+            or result.get('layerId') != fixture['layerId']
+            or result.get('name') != fixture['name']
+            or result.get('enabled') is not enabled):
+        raise RuntimeError('Owned fixture state/identity mismatch')
+
+
+def read_fixture(work, label, fixture):
+    body = fixture_guard(fixture) + 'var result={compId:c.id,layerId:l.id,name:c.name,enabled:l.enabled};'
+    return execute(work, label, body)
+
+
+def run(app, pid, output, fixture_identity=None):
     identity = completion_preflight.preflight(app, pid)
     targets = json.loads((ROOT / 'completion_targets.json').read_text())
     # Inspected arm64 setter bodies preserve their context pointer in x19 at
@@ -50,15 +78,23 @@ def run(app, pid, output):
     work = Path(tempfile.mkdtemp(prefix='completion-', dir=output))
     os.chmod(work, 0o700)
     print('Research workspace: ' + str(work), flush=True)
-    name = 'FSTR completion test ' + uuid.uuid4().hex[:12]
-    setup = execute(work, 'setup',
-        'if(!app.project)throw new Error("No project");'
-        'var c=app.project.items.addComp(' + json.dumps(name) + ',64,64,1,2,24);'
-        'var l=c.layers.addNull();l.name="FSTR owned test layer";'
-        'var result={compId:c.id,layerId:l.id,name:c.name,enabled:l.enabled};')
+    if fixture_identity is None:
+        name = 'FSTR completion test ' + uuid.uuid4().hex[:12]
+        setup = execute(work, 'setup',
+            'if(!app.project)throw new Error("No project");'
+            'var c=app.project.items.addComp(' + json.dumps(name) + ',64,64,1,2,24);'
+            'var l=c.layers.addNull();l.name="FSTR owned test layer";'
+            'var result={compId:c.id,layerId:l.id,name:c.name,enabled:l.enabled};')
+    else:
+        prior = json.loads(Path(fixture_identity).read_text(encoding='utf-8'))
+        setup = prior['fixture']
+        fixture_guard(setup)
+        verify_read(read_fixture(work, 'reuse-preflight', setup), setup, True)
+        name = setup['name']
     write_new(work / 'identity.json', json.dumps({'preflight':identity,'fixture':setup}, indent=2))
     if setup.get('name') != name or setup.get('enabled') is not True:
         raise RuntimeError('Fixture identity failed; no attach')
+    guard = fixture_guard(setup)
     # Recheck immediately before attach. The user explicitly authorized this session.
     completion_preflight.preflight(app, pid)
     _, binary, _ = context.collect_app.identity(app)
@@ -82,23 +118,25 @@ def run(app, pid, output):
         process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         try:
             protocol.wait_for_record(work/'ack.jsonl', kind='ready', sequence=0, process=process, timeout=25)
-            guard = ('var c=null;for(var i=1;i<=app.project.numItems;i++){'
-                     'var x=app.project.item(i);if(x.id===' + str(setup['compId']) + ')c=x;}'
-                     'if(!c||c.name!==' + json.dumps(name) + '||c.numLayers!==1)throw new Error("fixture changed");'
-                     'var l=c.layer(1);if(l.id!==' + str(setup['layerId']) + ')throw new Error("layer changed");')
             cases = {
                 'grouped':'app.beginUndoGroup("FSTR grouped");try{l.enabled=false;l.enabled=true;}finally{app.endUndoGroup();}',
                 'separate':'app.beginUndoGroup("FSTR first");try{l.enabled=false;}finally{app.endUndoGroup();}app.beginUndoGroup("FSTR second");try{l.enabled=true;}finally{app.endUndoGroup();}',
-                'noop':'app.beginUndoGroup("FSTR noop");try{l.enabled=l.enabled;}finally{app.endUndoGroup();}'
+                'noop':'app.beginUndoGroup("FSTR noop");try{l.enabled=l.enabled;}finally{app.endUndoGroup();}',
+                'single-off':'app.beginUndoGroup("FSTR off");try{l.enabled=false;}finally{app.endUndoGroup();}',
+                'single-on':'app.beginUndoGroup("FSTR on");try{l.enabled=true;}finally{app.endUndoGroup();}'
             }
+            expected = {'grouped':True,'separate':True,'noop':True,
+                        'single-off':False,'single-on':True}
             for label, body in cases.items():
                 sequence += 1
                 protocol.send_phase(work/'control.jsonl',work/'ack.jsonl',sequence,label+'-start',process,10)
-                result = execute(work,label,guard + body + 'var result={compId:c.id,layerId:l.id,enabled:l.enabled};')
-                if result.get('enabled') is not True:
-                    raise RuntimeError('Unexpected fixture state: ' + label)
+                result = execute(work,label,guard + body +
+                    'var result={compId:c.id,layerId:l.id,name:c.name,enabled:l.enabled};')
+                verify_read(result,setup,expected[label])
                 sequence += 1
                 protocol.send_phase(work/'control.jsonl',work/'ack.jsonl',sequence,label+'-done',process,10)
+                # A distinct read-only JSX invocation observes the committed project state.
+                verify_read(read_fixture(work,'oracle-'+label,setup),setup,expected[label])
             sequence += 1
             protocol.send_finish(work/'control.jsonl',sequence)
         except BaseException:
@@ -124,5 +162,7 @@ if __name__ == '__main__':
     parser.add_argument('--pid',type=int,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--allow-owned-comp-and-attach',action='store_true',required=True)
+    parser.add_argument('--fixture-identity',type=Path,
+                        help='Reuse a previously owned comp after exact identity/state check')
     args=parser.parse_args()
-    run(args.app.resolve(),args.pid,args.output.resolve())
+    run(args.app.resolve(),args.pid,args.output.resolve(),args.fixture_identity)

@@ -10,6 +10,30 @@ r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 
 class CompletionRunTests(unittest.TestCase):
+    def test_owned_fixture_guard_and_separate_read(self):
+        fixture={'compId':16,'layerId':29,'name':'FSTR completion test cf59d1b55ebb'}
+        with mock.patch.object(r,'execute',return_value={**fixture,'enabled':True}) as execute:
+            self.assertEqual(r.read_fixture(Path('/unused'),'oracle',fixture),{**fixture,'enabled':True})
+            body=execute.call_args.args[2]
+            self.assertIn('x.id===16',body)
+            self.assertIn('l.id!==29',body)
+            self.assertIn('l.name!=="FSTR owned test layer"',body)
+            self.assertNotIn('addComp',body)
+            self.assertNotIn('l.enabled=',body)
+
+    def test_oracle_rejects_identity_and_state_mismatch(self):
+        fixture={'compId':16,'layerId':29,'name':'FSTR completion test cf59d1b55ebb'}
+        for changed in ({**fixture,'enabled':False},
+                        {**fixture,'layerId':30,'enabled':True},
+                        {**fixture,'enabled':1},
+                        {'enabled':True}):
+            with self.subTest(changed=changed),self.assertRaises(RuntimeError):
+                r.verify_read(changed,fixture,True)
+
+    def test_reuse_identity_rejects_unowned_name(self):
+        with self.assertRaises(ValueError):
+            r.fixture_guard({'compId':16,'layerId':29,'name':'User comp'})
+
     def test_preflight_refusal_precedes_script_and_process(self):
         with tempfile.TemporaryDirectory() as td, \
              mock.patch.object(r.completion_preflight,'preflight',side_effect=ValueError('mismatch')), \
