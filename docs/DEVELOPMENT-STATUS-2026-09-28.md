@@ -4,6 +4,17 @@
 
 ## Delivery implementation stage
 
+Phase accounting: the production plan defines five phases (0–4). Phase 0's
+full real-AE acceptance gate remains open; later-phase implementation exists
+but does not establish sequential phase completion. No measured overall
+completion percentage is available; the conversational 60% estimate is not
+acceptance evidence.
+
+Dirty-source producer inspection now finds an equality guard in
+SetContentChanged: repeated identical dirty values skip this signal dispatch.
+This path alone is not a complete mutation notification source. See
+`docs/TEST_RECORDS/DIRTY-SOURCE-LIMIT-2026-09-29.md`.
+
 Native lifetime follow-up identifies copied callbacks surviving registration
 removal; Disconnect is not a proven quiescence fence. An owned C++ control
 passes ASan/UBSan, but is not an AE runtime test. See
