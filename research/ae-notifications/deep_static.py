@@ -68,6 +68,14 @@ def lldb_known(path,functions,max_bytes):
     code,text=run_text(args,timeout=120,max_bytes=max_bytes)
     return {"exitCode":code,"output":text}
 
+def analysis_complete(report):
+    candidates=report.get("activeCompCandidates",{})
+    functions=report.get("knownFunctionStatic",{})
+    return (bool(candidates) and bool(functions)
+            and all(row.get("exitCode")==0 and row.get("limited") is False
+                    for row in candidates.values())
+            and all(row.get("exitCode")==0 for row in functions.values()))
+
 def main(argv=None):
     p=argparse.ArgumentParser()
     p.add_argument("--app",type=Path,required=True)
@@ -106,6 +114,9 @@ def main(argv=None):
             if funcs:
                 report["knownFunctionStatic"][key]=lldb_known(
                     path,funcs,int(limits["maxLldbOutputBytes"]))
+        if not analysis_complete(report):
+            report["status"]="BLOCKED"
+            report["limitations"].append("Static analysis failed or was incomplete; inspect per-tool results.")
     out=args.output.expanduser().resolve(); out.mkdir(parents=True,exist_ok=True)
     run_id=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:12]
     archive=out/("FSTR-AE-Deep-"+run_id+".zip")

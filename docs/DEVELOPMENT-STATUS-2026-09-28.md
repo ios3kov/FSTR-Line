@@ -4,6 +4,10 @@
 
 ## Delivery implementation stage
 
+Fixed deep-static diagnostic false-PASS handling: failed/limited tool analysis
+now yields BLOCKED. Baseline reproduced; 100 research tests PASS locally.
+See `docs/TEST_RECORDS/DEEP-STATIC-COMPLETENESS-2026-09-29.md`.
+
 Command/group/Undo/Redo setters share completion on aggregate activity ending,
 not on each layer mutation. The static matrix and next correlation scenarios
 are in `docs/TEST_RECORDS/COMMAND-COMPLETION-MATRIX-2026-09-29.md`.
