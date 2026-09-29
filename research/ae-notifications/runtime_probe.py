@@ -99,10 +99,39 @@ def run_jsx(bundle_id,script_path,timeout=30):
                 'stdout':'','stderr':str(error)[:4000],'returnCode':None,
                 'error':'AppleScript bridge launch failed; matrix continues'}
 
-def snapshot(bundle_id):
-    row=run_jsx(bundle_id,ROOT/'FSTR-Snapshot.jsx',timeout=15)
-    return {'ok':row['ok'],'value':row['stdout'],'error':row['stderr'],
-            'elapsedMs':row['elapsedMs']}
+def snapshot(bundle_id,workspace):
+    workspace=Path(workspace).resolve()
+    workspace.mkdir(parents=True,exist_ok=True,mode=0o700)
+    shot=workspace/("snapshot-"+uuid.uuid4().hex[:12])
+    shot.mkdir(mode=0o700)
+    script_path=shot/"FSTR-Snapshot.jsx"
+    shutil.copyfile(ROOT/"FSTR-Snapshot.jsx",script_path)
+    output_path=shot/"state.txt"
+    target_path=shot/"snapshot-target.txt"
+    target_path.write_text(str(output_path)+"\n",encoding="utf-8")
+    row=run_jsx(bundle_id,script_path,timeout=15)
+    value=""
+    error=row.get('stderr','')
+    ok=False
+    if row.get('ok'):
+        try:
+            if output_path.is_symlink() or not output_path.is_file():
+                raise ValueError("Snapshot output file was not created")
+            resolved=output_path.resolve(strict=True)
+            if not resolved.is_relative_to(shot.resolve()):
+                raise ValueError("Snapshot output escaped owned workspace")
+            if output_path.stat().st_size>65536:
+                raise ValueError("Snapshot output exceeded 64 KiB")
+            value=output_path.read_text(encoding="utf-8")
+            ok=bool(value)
+            if not ok:
+                raise ValueError("Snapshot output was empty")
+        except (OSError,ValueError) as exc:
+            error=str(exc)
+            ok=False
+    return {'ok':ok,'value':value,'error':error,
+            'elapsedMs':row.get('elapsedMs'),'bridgeOk':bool(row.get('ok')),
+            'timedOut':bool(row.get('timedOut'))}
 
 def append_evidence(path,row):
     runtime_protocol.append_jsonl(path,dict(row,wallTimeNs=time.time_ns(),monotonicNs=time.monotonic_ns()))
@@ -191,7 +220,7 @@ def run_observer_session(binary,pid,modules,candidates,phases,work,session_name,
         try:
             total=len(phases)
             for index,phase in enumerate(phases,1):
-                before=snapshot(bundle_id)
+                before=snapshot(bundle_id,session/'snapshots')
                 append_evidence(evidence_path,{'kind':'snapshot-before','session':session_name,
                     'phase':phase['label'],'snapshot':before})
                 mark(phase['label']+'-start')
@@ -219,7 +248,7 @@ def run_observer_session(binary,pid,modules,candidates,phases,work,session_name,
                 else:
                     input('Сделай действие в After Effects, вернись в Terminal и нажми Enter → ')
                 mark(phase['label']+'-done')
-                after=snapshot(bundle_id)
+                after=snapshot(bundle_id,session/'snapshots')
                 append_evidence(evidence_path,{'kind':'snapshot-after','session':session_name,
                     'phase':phase['label'],'snapshot':after,'changed':before.get('value')!=after.get('value')
                         if before.get('ok') and after.get('ok') else None})

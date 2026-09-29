@@ -10,20 +10,26 @@
 
 Открытые доказательные долги:
 - active composition switch: 0 candidate hits → отдельный direct channel нужен;
-- post-commit: UNPROVEN; нормальные окна имеют последний ProcessProjectChanges после известных markers, но burst даёт контрпример;
-- state snapshot oracle невалиден: DoScriptFile возвращал 0 вместо строки состояния;
-- other-plugin window содержит hits, но provenance стороннего plugin не доказан;
+- post-commit: UNPROVEN; normal windows имеют последний ProcessProjectChanges после известных markers, но burst даёт контрпример;
+- historical Final Matrix state snapshots невалидны: DoScriptFile возвращал 0 вместо JSX return string;
+- other-plugin provenance не доказан;
 - LLDB burst overhead 14.579x нельзя переносить на production performance.
 
-## Текущий этап
+## Deep Static
 
-По DEVELOPMENT_RULES следующий gate сначала статический и read-only:
-1. exact SHA+UUID validation реальных BEE/AfterFXLib;
-2. bounded static disassembly `DoProcessProjectChanges` и известных boundary/playhead functions;
-3. symbol discovery для active-comp/composition/viewer activation;
-4. reproducible offline Final Matrix analyzer;
-5. только после конкретных static leads — узкий runtime positive control, если он действительно нужен.
+Commit `020673eb4763bb12035cb0c2e54e6d7d4f951b8a` добавил read-only exact-build Deep Static: SHA+UUID verification, bounded disassembly известных функций и symbol discovery для active-comp/composition/viewer activation. Push/PR Linux+macOS gates PASS; 78 research tests PASS; Deep Static owned-Mach-O smoke PASS.
 
-Никакого нового broad matrix, polling-substitute, merge/deploy или private production hook на этом этапе нет.
+Реальный Deep Static report на AE ещё нужен для конкретных active-comp symbols и downstream calls `DoProcessProjectChanges`.
+
+## State oracle — implementation fixed, real AE validation pending
+
+State oracle переведён с ошибочного JSX return-value на уникальный owned-file handoff:
+- snapshot JSX пишет состояние в mode-0700 workspace;
+- parent проверяет regular file, no symlink, owned path, <=64 KiB, non-empty;
+- AppleScript stdout `0` больше не используется как state.
+
+Это исправляет будущий post-action oracle, но не ретроактивно исторический Final Matrix. Post-commit остаётся UNPROVEN до узкого реального positive control после Deep Static leads.
+
+Никакого broad matrix, polling substitute, merge/deploy или private production hook сейчас нет.
 
 SYNC-001 остаётся NOT RUN / не принят.

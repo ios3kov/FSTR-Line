@@ -56,6 +56,29 @@ class FinalMatrixTests(unittest.TestCase):
             self.assertEqual(found['completed'],1)
             self.assertIsNone(probe.find_resume_candidate(root,binary,43,candidates))
 
+    def test_snapshot_reads_owned_file_not_applescript_return_value(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            def fake_run(bundle_id,script_path,timeout=15):
+                target=script_path.parent/'snapshot-target.txt'
+                output=Path(target.read_text(encoding='utf-8').strip())
+                output.write_text('comp=Comp_A|layers=2|time=1.000000',encoding='utf-8')
+                return {'ok':True,'timedOut':False,'elapsedMs':12.5,'stdout':'0','stderr':'','returnCode':0}
+            with mock.patch.object(probe,'run_jsx',side_effect=fake_run):
+                row=probe.snapshot('com.adobe.AfterEffects.application',root)
+        self.assertTrue(row['ok'])
+        self.assertEqual(row['value'],'comp=Comp_A|layers=2|time=1.000000')
+        self.assertTrue(row['bridgeOk'])
+
+    def test_snapshot_bridge_success_without_output_is_not_valid_oracle(self):
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch.object(probe,'run_jsx',return_value={
+                'ok':True,'timedOut':False,'elapsedMs':1.0,'stdout':'0','stderr':'','returnCode':0
+            }):
+                row=probe.snapshot('com.adobe.AfterEffects.application',Path(td))
+        self.assertFalse(row['ok'])
+        self.assertIn('not created',row['error'])
+
     def test_snapshot_changed_logic_is_raw_state_evidence_only(self):
         self.assertNotEqual('layers=2','layers=3')
 
