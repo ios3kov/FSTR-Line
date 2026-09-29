@@ -1,6 +1,6 @@
 """LLDB controller for an already-running, explicitly identified AE test process."""
 from __future__ import annotations
-import json, time, uuid
+import json, os, subprocess, sys, time, uuid
 from pathlib import Path
 import lldb
 import trace_callback
@@ -35,10 +35,20 @@ def _create_breakpoint(target,module,module_name,item):
         return bp,{'regex':item['regex']}
     raise RuntimeError('Breakpoint has neither fileAddress nor regex: '+item['label'])
 
+def _announce(phase,enabled):
+    text=phase.get('announcement') or phase.get('instruction') or phase['label']
+    print('\aFSTR ACTION: '+text,flush=True)
+    if enabled and Path('/usr/bin/say').is_file():
+        try:
+            subprocess.Popen(['/usr/bin/say',text],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
 def run(debugger,plan_name):
     plan=json.loads(Path(plan_name).read_text(encoding='utf-8'))
     result_path=Path(plan['resultPath']); trace_path=Path(plan['tracePath'])
-    result={'status':'FAIL','scope':'observational LLDB attach; no expressions/private calls/memory writes',
+    result={'status':'FAIL',
+            'scope':'observational LLDB breakpoint trace; no expressions/private target calls/project-variable reads/deliberate data writes',
             'SYNC-001':'NOT RUN','pid':plan.get('pid'),'breakpoints':[],'detached':False}
     target=None; process=None; attached=False
     debugger.SetAsync(False)
@@ -52,9 +62,7 @@ def run(debugger,plan_name):
             result.update(status='BLOCKED',stage='attach',error=error.GetCString() or 'Attach failed')
             _write(result_path,result); return
         attached=True
-        module_map={}
-        modules={}
-        module_names={}
+        module_map={}; modules={}; module_names={}; bp_meta={}
         for item in plan['modules']:
             module=_module_by_path(target,item['path'])
             if module is None or not module.IsValid():
@@ -63,8 +71,7 @@ def run(debugger,plan_name):
             expected=str(uuid.UUID(item['uuid'])).lower()
             if actual_uuid!=expected:
                 raise RuntimeError('Loaded module UUID mismatch: '+item['key'])
-            module_map[actual_uuid]=item['sha256']
-            modules[item['key']]=module
+            module_map[actual_uuid]=item['sha256']; modules[item['key']]=module
             module_names[item['key']]=Path(item['path']).name
         for item in plan['breakpoints']:
             key=item['module']
@@ -72,14 +79,17 @@ def run(debugger,plan_name):
                 raise RuntimeError('Unknown breakpoint module: '+key)
             bp,identity=_create_breakpoint(target,modules[key],module_names[key],item)
             count=bp.GetNumLocations()
-            row={'id':bp.GetID(),'label':item['label'],'module':key,'locations':count,**identity}
+            row={'id':bp.GetID(),'label':item['label'],'role':item.get('role','candidate'),
+                 'module':key,'locations':count,**identity}
             result['breakpoints'].append(row)
             if count<int(item['minLocations']) or count>int(item['maxLocations']):
                 raise RuntimeError('Breakpoint location count outside declared bounds: '+item['label'])
             bp.SetScriptCallbackFunction('trace_callback.on_breakpoint')
+            bp_meta[bp.GetID()]={'label':item['label'],'role':item.get('role','candidate')}
         trace_callback.start_capture(trace_path,plan['runId'],int(plan['pid']),module_map,
-                                     max_events=int(plan.get('maxEvents',5000)),
-                                     max_seconds=int(plan['durationSeconds'])+30)
+                                     breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
+                                     max_seconds=int(plan['durationSeconds'])+30,
+                                     max_frames=int(plan.get('maxFrames',8)))
         trace_callback.mark_phase('attach-verified')
         debugger.SetAsync(True)
         cont=process.Continue()
@@ -91,7 +101,7 @@ def run(debugger,plan_name):
             while time.monotonic()<target_time:
                 time.sleep(min(0.25,target_time-time.monotonic()))
             trace_callback.mark_phase(phase['label'])
-            print('FSTR PHASE: '+phase['label']+' — '+phase['instruction'],flush=True)
+            _announce(phase,bool(plan.get('voiceAnnouncements',False)))
         end=started+float(plan['durationSeconds'])
         while time.monotonic()<end:
             time.sleep(min(0.25,end-time.monotonic()))
@@ -119,8 +129,7 @@ def run(debugger,plan_name):
                 if process.GetState()==lldb.eStateRunning:
                     process.Stop()
                 detach_error=process.Detach()
-                result['detached']=not detach_error.Fail()
-                attached=False
+                result['detached']=not detach_error.Fail(); attached=False
             except Exception as detach_problem:
                 result['detachError']=str(detach_problem)
         try: _write(result_path,result)
