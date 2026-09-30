@@ -42,6 +42,7 @@ MAX_BINARY = 2 * 1024**3
 MAX_NM = 64 * 1024**2
 MAX_BODY = 2 * 1024**2
 MAX_LEADS = 256
+MAX_SELECTED = 12
 
 
 class Blocked(ValueError):
@@ -183,8 +184,32 @@ def module_path(app: Path, relative: str) -> Path:
     return path
 
 
-def collect(app: Path, policy: dict, runner=run_tool) -> dict:
-    """Collect known roots plus a visibility inventory. No private code invocation."""
+def requested_symbols(values: list[str] | tuple[str, ...]) -> dict[str, list[str]]:
+    """Only exact, scope-limited names; never offsets, shell text or extra modules."""
+    if not isinstance(values, (list, tuple)):
+        raise Blocked("INVALID_SYMBOL_SELECTION")
+    if len(values) > MAX_SELECTED:
+        raise Blocked("SYMBOL_SELECTION_LIMIT")
+    requested = {key: list(names) for key, names in REQUIRED.items()}
+    seen = set()
+    for value in values:
+        if not isinstance(value, str) or len(value) > 2048:
+            raise Blocked("INVALID_SYMBOL_SELECTION")
+        module, separator, symbol = value.partition(":")
+        if not separator or module not in REQUIRED or not re.fullmatch(r"_[A-Za-z0-9_.$]+", symbol):
+            raise Blocked("INVALID_SYMBOL_SELECTION")
+        if symbol not in REQUIRED[module] and not LEADS.search(symbol):
+            raise Blocked("SYMBOL_OUTSIDE_RESEARCH_SCOPE")
+        if value in seen:
+            raise Blocked("DUPLICATE_SYMBOL_SELECTION")
+        seen.add(value)
+        if symbol not in requested[module]:
+            requested[module].append(symbol)
+    return requested
+
+
+def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> dict:
+    """Collect roots and selected fresh inventory leads. No private code invocation."""
     report = {"schemaVersion": 1, "kind": "queue-context-static",
               "collectionStatus": "BLOCKED", "SYNC-001": "NOT RUN",
               "privateInvocationAllowed": False, "modules": {}, "commands": [],
@@ -198,6 +223,9 @@ def collect(app: Path, policy: dict, runner=run_tool) -> dict:
             raise Blocked(row.get("reason") or "INCOMPLETE_TOOL_RESULT")
         return row["text"]
     try:
+        requested = requested_symbols(inspect_symbols)
+        report["requestedSymbols"] = requested
+        report["expectedBodyCount"] = sum(len(names) for names in requested.values())
         app = app.expanduser().resolve(strict=True)
         info_path = module_path(app, "Contents/Info.plist")
         if info_path.stat().st_size > 1024**2:
@@ -224,6 +252,9 @@ def collect(app: Path, policy: dict, runner=run_tool) -> dict:
             report["modules"][key] = {"sha256": actual, "arm64UUID": found_uuid,
                                       "relativePath": spec["relativePath"], "bodies": {}}
         report["toolVersion"] = call(["xcrun", "llvm-objdump", "--version"])
+        addresses = {}
+        # Every module and requested name must pass before ANY disassembly.
+        # An old report, CLI name or nm visibility is not permission to call code.
         for key, path in paths.items():
             defined = text_symbols(call(["xcrun", "nm", "-arch", "arm64", "-U", str(path)], MAX_NM))
             exported = text_symbols(call(["xcrun", "nm", "-arch", "arm64", "-gU", str(path)], MAX_NM))
@@ -237,20 +268,24 @@ def collect(app: Path, policy: dict, runner=run_tool) -> dict:
                  "visibility": "defined-external-nm" if n in exported else
                  "defined-only-in-full-nm" if n in defined else "not-found-in-scanned-module"}
                 for n in names]
-            for symbol in REQUIRED[key]:
+            for symbol in requested[key]:
                 if symbol not in defined:
-                    raise Blocked("REQUIRED_SYMBOL_MISSING:" + key + ":" + symbol)
+                    reason = "REQUIRED_SYMBOL_MISSING" if symbol in REQUIRED[key] else "SELECTED_SYMBOL_MISSING"
+                    raise Blocked(reason + ":" + key + ":" + symbol)
+            addresses[key] = {symbol: defined[symbol] for symbol in requested[key]}
+        for key, path in paths.items():
+            for symbol in requested[key]:
                 body = call(["xcrun", "llvm-objdump", "--macho", "--arch=arm64",
                              "--disassemble", "--no-show-raw-insn", "--dis-symname", symbol, str(path)])
-                facts = inspect_body(body, symbol, defined[symbol])
+                facts = inspect_body(body, symbol, addresses[key][symbol])
                 report["modules"][key]["bodies"][symbol] = {**facts, "text": body}
         # Detect persistent replacement of a module during collection.
         for key, path in paths.items():
             if module_path(app, policy["modules"][key]["relativePath"]) != path or \
                     fingerprint(path) != report["modules"][key]["sha256"]:
                 raise Blocked("MODULE_CHANGED_DURING_COLLECTION:" + key)
-        if not all(set(report["modules"][k]["bodies"]) == set(v) for k, v in REQUIRED.items()):
-            raise Blocked("INCOMPLETE_REQUIRED_BODY_SET")
+        if not all(set(report["modules"][k]["bodies"]) == set(v) for k, v in requested.items()):
+            raise Blocked("INCOMPLETE_REQUESTED_BODY_SET")
         report["collectionStatus"] = "PASS"
     except (Blocked, OSError, ValueError, KeyError, TypeError) as error:
         report["reason"] = str(error) if isinstance(error, Blocked) else type(error).__name__
@@ -283,6 +318,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--inspect-symbol", action="append", default=[], metavar="MODULE:SYMBOL",
+                        help="exact name from the queue/context inventory; repeat at most 12 times")
     args = parser.parse_args(argv)
     if platform.system() != "Darwin":
         report = {"collectionStatus": "BLOCKED", "reason": "MACOS_REQUIRED",
@@ -290,7 +327,7 @@ def main(argv=None):
     else:
         try:
             policy_bytes = (ROOT / "deep_targets.json").read_bytes()
-            report = collect(args.app, json.loads(policy_bytes))
+            report = collect(args.app, json.loads(policy_bytes), inspect_symbols=args.inspect_symbol)
             report["policySha256"] = digest(policy_bytes)
         except (OSError, ValueError) as error:
             report = {"collectionStatus": "BLOCKED", "reason": type(error).__name__,
