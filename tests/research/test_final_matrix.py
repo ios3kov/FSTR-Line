@@ -48,9 +48,17 @@ class FinalMatrixTests(unittest.TestCase):
             candidates={'breakpoints':[{'label':'x'}],
                         'preRestart':[{'label':'a'},{'label':'b'}]}
             (session/'plan.json').write_text(json.dumps({
-                'pid':42,'executable':str(binary),'breakpoints':candidates['breakpoints']}))
+                'runId':'owned-resume','pid':42,'executable':str(binary),'breakpoints':candidates['breakpoints']}))
             (session/'result.json').write_text(json.dumps({
-                'status':'BLOCKED','stage':'aborted','detached':True}))
+                'pid':42,'status':'BLOCKED','stage':'aborted','detached':True}))
+            # Legacy result-only evidence cannot certify debugger shutdown.
+            self.assertIsNone(probe.find_resume_candidate(root,binary,42,candidates))
+            (session/'observer-parent.json').write_text(json.dumps({
+                'runId':'owned-resume','resumeEligible':True,
+                'planSha256':probe.sha256(session/'plan.json'),
+                'controllerResultSha256':probe.sha256(session/'result.json'),
+                'debuggerExitCode':0,'debuggerReaped':True,'shutdownTimedOut':False,
+                'forcedTermination':False,'cleanupErrors':[]}))
             found=probe.find_resume_candidate(root,binary,42,candidates)
             self.assertIsNotNone(found)
             self.assertEqual(found['completed'],1)

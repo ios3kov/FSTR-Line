@@ -137,6 +137,61 @@ def append_evidence(path,row):
     runtime_protocol.append_jsonl(path,dict(row,wallTimeNs=time.time_ns(),monotonicNs=time.monotonic_ns()))
 
 
+def _observer_json(path):
+    """Read a bounded regular JSON result, never a symlink or partial old result."""
+    path=Path(path)
+    if path.is_symlink() or not path.is_file():
+        raise ValueError('Observer result is not a regular file')
+    with path.open('rb') as stream:
+        raw=stream.read(65537)
+    if len(raw)>65536:
+        raise ValueError('Observer result exceeded 64 KiB')
+    value=json.loads(raw)
+    if not isinstance(value,dict):
+        raise ValueError('Observer result must be an object')
+    return value,hashlib.sha256(raw).hexdigest()
+
+
+def _wait_debugger_exit(proc,timeout):
+    """Reap only the LLDB child created by this session. Never signal the AE PID."""
+    outcome={'debuggerExitCode':None,'shutdownTimedOut':False,
+             'forcedTermination':False,'debuggerReaped':False,'cleanupErrors':[]}
+    try:
+        outcome['debuggerExitCode']=proc.wait(timeout=timeout)
+        outcome['debuggerReaped']=True
+        return outcome
+    except subprocess.TimeoutExpired:
+        outcome['shutdownTimedOut']=True
+    except (OSError,subprocess.SubprocessError,KeyboardInterrupt) as error:
+        outcome['cleanupErrors'].append(type(error).__name__)
+    # Any forced cleanup stays a rejected run, even if the child later exits 0.
+    outcome['forcedTermination']=True
+    for action in (proc.terminate,proc.kill):
+        try:
+            if proc.poll() is None:
+                action()
+            outcome['debuggerExitCode']=proc.wait(timeout=3)
+            outcome['debuggerReaped']=True
+            break
+        except (OSError,subprocess.SubprocessError,KeyboardInterrupt) as error:
+            outcome['cleanupErrors'].append(type(error).__name__)
+    return outcome
+
+
+def _clean_debugger_exit(parent):
+    return (parent.get('debuggerReaped') is True
+            and type(parent.get('debuggerExitCode')) is int
+            and parent['debuggerExitCode']==0
+            and parent.get('shutdownTimedOut') is False
+            and parent.get('forcedTermination') is False
+            and parent.get('cleanupErrors')==[])
+
+
+def _observer_detached(result,pid):
+    return (result.get('detached') is True and type(result.get('pid')) is int
+            and result['pid']==pid)
+
+
 def completed_phase_prefix(phases,evidence_rows,session='pre-restart'):
     completed={row.get('phase') for row in evidence_rows
                if row.get('kind')=='snapshot-after' and row.get('session')==session}
@@ -164,14 +219,22 @@ def find_resume_candidate(output,binary,pid,candidates,max_age_seconds=86400):
             if (root/'post-restart').exists():
                 continue
             plan=json.loads(plan_path.read_text(encoding='utf-8'))
-            result=json.loads(result_path.read_text(encoding='utf-8'))
+            result,result_hash=_observer_json(result_path)
+            parent,_=_observer_json(session/'observer-parent.json')
+            # Legacy/crashed/timed-out sessions are retained, but not auto-resumed.
+            if (not _clean_debugger_exit(parent) or parent.get('resumeEligible') is not True
+                    or parent.get('runId')!=plan.get('runId')
+                    or parent.get('planSha256')!=sha256(plan_path)
+                    or parent.get('controllerResultSha256')!=result_hash):
+                continue
             if int(plan.get('pid',-1))!=int(pid):
                 continue
             if Path(plan.get('executable','')).resolve()!=Path(binary).resolve():
                 continue
             if plan.get('breakpoints')!=candidates.get('breakpoints'):
                 continue
-            if result.get('stage')!='aborted' or not result.get('detached'):
+            if (result.get('status')!='BLOCKED' or result.get('stage')!='aborted'
+                    or not _observer_detached(result,pid)):
                 continue
             rows=runtime_protocol.read_complete_jsonl(evidence)
             prefix=completed_phase_prefix(candidates['preRestart'],rows)
@@ -191,6 +254,14 @@ def import_resume_candidate(candidate,work,evidence_path):
         'continued':True})
 
 def run_observer_session(binary,pid,modules,candidates,phases,work,session_name,evidence_path):
+    # Validate all wait bounds before a debugger can be created.
+    timeouts={}
+    for key,default in (('attachReadyTimeoutSeconds',30),('ackTimeoutSeconds',10),
+                        ('shutdownTimeoutSeconds',30)):
+        value=candidates.get(key,default)
+        if type(value) is not int or not 1<=value<=600:
+            raise Blocked('Invalid observer timeout: '+key)
+        timeouts[key]=value
     session=work/session_name; session.mkdir()
     control=session/'control.jsonl'; ack=session/'ack.jsonl'; _make_file(control); _make_file(ack)
     plan={'schemaVersion':1,'runId':'runtime_'+uuid.uuid4().hex,'pid':pid,
@@ -201,23 +272,29 @@ def run_observer_session(binary,pid,modules,candidates,phases,work,session_name,
     (session/'plan.json').write_text(json.dumps(plan,indent=2)+'\n')
     call='script runtime_control.run(lldb.debugger, '+json.dumps(str(session/'plan.json'))+')'
     log_path=session/'lldb.log'
-    with log_path.open('w',encoding='utf-8') as log_stream:
-        proc=subprocess.Popen(['xcrun','lldb','--batch','--no-lldbinit',
-            '-o','command script import '+str(ROOT/'trace_callback.py'),
-            '-o','command script import '+str(ROOT/'runtime_protocol.py'),
-            '-o','command script import '+str(ROOT/'runtime_control.py'),'-o',call],
-            stdin=subprocess.DEVNULL,stdout=log_stream,stderr=subprocess.STDOUT,text=True)
-        runtime_protocol.wait_for_record(ack,kind='ready',sequence=0,process=proc,
-            timeout=int(candidates.get('attachReadyTimeoutSeconds',30)))
-        print('\nDebugger подключён. '+session_name+'.')
-        sequence=0
-        bundle_id=candidates['aeBundleId']
-        def mark(label):
-            nonlocal sequence
-            sequence+=1
-            runtime_protocol.send_phase(control,ack,sequence,label,proc,
-                timeout=int(candidates.get('ackTimeoutSeconds',10)))
+    parent={'schemaVersion':1,'kind':'observer-parent-exit','runId':plan['runId'],
+            'planSha256':sha256(session/'plan.json'),'status':'BLOCKED',
+            'SYNC-001':'NOT RUN','resumeEligible':False,'debuggerExitCode':None,
+            'shutdownTimedOut':False,'forcedTermination':False,
+            'debuggerReaped':False,'cleanupErrors':[]}
+    proc=None; session_error=None; finished=False; sequence=0
+    with log_path.open('x',encoding='utf-8') as log_stream:
         try:
+            proc=subprocess.Popen(['xcrun','lldb','--batch','--no-lldbinit',
+                '-o','command script import '+json.dumps(str(ROOT/'trace_callback.py')),
+                '-o','command script import '+json.dumps(str(ROOT/'runtime_protocol.py')),
+                '-o','command script import '+json.dumps(str(ROOT/'runtime_control.py')),'-o',call],
+                stdin=subprocess.DEVNULL,stdout=log_stream,stderr=subprocess.STDOUT,text=True)
+            runtime_protocol.wait_for_record(ack,kind='ready',sequence=0,process=proc,
+                timeout=timeouts['attachReadyTimeoutSeconds'])
+            print('\nDebugger подключён. '+session_name+'.')
+            sequence=0
+            bundle_id=candidates['aeBundleId']
+            def mark(label):
+                nonlocal sequence
+                sequence+=1
+                runtime_protocol.send_phase(control,ack,sequence,label,proc,
+                    timeout=timeouts['ackTimeoutSeconds'])
             total=len(phases)
             for index,phase in enumerate(phases,1):
                 before=snapshot(bundle_id,session/'snapshots')
@@ -253,23 +330,43 @@ def run_observer_session(binary,pid,modules,candidates,phases,work,session_name,
                     'phase':phase['label'],'snapshot':after,'changed':before.get('value')!=after.get('value')
                         if before.get('ok') and after.get('ok') else None})
             sequence+=1; runtime_protocol.send_finish(control,sequence)
+            finished=True
         except BaseException as error:
-            if proc.poll() is None:
+            session_error=error
+            parent['sessionError']=type(error).__name__
+            if proc is not None and proc.poll() is None:
                 try:
                     sequence+=1; runtime_protocol.send_abort(control,sequence,type(error).__name__)
-                except Exception: pass
-            raise
+                except Exception as abort_error:
+                    parent['abortError']=type(abort_error).__name__
         finally:
-            try: proc.wait(timeout=int(candidates.get('shutdownTimeoutSeconds',30)))
-            except subprocess.TimeoutExpired:
-                proc.terminate()
-                try: proc.wait(timeout=3)
-                except subprocess.TimeoutExpired: proc.kill(); proc.wait()
-    if not (session/'result.json').exists():
-        raise Blocked('LLDB session ended without result: '+session_name)
-    result=json.loads((session/'result.json').read_text())
-    if result.get('status')!='PASS' or not result.get('detached'):
-        raise Blocked('Observer session did not PASS cleanly: '+session_name+' '+json.dumps(result))
+            if proc is not None:
+                parent.update(_wait_debugger_exit(proc,timeouts['shutdownTimeoutSeconds']))
+    result={}
+    try:
+        result,result_hash=_observer_json(session/'result.json')
+        parent['controllerResultSha256']=result_hash
+        parent['controllerStatus']=result.get('status')
+        parent['controllerDetached']=result.get('detached') is True
+    except (OSError,ValueError) as error:
+        parent['resultError']=type(error).__name__
+    accepted=(session_error is None and finished and _clean_debugger_exit(parent)
+              and result.get('status')=='PASS' and result.get('stage')=='complete'
+              and _observer_detached(result,pid))
+    parent['resumeEligible']=(isinstance(session_error,(KeyboardInterrupt,EOFError))
+                              and _clean_debugger_exit(parent)
+                              and result.get('status')=='BLOCKED'
+                              and result.get('stage')=='aborted' and _observer_detached(result,pid))
+    if accepted:
+        parent['status']='PASS'
+    # Keep controller evidence immutable; parent acceptance is a separate record.
+    with (session/'observer-parent.json').open('x',encoding='utf-8') as stream:
+        json.dump(parent,stream,indent=2); stream.write('\n')
+    if session_error is not None:
+        raise session_error
+    if not accepted:
+        raise Blocked('Observer exit/result rejected: '+session_name+
+                      '; inspect observer-parent.json and lldb.log. AE was not terminated.')
     return result
 
 def main(argv=None):
@@ -361,6 +458,8 @@ def main(argv=None):
                 z.write(session/'trace.jsonl',session_name+'/trace.jsonl')
             if (session/'result.json').exists():
                 z.write(session/'result.json',session_name+'/result.json')
+            if (session/'observer-parent.json').exists():
+                z.write(session/'observer-parent.json',session_name+'/observer-parent.json')
             if (session/'lldb.log').exists():
                 log=redact((session/'lldb.log').read_text(encoding='utf-8',errors='replace'))
                 z.writestr(session_name+'/lldb-log.txt',log[-1024*1024:])
@@ -374,5 +473,5 @@ def main(argv=None):
 
 if __name__=='__main__':
     try: raise SystemExit(main())
-    except (Blocked,ValueError,RuntimeError,TimeoutError,subprocess.TimeoutExpired) as error:
+    except (Blocked,OSError,ValueError,RuntimeError,TimeoutError,subprocess.TimeoutExpired) as error:
         print('BLOCKED: '+str(error),file=sys.stderr); raise SystemExit(2)
