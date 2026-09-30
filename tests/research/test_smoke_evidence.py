@@ -180,9 +180,9 @@ class StageTests(unittest.TestCase):
         stages, result, process, debugger = self.exercise()
         self.assertEqual(result['status'], 'PASS')
         expected = ['stop-begin', 'stop-end', 'capture-close-begin', 'capture-close-end',
-                    'detach-begin', 'detach-end', 'delete-target-begin', 'delete-target-end', 'controller-return']
+                    'detach-begin', 'detach-end', 'target-retained-for-debugger-exit', 'controller-return']
         self.assertEqual([x for x in stages if x in expected], expected)
-        process.Detach.assert_called_once(); debugger.DeleteTarget.assert_called_once()
+        process.Detach.assert_called_once(); debugger.DeleteTarget.assert_not_called()
 
     def test_stop_failure_retains_fail_and_recovery_stage(self):
         stages, result, process, debugger = self.exercise(stop_error=True)
@@ -191,7 +191,15 @@ class StageTests(unittest.TestCase):
         self.assertIn('recovery-stop-end', stages)
         self.assertIn('recovery-detach-end', stages)
         self.assertEqual(stages[-1], 'controller-return')
-        process.Detach.assert_called_once(); debugger.DeleteTarget.assert_called_once()
+        process.Detach.assert_called_once(); debugger.DeleteTarget.assert_not_called()
+
+    def test_reentry_refused_before_creating_another_target(self):
+        c = load_controller()
+        c._run_started = True
+        debugger = mock.Mock()
+        with self.assertRaisesRegex(RuntimeError, 'fresh dedicated'):
+            c.run(debugger, 'not-read')
+        debugger.CreateTarget.assert_not_called()
 
 
 if __name__ == '__main__':

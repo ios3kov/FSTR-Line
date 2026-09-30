@@ -6,6 +6,10 @@ import lldb
 import trace_callback
 import runtime_protocol
 
+# The launcher starts a fresh LLDB batch process for each capture. Keep its
+# target alive until that debugger exits and has stopped its event handler.
+_run_started = False
+
 def _write(path,data):
     with Path(path).open('x',encoding='utf-8') as f:
         json.dump(data,f,indent=2,ensure_ascii=True); f.write('\n')
@@ -54,6 +58,10 @@ def _stage(plan, result, label):
             errors.append({'stage': label, 'errorType': type(error).__name__})
 
 def run(debugger,plan_name):
+    global _run_started
+    if _run_started:
+        raise RuntimeError('A capture requires a fresh dedicated LLDB process')
+    _run_started = True
     plan=json.loads(Path(plan_name).read_text(encoding='utf-8'))
     result_path=Path(plan['resultPath']); trace_path=Path(plan['tracePath'])
     control_path=Path(plan['controlPath']); ack_path=Path(plan['ackPath'])
@@ -214,8 +222,9 @@ def run(debugger,plan_name):
         _stage(plan, result, 'finally-capture-close-begin')
         trace_callback.stop_capture()
         _stage(plan, result, 'finally-capture-close-end')
-        if target and target.IsValid():
-            _stage(plan, result, 'delete-target-begin')
-            debugger.DeleteTarget(target)
-            _stage(plan, result, 'delete-target-end')
+        # Do not destroy the Target while the CLI's event thread may still
+        # consume detached/stopped events referring to its Process. The target
+        # list owns it until normal debugger teardown; one capture per process
+        # bounds this lifetime. Parent acceptance also requires exit code zero.
+        _stage(plan, result, 'target-retained-for-debugger-exit')
         _stage(plan, result, 'controller-return')
