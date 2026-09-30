@@ -61,6 +61,27 @@ CONTEXT_TABLE = {"moduleSha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c
                  "functionAddress": 0x777bfc}
 
 
+# Exact unique names from FSTR-AE-Queue-2mniyqyl, not inferred prototypes.
+# C1/D1 in that report only branch to C2/D2. Do not recursively chase symbols.
+CONTEXT_DETAILS_REQUIRED = {
+    "BEE": (
+        "__ZN21BEE_ProjectSetContextC2EP11BEE_Project",
+        "__ZN21BEE_ProjectSetContextD2Ev",
+        "__ZN21BEE_ProjectSetContext17GetCurrentProjectEv",
+        "__ZN21BEE_ProjectSetContext22GetCurrentConstProjectEv",
+        "__ZN21BEE_ProjectSetContextC2Ev",
+        "__ZN29BEE_ThreadedRenderUpdateQueueC2EjiN5boost8functionIFvyEEE",
+        "__ZN29BEE_ThreadedRenderUpdateQueueD2Ev",
+        "__Z44BEE_WorkQueue_SpeculativePreviewStateChangedb",
+    ),
+    "AfterFXLib": (),  # still verify identity and bounded inventory
+}
+CONTEXT_DETAILS_LEADS = re.compile(
+    r"^__ZN21BEE_ProjectSetContext|^__ZN29BEE_ThreadedRenderUpdateQueue|"
+    r"^__Z[0-9]+BEE_WorkQueue_"
+)
+
+
 MAX_BINARY = 2 * 1024**3
 MAX_NM = 64 * 1024**2
 MAX_BODY = 2 * 1024**2
@@ -258,7 +279,7 @@ def requested_symbols(values: list[str] | tuple[str, ...]) -> dict[str, list[str
 
 
 def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=(),
-            context_followup=False, read_range=None) -> dict:
+            context_followup=False, read_range=None, context_details=False) -> dict:
     """Collect roots and selected fresh inventory leads. No private code invocation."""
     report = {"schemaVersion": 1, "kind": "queue-context-static",
               "collectionStatus": "BLOCKED", "SYNC-001": "NOT RUN",
@@ -273,9 +294,18 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=(),
             raise Blocked(row.get("reason") or "INCOMPLETE_TOOL_RESULT")
         return row["text"]
     try:
-        if type(context_followup) is not bool:
+        if type(context_followup) is not bool or type(context_details) is not bool:
             raise Blocked("INVALID_CONTEXT_PROFILE")
-        if context_followup:
+        if context_followup and context_details:
+            raise Blocked("CONFLICTING_CONTEXT_PROFILES")
+        if context_details:
+            if inspect_symbols:
+                raise Blocked("CONTEXT_PROFILE_DISALLOWS_EXTRA_SYMBOLS")
+            if policy["modules"]["BEE"]["sha256"] != CONTEXT_TABLE["moduleSha256"]:
+                raise Blocked("CONTEXT_PROFILE_BUILD_MISMATCH")
+            requested = {key: list(names) for key, names in CONTEXT_DETAILS_REQUIRED.items()}
+            leads = CONTEXT_DETAILS_LEADS
+        elif context_followup:
             if inspect_symbols:
                 raise Blocked("CONTEXT_PROFILE_DISALLOWS_EXTRA_SYMBOLS")
             if not callable(read_range):
@@ -287,7 +317,7 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=(),
         else:
             requested = requested_symbols(inspect_symbols)
             leads = LEADS
-        report["profile"] = "context-followup" if context_followup else "queue-roots"
+        report["profile"] = "context-details" if context_details else "context-followup" if context_followup else "queue-roots"
         report["requestedSymbols"] = requested
         report["expectedBodyCount"] = sum(len(names) for names in requested.values())
         app = app.expanduser().resolve(strict=True)
@@ -338,7 +368,7 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=(),
                 for n in names]
             for symbol in requested[key]:
                 if symbol not in defined:
-                    reason = "REQUIRED_SYMBOL_MISSING" if context_followup or symbol in REQUIRED[key] else "SELECTED_SYMBOL_MISSING"
+                    reason = "REQUIRED_SYMBOL_MISSING" if context_followup or context_details or symbol in REQUIRED[key] else "SELECTED_SYMBOL_MISSING"
                     raise Blocked(reason + ":" + key + ":" + symbol)
                 if len(defined[symbol]) != 1:
                     report["ambiguousTarget"] = {"module": key, "symbol": symbol,

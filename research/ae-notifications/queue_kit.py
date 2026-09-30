@@ -14,7 +14,7 @@ import zipfile
 from pathlib import Path
 
 FILES = ("Queue-AE.command", "queue_kit.py", "queue_static.py", "deep_targets.json", "QUEUE-README.txt",
-         "inspect_binary.py", "Queue-Context.command")
+         "inspect_binary.py", "Queue-Context.command", "Queue-Details.command")
 MAX_FILE = 8 * 1024**2
 CHOOSER = '''try
   set chosenApp to choose file of type {"com.apple.application-bundle"} with prompt "Select Adobe After Effects 2025 for read-only inspection (no launch)"
@@ -82,8 +82,11 @@ def main(argv=None, *, root: Path | None = None) -> int:
     parser.add_argument("--app", type=Path, help="explicit .app path; otherwise show a file picker on macOS")
     parser.add_argument("--output", type=Path, default=Path.home() / "Desktop/FSTR-AE-Research")
     parser.add_argument("--inspect-symbol", action="append", default=[], metavar="MODULE:SYMBOL")
-    parser.add_argument("--context-followup", action="store_true",
-                        help="collect the pinned context helpers and four-byte command table")
+    profiles = parser.add_mutually_exclusive_group()
+    profiles.add_argument("--context-followup", action="store_true",
+                          help="collect the pinned context helpers and four-byte command table")
+    profiles.add_argument("--context-details", action="store_true",
+                          help="collect eight observed implementation/lifecycle bodies, no table reread")
     args = parser.parse_args(argv)
     root = (root or Path(__file__).parent).resolve()
     try:
@@ -121,6 +124,9 @@ def main(argv=None, *, root: Path | None = None) -> int:
             exec(compile(payload["inspect_binary.py"], reader.__file__, "exec"), reader.__dict__)
             report = collector.collect(app, policy, inspect_symbols=args.inspect_symbol,
                                        context_followup=True, read_range=reader.read_macho_range)
+        elif args.context_details:
+            report = collector.collect(app, policy, inspect_symbols=args.inspect_symbol,
+                                       context_details=True)
         else:
             report = collector.collect(app, policy, inspect_symbols=args.inspect_symbol)
     except (OSError, ValueError, subprocess.SubprocessError) as error:

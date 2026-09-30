@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "scope": "supplied offline report review, not AE execution",
+  "runId": "FSTR-AE-Queue-2mniyqyl",
+  "sourceCommit": "af0b8b9f2b4629f3dfc2b5bfca01f57e2ec21438",
+  "buildId": "fstr-queue-af0b8b9f2b46",
+  "reportZipSha256": "01f05cb593648ba6fd60d044f4c765af0d21bf0a79729340deb41c5d66448d3a",
+  "reportJsonSha256": "29e9da5007a37e6f2cf74969dd61e29383e5ada2ef6eaa452d664fdb9fa5b6f4",
+  "kitZipSha256": "fcf7557bf7f0b766c11c35bc3090971964f268c00e9489e9dd7f16fe11c683d1",
+  "manifestSha256": "91285b49a701bdd021ba3b1e8c1e87a0ebd5dfbd816595e1c060bc5c7b30ec45",
+  "collectorSha256": "d21a915099d69443716e9c377641c10747ee5ff5f77a5c807210641d4db88623",
+  "policySha256": "1e748db1d0c565f02e23133f265b3d5768445dddabbddcf40c23114c5dee96f5",
+  "aeBuild": "25.6.0.101",
+  "toolVersion": "Apple LLVM version 21.0.0",
+  "commandsComplete": 12,
+  "bodyCount": 5,
+  "instructionRows": 746,
+  "bodies": [
+    {
+      "module": "BEE",
+      "symbol": "__Z16BEE_QueryProjectPP11BEE_Project",
+      "address": "0x65ef40",
+      "instructionRows": 12,
+      "redactedTextSha256": "34aec788a9929e1be1963675f2e6df136af6735d4bd194d2e2c004d24d1e22d5"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__Z26BEE_GetCurrentConstProjectv",
+      "address": "0x65efa4",
+      "instructionRows": 13,
+      "redactedTextSha256": "fd32a3471ec0a90068cd584ce5940fe07d8adf1d33b6a6947cfb28b878a4e273"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN21BEE_ProjectSetContextC1EP11BEE_Project",
+      "address": "0x39f8e0",
+      "instructionRows": 1,
+      "redactedTextSha256": "a9d686b683a106bfe64374087f69d75e2c66812fa3fc4ade8fb778bea0f02eac"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN21BEE_ProjectSetContextD1Ev",
+      "address": "0x39fc08",
+      "instructionRows": 1,
+      "redactedTextSha256": "e4f575732114a780266a73d2821f7d4a5efed462c661e2552d14865d00d32f55"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueue18AddFunctionToQueueERKN5boost8functionIFvvEEEP15BEE_UndoContextsPKcS9_PKNSt3__112basic_stringIhNSA_11char_traitsIhEEN7dvacore9allocator12STLAllocatorIhEEEENS_11CommandTypeE",
+      "address": "0x777bfc",
+      "instructionRows": 719,
+      "redactedTextSha256": "c973095c3fc7be553186400335680ca6c863deae9675d9c5b9faffaa2bfe9e9f"
+    }
+  ],
+  "modules": {
+    "AfterFXLib": {
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a",
+      "arm64UUID": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5"
+    },
+    "BEE": {
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "arm64UUID": "161300f3-73f8-3ebc-a751-959df40a073b"
+    }
+  },
+  "commandTypeTable": {
+    "arm64UUID": "161300f3-73f8-3ebc-a751-959df40a073b",
+    "byteCount": 4,
+    "dispatchBase": "0x777c8c",
+    "fileOffset": 15271124,
+    "hex": "00292b2f",
+    "interpretation": "static unsigned-byte scaled branch table; not runtime delivery evidence",
+    "moduleSha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+    "section": "__const",
+    "segment": "__TEXT",
+    "sha256": "abe02b6e22150486a00dac6568cc79fbcbaf030f4a52efa79aaa3967f44b4307",
+    "sliceOffset": 16384,
+    "targets": [
+      {
+        "commandType": 0,
+        "unslidTarget": "0x777c8c"
+      },
+      {
+        "commandType": 1,
+        "unslidTarget": "0x777d30"
+      },
+      {
+        "commandType": 2,
+        "unslidTarget": "0x777d38"
+      },
+      {
+        "commandType": 3,
+        "unslidTarget": "0x777d48"
+      }
+    ],
+    "vmAddress": "0xe8c4d4"
+  },
+  "undecodedRowsInOriginal": 5,
+  "distinctRawWords": [
+    "0xb8290108",
+    "0xb8e08108",
+    "0xb8e90108"
+  ],
+  "inventory": [
+    {
+      "address": "0x65ef40",
+      "addresses": [
+        "0x65ef40"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__Z16BEE_QueryProjectPP11BEE_Project",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x65efa4",
+      "addresses": [
+        "0x65efa4"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__Z26BEE_GetCurrentConstProjectv",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x7eaa3c",
+      "addresses": [
+        "0x7eaa3c"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__Z30BEE_WorkQueue_RegisterListenerRKN5boost8functionIFv14ItemChangeTypeNS_10shared_ptrI18BEE_WorkQueue_ItemEEEEE",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x7eac80",
+      "addresses": [
+        "0x7eac80"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__Z32BEE_WorkQueue_DeregisterListenerRKN7dvacore7utility4GuidE",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x791e98",
+      "addresses": [
+        "0x791e98"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__Z44BEE_WorkQueue_SpeculativePreviewStateChangedb",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x35a16c",
+      "addresses": [
+        "0x35a16c"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContext17GetCurrentProjectEv",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x35a170",
+      "addresses": [
+        "0x35a170"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContext22GetCurrentConstProjectEv",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x39f8e0",
+      "addresses": [
+        "0x39f8e0"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContextC1EP11BEE_Project",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x39fa50",
+      "addresses": [
+        "0x39fa50"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContextC1Ev",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x39f57c",
+      "addresses": [
+        "0x39f57c"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContextC2EP11BEE_Project",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x39f8e4",
+      "addresses": [
+        "0x39f8e4"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContextC2Ev",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x39fc0c",
+      "addresses": [
+        "0x39fc0c"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContextD0Ev",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x39fc08",
+      "addresses": [
+        "0x39fc08"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContextD1Ev",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x39fa54",
+      "addresses": [
+        "0x39fa54"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN21BEE_ProjectSetContextD2Ev",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "address": "0x777bfc",
+      "addresses": [
+        "0x777bfc"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueue18AddFunctionToQueueERKN5boost8functionIFvvEEEP15BEE_UndoContextsPKcS9_PKNSt3__112basic_stringIhNSA_11char_traitsIhEEN7dvacore9allocator12STLAllocatorIhEEEENS_11CommandTypeE",
+      "visibility": "defined-only-in-full-nm"
+    },
+    {
+      "address": "0x776214",
+      "addresses": [
+        "0x776214"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueueC1EjiN5boost8functionIFvyEEE",
+      "visibility": "defined-only-in-full-nm"
+    },
+    {
+      "address": "0x7760cc",
+      "addresses": [
+        "0x7760cc"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueueC2EjiN5boost8functionIFvyEEE",
+      "visibility": "defined-only-in-full-nm"
+    },
+    {
+      "address": "0x7763f4",
+      "addresses": [
+        "0x7763f4"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueueD1Ev",
+      "visibility": "defined-only-in-full-nm"
+    },
+    {
+      "address": "0x776218",
+      "addresses": [
+        "0x776218"
+      ],
+      "addressesTruncated": false,
+      "distinctAddressCount": 1,
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueueD2Ev",
+      "visibility": "defined-only-in-full-nm"
+    }
+  ],
+  "claims": {
+    "callbackQuiescence": "UNPROVEN",
+    "cloneAssociation": "UNPROVEN",
+    "contextAcquisition": "UNPROVEN",
+    "coverage": "UNPROVEN",
+    "postCommit": "UNPROVEN",
+    "queueOrder": "UNPROVEN",
+    "queueThread": "UNPROVEN",
+    "registrationABI": "UNPROVEN"
+  },
+  "SYNC-001": "NOT RUN",
+  "privateInvocationAllowed": false
+}

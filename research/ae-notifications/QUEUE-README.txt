@@ -45,3 +45,16 @@ names. Names are leads, not proof of a notification source or an external ABI.
 Missing/ambiguous functions, invalid address mapping, hash changes or an incomplete
 range block the whole collection. Raw VM-address CLI selection is not supported.
 Return report.zip, not any Adobe binaries. The picker never starts After Effects.
+
+CONTEXT IMPLEMENTATIONS (2mniyqyl research continuation)
+Run Queue-Details.command from this self-contained kit. No old directory is used.
+Eight exact names from the latest report are requested: the C2/D2 context bodies,
+context accessors/default constructor, queue constructor/destructor, and the
+observed speculative-preview change function. The earlier C1/D1 bodies are only
+one-instruction forwarding branches; their implementation contracts remain open.
+No root bodies, query helpers, AddFunctionToQueue or table bytes are repeated.
+Both module identities and every requested symbol are checked before disassembly.
+The bounded inventory now includes top-level WorkQueue names to locate setup and
+emitter leads; names do not prove callback coverage, main-thread execution or ABI.
+Profiles cannot be combined; additional arbitrary symbol selections are refused.
+PASS means those eight bodies were collected, not that subscription is safe.

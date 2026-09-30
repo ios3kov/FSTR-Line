@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = {"Queue-AE.command", "queue_kit.py", "queue_static.py", "deep_targets.json", "QUEUE-README.txt", "build-manifest.json",
-         "inspect_binary.py", "Queue-Context.command"}
+         "inspect_binary.py", "Queue-Context.command", "Queue-Details.command"}
 
 
 def main():
@@ -33,7 +33,7 @@ def main():
         def run(*args, entry="Queue-AE.command"):
             return subprocess.run(["bash", str(kit / entry), *args],
                                   capture_output=True, text=True, timeout=30)
-        for entry in ("Queue-AE.command", "Queue-Context.command"):
+        for entry in ("Queue-AE.command", "Queue-Context.command", "Queue-Details.command"):
             checked = run("--verify-only", entry=entry)
             assert checked.returncode == 0, checked.stdout + checked.stderr
             assert json.loads(checked.stdout)["sourceCommit"] == commit
@@ -41,7 +41,7 @@ def main():
         (app / "Contents").mkdir(parents=True)
         metadata = plistlib.dumps({"CFBundleIdentifier": "org.fstr.owned-fixture"})
         (app / "Contents/Info.plist").write_bytes(metadata)
-        for entry in ("Queue-AE.command", "Queue-Context.command"):
+        for entry in ("Queue-AE.command", "Queue-Context.command", "Queue-Details.command"):
             out = work / ("reports-" + entry)
             refused = run("--app", str(app), "--output", str(out), entry=entry)
             assert refused.returncode == 2, refused.stdout + refused.stderr
@@ -73,9 +73,17 @@ def main():
         image = next(s for s in reader.parse_macho(binary.read_bytes()) if s["cpuType"] == 0x100000c)
         table = reader.read_macho_range(binary, hashlib.sha256(binary.read_bytes()).hexdigest(), image["uuid"], address, 4)
         assert table["hex"] == "01071d2b" and table["byteCount"] == 4, table
+        # The actual packaged collector, with test-only image identity; no Adobe.
+        from test_queue_context_details import linked_details_control
+        collector = types.ModuleType("owned_packaged_details_collector")
+        collector.__file__ = str(kit / "queue_static.py")
+        exec(compile((kit / "queue_static.py").read_bytes(), collector.__file__, "exec"), collector.__dict__)
+        details = linked_details_control(collector, work / "details-owned")
+        assert details["collectionStatus"] == "PASS" and details["expectedBodyCount"] == 8, details
     evidence = {"status": "PASS", "sourceCommit": commit, "kitSha256": digest,
                 "scope": "Exact CI ZIP launchers, integrity, wrong-app refusal and owned Mach-O range; NOT Adobe AE",
-                "contextLauncher": "PASS", "ownedLinkedMachoRange": "PASS",
+                "contextLauncher": "PASS", "detailsLauncher": "PASS", "ownedLinkedDetailsProfile": "PASS",
+                "detailsBodyCount": 8, "ownedLinkedMachoRange": "PASS",
                 "actualAE": "NOT RUN", "interactivePicker": "NOT RUN", "SYNC-001": "NOT RUN"}
     target = ROOT / "dist/notification-evidence/queue-kit.json"
     target.parent.mkdir(parents=True, exist_ok=True)
