@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+"""Read-only queue/context evidence collector. Never calls or loads Adobe code."""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import platform
+import plistlib
+import re
+import selectors
+import signal
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+# Exact names from COMPLETION-NATIVE-CLIENT-2026-09-29.md, not guessed ABIs.
+REQUIRED = {
+    "BEE": (
+        "__Z33BEE_WorkQueue_PostGenericFunctionRKN5boost8functionIFvR11BEE_ProjectEEE",
+        "__ZN29BEE_ThreadedRenderUpdateQueue19PostGenericFunctionERKN5boost8functionIFvR11BEE_ProjectEEE",
+        "__ZN29BEE_ThreadedRenderUpdateQueue22Render_GenericFunctionERKN5boost8functionIFvR11BEE_ProjectEEE",
+        "__ZN11BEE_Globals15GetProjectCloneEv",
+    ),
+    "AfterFXLib": (
+        "__Z21SamuraiUpdateParamsUIP9PF_InDataP10PF_OutDataPP11PF_ParamDef",
+        "__ZN7dvacore9messaging6SignalIFvP15BEE_UndoContextELb1EE7ConnectENSt3__18functionIS4_EE",
+        "__ZNSt3__110__function6__funcIZ21SamuraiUpdateParamsUIP9PF_InDataP10PF_OutDataPP11PF_ParamDefE3$_0NS_9allocatorIS9_EEFvP15BEE_UndoContextEEclEOSD_",
+    ),
+}
+LEADS = re.compile(
+    r"BEE_ThreadedRenderUpdateQueue.*(?:GenericFunction|AddFunctionToQueue|"
+    r"Deserialize|Serialize|Process|Run|Execute|Wait|Flush|Cancel|Clear)|"
+    r"BEE_Globals.*(?:Project|Thread)|BEE_Project.*(?:GetUndoContext|Clone)|"
+    r"BEE_WorkQueue.*(?:RegisterListener|DeregisterListener)|"
+    r"SignalIFvP15BEE_UndoContext.*Connect"
+)
+MAX_BINARY = 2 * 1024**3
+MAX_NM = 64 * 1024**2
+MAX_BODY = 2 * 1024**2
+MAX_LEADS = 256
+
+
+class Blocked(ValueError):
+    """A missing prerequisite; never evidence that a host mechanism is absent."""
+
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def fingerprint(path: Path) -> str:
+    with path.open("rb") as source:
+        if not 0 < os.fstat(source.fileno()).st_size <= MAX_BINARY:
+            raise Blocked("BINARY_SIZE")
+        h = hashlib.sha256()
+        total = 0
+        for chunk in iter(lambda: source.read(1024**2), b""):
+            total += len(chunk)
+            if total > MAX_BINARY:
+                raise Blocked("BINARY_SIZE")
+            h.update(chunk)
+        return h.hexdigest()
+
+
+def run_tool(args: list[str], *, timeout: float = 60, max_bytes: int = MAX_BODY) -> dict:
+    """Bound bytes while the child runs, not after capture_output has allocated them."""
+    if timeout <= 0 or max_bytes < 1:
+        raise ValueError("positive tool bounds required")
+    data = bytearray()
+    reason = None
+    code = None
+    try:
+        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              start_new_session=True) as proc:
+            try:
+                deadline = time.monotonic() + timeout
+                with selectors.DefaultSelector() as ready:
+                    ready.register(proc.stdout, selectors.EVENT_READ)
+                    while ready.get_map():
+                        left = deadline - time.monotonic()
+                        if left <= 0:
+                            reason = "TIMEOUT"
+                            break
+                        if not ready.select(left):
+                            reason = "TIMEOUT"
+                            break
+                        chunk = os.read(proc.stdout.fileno(), min(65536, max_bytes + 1 - len(data)))
+                        if not chunk:
+                            ready.unregister(proc.stdout)
+                            break
+                        data.extend(chunk)
+                        if len(data) > max_bytes:
+                            reason = "OUTPUT_LIMIT"
+                            break
+                if reason is None:
+                    try:
+                        code = proc.wait(timeout=max(0.001, deadline - time.monotonic()))
+                    except subprocess.TimeoutExpired:
+                        reason = "TIMEOUT"
+            finally:
+                # Only the new process group created above, never an AE/user PID.
+                if reason is not None or proc.poll() is None:
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                code = proc.wait(timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        reason = "TOOL_UNAVAILABLE"
+    raw = bytes(data[:max_bytes])
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("utf-8", "replace")
+        reason = reason or "INVALID_UTF8"
+    return {"exitCode": code, "complete": reason is None and code == 0,
+            "reason": reason or (None if code == 0 else "TOOL_FAILED"),
+            "bytes": len(raw), "sha256": digest(raw), "text": text}
+
+
+def arm64_uuid(text: str) -> str:
+    matches = re.findall(r"^UUID:\s*([0-9a-fA-F-]{36})\s+\(arm64\)(?:\s|$)", text, re.M)
+    if len(matches) != 1:
+        raise Blocked("ARM64_UUID_MISSING_OR_AMBIGUOUS")
+    import uuid
+    return str(uuid.UUID(matches[0]))
+
+
+def text_symbols(text: str) -> dict[str, int]:
+    """Parse defined nm output; diagnostics/unknown output formats fail closed."""
+    result = {}
+    for line in text.splitlines():
+        if not line.strip() or line.rstrip().endswith(":"):
+            continue
+        row = re.fullmatch(r"\s*([0-9a-fA-F]+)\s+([A-Za-z?])\s+(.+?)\s*", line)
+        if row is None:
+            raise Blocked("UNRECOGNIZED_NM_OUTPUT")
+        address, kind, symbol = row.groups()
+        if kind not in ("t", "T"):
+            continue
+        if symbol in result:
+            raise Blocked("DUPLICATE_TEXT_SYMBOL")
+        result[symbol] = int(address, 16)
+    return result
+
+
+def inspect_body(text: str, symbol: str, address: int) -> dict:
+    """Positive target/body check, NOT proof of full CFG or runtime semantics."""
+    lines = text.splitlines()
+    labels = [i for i, line in enumerate(lines) if line.strip() == symbol + ":"]
+    if len(labels) != 1:
+        raise Blocked("REQUESTED_BODY_MISSING_OR_AMBIGUOUS")
+    instructions = []
+    for line in lines[labels[0] + 1:]:
+        row = re.match(r"^\s*([0-9a-fA-F]{1,16}):?\s+(.+)$", line)
+        if row:
+            instructions.append((int(row[1], 16), row[2]))
+        elif line.strip():
+            raise Blocked("UNEXPECTED_BODY_OUTPUT")
+    if not instructions or instructions[0][0] != address:
+        raise Blocked("REQUESTED_BODY_ADDRESS_MISMATCH")
+    if any(a != address + 4 * i for i, (a, _) in enumerate(instructions)):
+        raise Blocked("NONCONTIGUOUS_ARM64_BODY")
+    if any("<unknown>" in instruction for _, instruction in instructions):
+        raise Blocked("UNDECODED_INSTRUCTION")
+    return {"instructionCount": len(instructions),
+            "branchSites": [{"address": hex(a), "instruction": instruction}
+                            for a, instruction in instructions
+                            if re.match(r"(?:bl|blr|b|br)\s", instruction)]}
+
+
+def module_path(app: Path, relative: str) -> Path:
+    part = Path(relative)
+    if part.is_absolute() or ".." in part.parts:
+        raise Blocked("UNSAFE_MODULE_PATH")
+    path = (app / part).resolve(strict=True)
+    if not path.is_relative_to(app) or not path.is_file():
+        raise Blocked("UNSAFE_MODULE_PATH")
+    return path
+
+
+def collect(app: Path, policy: dict, runner=run_tool) -> dict:
+    """Collect known roots plus a visibility inventory. No private code invocation."""
+    report = {"schemaVersion": 1, "kind": "queue-context-static",
+              "collectionStatus": "BLOCKED", "SYNC-001": "NOT RUN",
+              "privateInvocationAllowed": False, "modules": {}, "commands": [],
+              "claims": {key: "UNPROVEN" for key in (
+                  "queueThread", "queueOrder", "cloneAssociation", "contextAcquisition",
+                  "registrationABI", "callbackQuiescence", "postCommit", "coverage")}}
+    def call(args, limit=MAX_BODY):
+        row = runner(args, timeout=60, max_bytes=limit)
+        report["commands"].append({"args": args, **{k: v for k, v in row.items() if k != "text"}})
+        if row.get("complete") is not True or row.get("exitCode") != 0:
+            raise Blocked(row.get("reason") or "INCOMPLETE_TOOL_RESULT")
+        return row["text"]
+    try:
+        app = app.expanduser().resolve(strict=True)
+        info_path = module_path(app, "Contents/Info.plist")
+        if info_path.stat().st_size > 1024**2:
+            raise Blocked("PLIST_SIZE")
+        metadata = plistlib.loads(info_path.read_bytes())
+        for field, key in (("CFBundleIdentifier", "aeBundleId"),
+                           ("CFBundleShortVersionString", "aeShortVersion"),
+                           ("CFBundleVersion", "aeBundleVersion")):
+            if metadata.get(field) != policy[key]:
+                raise Blocked("AE_BUILD_MISMATCH")
+        report["aeBuild"] = policy["aeBundleVersion"]
+        paths = {}
+        # Refuse every identity mismatch BEFORE nm/disassembly, for all modules.
+        for key in REQUIRED:
+            spec = policy["modules"][key]
+            path = module_path(app, spec["relativePath"])
+            actual = fingerprint(path)
+            if actual != spec["sha256"]:
+                raise Blocked("MODULE_HASH_MISMATCH:" + key)
+            found_uuid = arm64_uuid(call(["xcrun", "dwarfdump", "--uuid", str(path)]))
+            if found_uuid != spec["uuid"].lower():
+                raise Blocked("MODULE_UUID_MISMATCH:" + key)
+            paths[key] = path
+            report["modules"][key] = {"sha256": actual, "arm64UUID": found_uuid,
+                                      "relativePath": spec["relativePath"], "bodies": {}}
+        report["toolVersion"] = call(["xcrun", "llvm-objdump", "--version"])
+        for key, path in paths.items():
+            defined = text_symbols(call(["xcrun", "nm", "-arch", "arm64", "-U", str(path)], MAX_NM))
+            exported = text_symbols(call(["xcrun", "nm", "-arch", "arm64", "-gU", str(path)], MAX_NM))
+            if not defined or not exported or any(defined.get(n) != a for n, a in exported.items()):
+                raise Blocked("INCONSISTENT_SYMBOL_TABLES:" + key)
+            names = sorted(set(REQUIRED[key]) | {n for n in defined if LEADS.search(n)})
+            if len(names) > MAX_LEADS:
+                raise Blocked("CANDIDATE_LIMIT:" + key)
+            report["modules"][key]["inventory"] = [
+                {"symbol": n, "address": hex(defined[n]) if n in defined else None,
+                 "visibility": "defined-external-nm" if n in exported else
+                 "defined-only-in-full-nm" if n in defined else "not-found-in-scanned-module"}
+                for n in names]
+            for symbol in REQUIRED[key]:
+                if symbol not in defined:
+                    raise Blocked("REQUIRED_SYMBOL_MISSING:" + key + ":" + symbol)
+                body = call(["xcrun", "llvm-objdump", "--macho", "--arch=arm64",
+                             "--disassemble", "--no-show-raw-insn", "--dis-symname", symbol, str(path)])
+                facts = inspect_body(body, symbol, defined[symbol])
+                report["modules"][key]["bodies"][symbol] = {**facts, "text": body}
+        # Detect persistent replacement of a module during collection.
+        for key, path in paths.items():
+            if module_path(app, policy["modules"][key]["relativePath"]) != path or \
+                    fingerprint(path) != report["modules"][key]["sha256"]:
+                raise Blocked("MODULE_CHANGED_DURING_COLLECTION:" + key)
+        if not all(set(report["modules"][k]["bodies"]) == set(v) for k, v in REQUIRED.items()):
+            raise Blocked("INCOMPLETE_REQUIRED_BODY_SET")
+        report["collectionStatus"] = "PASS"
+    except (Blocked, OSError, ValueError, KeyError, TypeError) as error:
+        report["reason"] = str(error) if isinstance(error, Blocked) else type(error).__name__
+    # Tool paths can contain a user's name; no project data is read at any time.
+    def redact(value):
+        if isinstance(value, str):
+            return value.replace(str(app), "<AE_APP>").replace(str(Path.home()), "<HOME>")
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        if isinstance(value, dict):
+            return {key: redact(item) for key, item in value.items()}
+        return value
+    return redact(report)
+
+
+def save_report(report: dict, output: Path) -> Path:
+    output = output.expanduser().resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    owned = Path(tempfile.mkdtemp(prefix="FSTR-AE-Queue-", dir=output))
+    report = {**report, "runId": owned.name, "collectorSha256": fingerprint(Path(__file__)),
+              "capturedAtUnix": time.time()}
+    payload = (json.dumps(report, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    with (owned / "report.json").open("xb") as dest:
+        dest.write(payload)
+    (owned / "SHA256.txt").write_text(digest(payload) + "  report.json\n", encoding="ascii")
+    return owned / "report.json"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--app", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args(argv)
+    if platform.system() != "Darwin":
+        report = {"collectionStatus": "BLOCKED", "reason": "MACOS_REQUIRED",
+                  "SYNC-001": "NOT RUN", "privateInvocationAllowed": False}
+    else:
+        try:
+            policy_bytes = (ROOT / "deep_targets.json").read_bytes()
+            report = collect(args.app, json.loads(policy_bytes))
+            report["policySha256"] = digest(policy_bytes)
+        except (OSError, ValueError) as error:
+            report = {"collectionStatus": "BLOCKED", "reason": type(error).__name__,
+                      "SYNC-001": "NOT RUN", "privateInvocationAllowed": False}
+    path = save_report(report, args.output)
+    print(report["collectionStatus"] + ": " + str(path))
+    return 0 if report["collectionStatus"] == "PASS" else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
