@@ -39,7 +39,14 @@ jobs:
       - name: Focused nm/LLDB static smoke on owned Mach-O
         run: python3 -B tests/research/mac_focused_smoke.py
       - name: Runtime observer attach smoke on owned process (not AE)
-        run: python3 -B tests/research/mac_runtime_attach_smoke.py
+        run: python3 -B tests/research/mac_runtime_attach_smoke.py --runs 5
+      - name: Retain owned-fixture diagnostics, including failures
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: FSTR-LLDB-Diagnostics-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/notification-evidence/runtime-attach/
+          if-no-files-found: ignore
       - name: Deep static symbol/disassembly smoke on owned Mach-O
         run: python3 -B tests/research/mac_deep_smoke.py
       - name: Context probe packaged attach smoke on owned process

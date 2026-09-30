@@ -39,6 +39,20 @@ def _create_breakpoint(target,module,module_name,item):
 def _ack(path,kind,sequence=0,**extra):
     runtime_protocol.append_jsonl(path,dict(kind=kind,sequence=sequence,**extra))
 
+def _stage(plan, result, label):
+    """Opt-in file progress; never call LLDB or prevent detach on a logging error."""
+    if not plan.get('diagnosticStages', False):
+        return
+    result['lastDiagnosticStage'] = label
+    try:
+        _ack(plan['ackPath'], 'controller-stage', stage=label,
+             diagnosticErrorCount=len(result.get('diagnosticErrors', [])),
+             monotonicNs=time.monotonic_ns())
+    except Exception as error:
+        errors = result.setdefault('diagnosticErrors', [])
+        if len(errors) < 64:
+            errors.append({'stage': label, 'errorType': type(error).__name__})
+
 def run(debugger,plan_name):
     plan=json.loads(Path(plan_name).read_text(encoding='utf-8'))
     result_path=Path(plan['resultPath']); trace_path=Path(plan['tracePath'])
@@ -50,15 +64,18 @@ def run(debugger,plan_name):
     target=None; process=None; attached=False; capture_started=False
     debugger.SetAsync(False)
     try:
+        _stage(plan, result, 'create-target-begin')
         target=debugger.CreateTarget(plan['executable'])
         if not target.IsValid():
             raise RuntimeError('LLDB could not create target')
+        _stage(plan, result, 'attach-begin')
         error=lldb.SBError()
         process=target.AttachToProcessWithID(debugger.GetListener(),int(plan['pid']),error)
         if error.Fail() or not process.IsValid():
             result.update(status='BLOCKED',stage='attach',error=error.GetCString() or 'Attach failed')
             _write(result_path,result); return
         attached=True
+        _stage(plan, result, 'attach-end')
         module_map={}; modules={}; module_names={}; bp_meta={}
         for item in plan['modules']:
             module=_module_by_path(target,item['path'])
@@ -138,13 +155,23 @@ def run(debugger,plan_name):
             else:
                 raise RuntimeError('Interactive control protocol timed out')
 
+        _stage(plan, result, 'shutdown-sync-begin')
         debugger.SetAsync(False)
-        if process.GetState()==lldb.eStateRunning:
+        _stage(plan, result, 'shutdown-state-begin')
+        shutdown_state = process.GetState()
+        _stage(plan, result, 'shutdown-state-end')
+        if shutdown_state==lldb.eStateRunning:
+            _stage(plan, result, 'stop-begin')
             stop_error=process.Stop()
+            _stage(plan, result, 'stop-end')
             if stop_error.Fail():
                 raise RuntimeError('Could not pause process for clean detach: '+str(stop_error))
+        _stage(plan, result, 'capture-close-begin')
         trace_callback.stop_capture(); capture_started=False
+        _stage(plan, result, 'capture-close-end')
+        _stage(plan, result, 'detach-begin')
         detach_error=process.Detach()
+        _stage(plan, result, 'detach-end')
         if detach_error.Fail():
             raise RuntimeError('Detach failed: '+str(detach_error))
         attached=False
@@ -154,8 +181,13 @@ def run(debugger,plan_name):
         else:
             result.update(status='BLOCKED',stage='aborted',detached=True,
                           note='Interactive capture aborted before completion.')
+        if result.get('diagnosticErrors'):
+            result.update(status='FAIL', stage='diagnostics')
+        _stage(plan, result, 'result-write-begin')
         _write(result_path,result)
+        _stage(plan, result, 'result-write-end')
     except Exception as error:
+        _stage(plan, result, 'exception-cleanup-begin')
         if capture_started:
             try: trace_callback.stop_capture()
             except Exception: pass
@@ -163,16 +195,27 @@ def run(debugger,plan_name):
                       stage=result.get('stage','runtime'),error=str(error))
         if attached and process and process.IsValid():
             try:
+                _stage(plan, result, 'recovery-sync-begin')
                 debugger.SetAsync(False)
+                _stage(plan, result, 'recovery-state-begin')
                 if process.GetState()==lldb.eStateRunning:
+                    _stage(plan, result, 'recovery-stop-begin')
                     process.Stop()
+                    _stage(plan, result, 'recovery-stop-end')
+                _stage(plan, result, 'recovery-detach-begin')
                 detach_error=process.Detach()
+                _stage(plan, result, 'recovery-detach-end')
                 result['detached']=not detach_error.Fail(); attached=False
             except Exception as detach_problem:
                 result['detachError']=str(detach_problem)
         try: _write(result_path,result)
         except FileExistsError: pass
     finally:
+        _stage(plan, result, 'finally-capture-close-begin')
         trace_callback.stop_capture()
+        _stage(plan, result, 'finally-capture-close-end')
         if target and target.IsValid():
+            _stage(plan, result, 'delete-target-begin')
             debugger.DeleteTarget(target)
+            _stage(plan, result, 'delete-target-end')
+        _stage(plan, result, 'controller-return')
