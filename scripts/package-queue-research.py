@@ -9,7 +9,8 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NAMES = ("Queue-AE.command", "queue_kit.py", "queue_static.py", "deep_targets.json", "QUEUE-README.txt")
+NAMES = ("Queue-AE.command", "queue_kit.py", "queue_static.py", "deep_targets.json", "QUEUE-README.txt",
+         "inspect_binary.py", "Queue-Context.command")
 
 
 def build(root: Path = ROOT) -> dict:

@@ -13,7 +13,8 @@ import types
 import zipfile
 from pathlib import Path
 
-FILES = ("Queue-AE.command", "queue_kit.py", "queue_static.py", "deep_targets.json", "QUEUE-README.txt")
+FILES = ("Queue-AE.command", "queue_kit.py", "queue_static.py", "deep_targets.json", "QUEUE-README.txt",
+         "inspect_binary.py", "Queue-Context.command")
 MAX_FILE = 8 * 1024**2
 CHOOSER = '''try
   set chosenApp to choose file of type {"com.apple.application-bundle"} with prompt "Select Adobe After Effects 2025 for read-only inspection (no launch)"
@@ -81,6 +82,8 @@ def main(argv=None, *, root: Path | None = None) -> int:
     parser.add_argument("--app", type=Path, help="explicit .app path; otherwise show a file picker on macOS")
     parser.add_argument("--output", type=Path, default=Path.home() / "Desktop/FSTR-AE-Research")
     parser.add_argument("--inspect-symbol", action="append", default=[], metavar="MODULE:SYMBOL")
+    parser.add_argument("--context-followup", action="store_true",
+                        help="collect the pinned context helpers and four-byte command table")
     args = parser.parse_args(argv)
     root = (root or Path(__file__).parent).resolve()
     try:
@@ -112,7 +115,14 @@ def main(argv=None, *, root: Path | None = None) -> int:
             print("BLOCKED: OUTPUT_INSIDE_APPLICATION; no files written")
             return 2
         policy = json.loads(payload["deep_targets.json"])
-        report = collector.collect(app, policy, inspect_symbols=args.inspect_symbol)
+        if args.context_followup:
+            reader = types.ModuleType("_fstr_range_reader")
+            reader.__file__ = str(root / "inspect_binary.py")
+            exec(compile(payload["inspect_binary.py"], reader.__file__, "exec"), reader.__dict__)
+            report = collector.collect(app, policy, inspect_symbols=args.inspect_symbol,
+                                       context_followup=True, read_range=reader.read_macho_range)
+        else:
+            report = collector.collect(app, policy, inspect_symbols=args.inspect_symbol)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         report["reason"] = str(error) if isinstance(error, KitError) else type(error).__name__
     report.update(identity)

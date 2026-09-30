@@ -38,6 +38,29 @@ LEADS = re.compile(
     r"BEE_WorkQueue.*(?:RegisterListener|DeregisterListener)|"
     r"SignalIFvP15BEE_UndoContext.*Connect"
 )
+# Exact call operands and switch layout from the retained qk6xsvhj report.
+# The profile never invokes these functions and never accepts arbitrary VM reads.
+CONTEXT_REQUIRED = {
+    "BEE": (
+        "__Z16BEE_QueryProjectPP11BEE_Project",
+        "__Z26BEE_GetCurrentConstProjectv",
+        "__ZN21BEE_ProjectSetContextC1EP11BEE_Project",
+        "__ZN21BEE_ProjectSetContextD1Ev",
+        "__ZN29BEE_ThreadedRenderUpdateQueue18AddFunctionToQueueERKN5boost8functionIFvvEEEP15BEE_UndoContextsPKcS9_PKNSt3__112basic_stringIhNSA_11char_traitsIhEEN7dvacore9allocator12STLAllocatorIhEEEENS_11CommandTypeE",
+    ),
+    "AfterFXLib": (),  # identity/inventory checked, old callback bodies not repeated
+}
+CONTEXT_LEADS = re.compile(
+    r"^__Z(?:16BEE_QueryProject|26BEE_GetCurrentConstProject)|"
+    r"^__ZN21BEE_ProjectSetContext|"
+    r"^__ZN29BEE_ThreadedRenderUpdateQueue(?:C[12]|D[012])|"
+    r"^__Z[0-9]+BEE_WorkQueue_[A-Za-z_]*(?:Listener|Notify|Dispatch|Emit|Process|Change)"
+)
+CONTEXT_TABLE = {"moduleSha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+                 "vmAddress": 0xe8c4d4, "byteCount": 4, "dispatchBase": 0x777c8c,
+                 "functionAddress": 0x777bfc}
+
+
 MAX_BINARY = 2 * 1024**3
 MAX_NM = 64 * 1024**2
 MAX_BODY = 2 * 1024**2
@@ -234,7 +257,8 @@ def requested_symbols(values: list[str] | tuple[str, ...]) -> dict[str, list[str
     return requested
 
 
-def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> dict:
+def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=(),
+            context_followup=False, read_range=None) -> dict:
     """Collect roots and selected fresh inventory leads. No private code invocation."""
     report = {"schemaVersion": 1, "kind": "queue-context-static",
               "collectionStatus": "BLOCKED", "SYNC-001": "NOT RUN",
@@ -249,7 +273,21 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> 
             raise Blocked(row.get("reason") or "INCOMPLETE_TOOL_RESULT")
         return row["text"]
     try:
-        requested = requested_symbols(inspect_symbols)
+        if type(context_followup) is not bool:
+            raise Blocked("INVALID_CONTEXT_PROFILE")
+        if context_followup:
+            if inspect_symbols:
+                raise Blocked("CONTEXT_PROFILE_DISALLOWS_EXTRA_SYMBOLS")
+            if not callable(read_range):
+                raise Blocked("CONTEXT_READER_REQUIRED")
+            if policy["modules"]["BEE"]["sha256"] != CONTEXT_TABLE["moduleSha256"]:
+                raise Blocked("CONTEXT_PROFILE_BUILD_MISMATCH")
+            requested = {key: list(names) for key, names in CONTEXT_REQUIRED.items()}
+            leads = CONTEXT_LEADS
+        else:
+            requested = requested_symbols(inspect_symbols)
+            leads = LEADS
+        report["profile"] = "context-followup" if context_followup else "queue-roots"
         report["requestedSymbols"] = requested
         report["expectedBodyCount"] = sum(len(names) for names in requested.values())
         app = app.expanduser().resolve(strict=True)
@@ -288,7 +326,7 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> 
             if not defined or not exported or any(not a.issubset(defined.get(n, set()))
                                                  for n, a in exported.items()):
                 raise Blocked("INCONSISTENT_SYMBOL_TABLES:" + key)
-            names = sorted(set(REQUIRED[key]) | {n for n in defined if LEADS.search(n)})
+            names = sorted(set(requested[key]) | {n for n in defined if leads.search(n)})
             if len(names) > MAX_LEADS:
                 raise Blocked("CANDIDATE_LIMIT:" + key)
             report["modules"][key]["inventory"] = [
@@ -300,7 +338,7 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> 
                 for n in names]
             for symbol in requested[key]:
                 if symbol not in defined:
-                    reason = "REQUIRED_SYMBOL_MISSING" if symbol in REQUIRED[key] else "SELECTED_SYMBOL_MISSING"
+                    reason = "REQUIRED_SYMBOL_MISSING" if context_followup or symbol in REQUIRED[key] else "SELECTED_SYMBOL_MISSING"
                     raise Blocked(reason + ":" + key + ":" + symbol)
                 if len(defined[symbol]) != 1:
                     report["ambiguousTarget"] = {"module": key, "symbol": symbol,
@@ -313,6 +351,31 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> 
                              "--disassemble", "--no-show-raw-insn", "--dis-symname", symbol, str(path)])
                 facts = inspect_body(body, symbol, addresses[key][symbol])
                 report["modules"][key]["bodies"][symbol] = {**facts, "text": body}
+        if context_followup:
+            table = CONTEXT_TABLE
+            anchor = CONTEXT_REQUIRED["BEE"][-1]
+            if addresses["BEE"][anchor] != table["functionAddress"]:
+                raise Blocked("CONTEXT_ANCHOR_ADDRESS_MISMATCH")
+            try:
+                row = read_range(paths["BEE"], report["modules"]["BEE"]["sha256"],
+                                 report["modules"]["BEE"]["arm64UUID"],
+                                 table["vmAddress"], table["byteCount"])
+            except ValueError as error:
+                raise Blocked("CONTEXT_RANGE:" + str(error)) from error
+            raw = bytes.fromhex(row["hex"])
+            if (len(raw) != table["byteCount"] or row["byteCount"] != len(raw) or row["sha256"] != digest(raw) or
+                    row["vmAddress"] != hex(table["vmAddress"]) or
+                    row["moduleSha256"] != table["moduleSha256"] or
+                    row["arm64UUID"] != report["modules"]["BEE"]["arm64UUID"]):
+                raise Blocked("CONTEXT_RANGE_EVIDENCE_MISMATCH")
+            targets = [table["dispatchBase"] + value * 4 for value in raw]
+            end = addresses["BEE"][anchor] + 4 * report["modules"]["BEE"]["bodies"][anchor]["instructionCount"]
+            if any(not addresses["BEE"][anchor] <= target < end for target in targets):
+                raise Blocked("CONTEXT_DISPATCH_TARGET_OUTSIDE_BODY")
+            report["commandTypeTable"] = {**row, "dispatchBase": hex(table["dispatchBase"]),
+                "targets": [{"commandType": i, "unslidTarget": hex(target)}
+                            for i, target in enumerate(targets)],
+                "interpretation": "static unsigned-byte scaled branch table; not runtime delivery evidence"}
         # Detect persistent replacement of a module during collection.
         for key, path in paths.items():
             if module_path(app, policy["modules"][key]["relativePath"]) != path or \

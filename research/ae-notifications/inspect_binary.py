@@ -116,6 +116,81 @@ def parse_macho(data, max_leads: int = 200, max_symbols: int = 200000) -> list[d
     return slices
 
 
+
+def read_macho_range(path: Path, expected_sha: str, expected_uuid: str,
+                     address: int, length: int) -> dict:
+    """Read 1..64 bytes from one file-backed arm64 section, never process memory.
+
+    Reuses the existing thin/fat parser. Addresses are unslid VM values, not
+    file offsets. Only a hash/UUID-matching linked little-endian arm64 image
+    is accepted. This returns evidence bytes, not a callable ABI or permission.
+    """
+    require(type(address) is int and type(length) is int and
+            0 <= address < 2**64 and 1 <= length <= 64 and
+            address + length <= 2**64, "Invalid VM read bounds")
+    require(isinstance(expected_sha, str) and
+            re.fullmatch(r"[0-9a-f]{64}", expected_sha) is not None, "Invalid expected hash")
+    wanted_uuid = str(uuid.UUID(expected_uuid))
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, "rb") as source:
+        before = os.fstat(source.fileno())
+        require(stat.S_ISREG(before.st_mode) and 4 <= before.st_size <= 2 * 1024**3,
+                "Unsupported file type/size")
+        with mmap.mmap(source.fileno(), 0, access=mmap.ACCESS_READ) as data:
+            require(hashlib.sha256(data).hexdigest() == expected_sha, "Range module hash mismatch")
+            slices = parse_macho(data, max_leads=1, max_symbols=1)
+            selected = [s for s in slices if s["cpuType"] == 0x0100000c]
+            require(len(selected) == 1, "Missing or ambiguous arm64 slice")
+            image = selected[0]
+            require(image["is64Bit"] and image["endian"] == "<" and
+                    image["cpuSubtype"] & 0xffffff == 0 and
+                    image["fileType"] in (2, 6, 8) and image["uuid"] == wanted_uuid,
+                    "Range architecture/type/UUID mismatch")
+            base, size = image["fileOffset"], image["size"]
+            ncmds = struct.unpack_from("<I", data, base + 16)[0]
+            cursor = base + 32
+            matches = []
+            for _ in range(ncmds):
+                cmd, cmdsize = struct.unpack_from("<II", data, cursor)
+                require(cmdsize % 8 == 0, "Unaligned 64-bit load command")
+                if cmd == 0x19:  # LC_SEGMENT_64; format from Apple's loader.h
+                    require(cmdsize >= 72, "Truncated segment command")
+                    fields = struct.unpack_from("<II16sQQQQiiII", data, cursor)
+                    segname, vmaddr, vmsize, fileoff, filesize = fields[2:7]
+                    nsects = fields[9]
+                    require(cmdsize == 72 + 80 * nsects and
+                            vmaddr + vmsize <= 2**64 and filesize <= vmsize and
+                            fileoff + filesize <= size, "Invalid segment bounds")
+                    for index in range(nsects):
+                        sec = struct.unpack_from("<16s16sQQIIIIIIII", data, cursor + 72 + 80 * index)
+                        name, owner, start, count, offset = sec[:5]
+                        kind = sec[8] & 0xff
+                        require(owner == segname and vmaddr <= start and
+                                start + count <= vmaddr + vmsize, "Invalid section VM range")
+                        backed = kind not in (1, 0xc, 0x12)  # zero-fill section types
+                        if backed:
+                            require(fileoff <= offset and offset + count <= fileoff + filesize and
+                                    offset == fileoff + start - vmaddr, "Invalid section file mapping")
+                        if start <= address and address + length <= start + count:
+                            require(backed, "Requested range is zero-fill")
+                            matches.append((base + offset + address - start, name, owner))
+                cursor += cmdsize
+            require(len(matches) == 1, "Missing or ambiguous file-backed VM range")
+            offset, section, segment = matches[0]
+            raw = bytes(data[offset:offset + length])
+            require(len(raw) == length, "Truncated VM range")
+            require(hashlib.sha256(data).hexdigest() == expected_sha, "Range module changed")
+            after = os.fstat(source.fileno())
+            require((before.st_size, before.st_mtime_ns, before.st_ctime_ns) ==
+                    (after.st_size, after.st_mtime_ns, after.st_ctime_ns), "Range input changed")
+    return {"vmAddress": hex(address), "byteCount": length,
+            "fileOffset": offset, "sliceOffset": base, "arm64UUID": wanted_uuid,
+            "moduleSha256": expected_sha, "hex": raw.hex(),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "segment": segment.rstrip(b"\0").decode("ascii"),
+            "section": section.rstrip(b"\0").decode("ascii")}
+
+
 def inspect_file(path: Path, max_scan: int = 256 * 1024 * 1024, max_leads: int = 200) -> dict:
     require(max_scan > 0 and 1 <= max_leads <= 10000, "Invalid scan limits")
     path = path.absolute()

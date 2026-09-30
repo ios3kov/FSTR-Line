@@ -32,3 +32,16 @@ PASS describes collection completeness only. Runtime queue order/thread,
 clone association, callback lifetime/ABI and production delivery stay UNPROVEN.
 The interactive file-picker UI and collection on licensed Adobe modules require
 the actual Mac; CI verifies the CLI, picker syntax and owned controls separately.
+
+CONTEXT FOLLOW-UP (qk6xsvhj research continuation)
+Run Queue-Context.command from this new self-contained kit. No old kit is needed.
+The exact AE 25.6.0.101 module hashes/UUIDs remain mandatory. It collects four
+previously observed context helpers, AddFunctionToQueue as its table anchor,
+and exactly four file-backed bytes at the pinned command-table address.
+It does NOT repeat the prior 19-body request. The anchor is intentionally reread.
+No Adobe code is invoked; the data does not approve native calls or shipping.
+The report also inventories narrowly matched context/queue lifecycle and emitter
+names. Names are leads, not proof of a notification source or an external ABI.
+Missing/ambiguous functions, invalid address mapping, hash changes or an incomplete
+range block the whole collection. Raw VM-address CLI selection is not supported.
+Return report.zip, not any Adobe binaries. The picker never starts After Effects.
