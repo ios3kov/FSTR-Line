@@ -30,7 +30,7 @@ def body(symbol, address):
 class Fixture:
     """Fabricated binaries/UUIDs identify only this fixture, never an Adobe build."""
     def __init__(self, root):
-        self.app = root / "Owned AE Fixture.app"
+        self.app = (root / "Owned AE Fixture.app").resolve()
         (self.app / "Contents").mkdir(parents=True)
         self.policy = {"aeBundleId": "org.fstr.fixture", "aeShortVersion": "fixture",
                        "aeBundleVersion": "fixture.1", "modules": {}}
@@ -130,6 +130,19 @@ class QueueStaticTests(unittest.TestCase):
         self.assertEqual(registrar["visibility"], "defined-only-in-full-nm")
         self.assertNotIn(str(f.app), json.dumps(report))
         self.assertFalse(any("lldb" in a or "--attach" in a for a in f.calls))
+
+    def test_fixture_accepts_a_symlinked_temporary_root(self):
+        # macOS /var resolves to /private/var; reproduce it on any Unix runner.
+        with tempfile.TemporaryDirectory() as td:
+            real = Path(td).resolve() / "real"
+            real.mkdir()
+            alias = Path(td).resolve() / "alias"
+            alias.symlink_to(real, target_is_directory=True)
+            f = Fixture(alias)
+            report = q.collect(f.app, f.policy, f.run)
+            self.assertEqual(report["collectionStatus"], "PASS", report)
+            self.assertEqual(f.app, f.app.resolve())
+            self.assertEqual(report["SYNC-001"], "NOT RUN")
 
     def test_paths_are_redacted_before_json_escapes_unicode_and_quotes(self):
         with tempfile.TemporaryDirectory() as td:
