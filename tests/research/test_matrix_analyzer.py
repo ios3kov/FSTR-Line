@@ -45,9 +45,13 @@ class MatrixAnalyzerTests(unittest.TestCase):
                     z.writestr(name+"/trace.jsonl","\n".join(json.dumps(x) for x in rows)+"\n")
                     z.writestr(name+"/result.json",json.dumps({"status":"PASS","pid":1}))
             report=m.analyze(p)
-        self.assertEqual(report["gates"]["extendScriptOrigin"],"OBSERVED")
-        self.assertEqual(report["gates"]["activeCompSwitch"],"GAP")
+        # This historical-shaped fixture has no parent or complete capture lifecycle.
+        # Preserve raw hits, but do not credit them to a verified runtime session.
+        self.assertEqual(report["runtimeStatus"],"BLOCKED")
+        self.assertEqual(report["observations"]["extendScriptProcessProjectChanges"],[1,1])
+        self.assertEqual(report["gates"]["extendScriptOrigin"],"UNPROVEN")
+        self.assertEqual(report["gates"]["activeCompSwitch"],"UNPROVEN")
         self.assertEqual(report["gates"]["postCommitSemantics"],"UNPROVEN")
-        self.assertEqual(report["gates"]["restartReopen"],"OBSERVED")
+        self.assertEqual(report["gates"]["restartReopen"],"UNPROVEN")
 
 if __name__=="__main__": unittest.main()
