@@ -1,0 +1,111 @@
+{
+  "SYNC-001": "NOT RUN",
+  "aeBuild": "25.6.0.101",
+  "buildId": "fstr-queue-6c22da433a74",
+  "capturedAtUnix": 1790785781.794943,
+  "claims": {
+    "callbackQuiescence": "UNPROVEN",
+    "cloneAssociation": "UNPROVEN",
+    "contextAcquisition": "UNPROVEN",
+    "coverage": "UNPROVEN",
+    "postCommit": "UNPROVEN",
+    "queueOrder": "UNPROVEN",
+    "queueThread": "UNPROVEN",
+    "registrationABI": "UNPROVEN"
+  },
+  "collectionStatus": "BLOCKED",
+  "collectorSha256": "84bc973dac830272feece2181d6b0070d2d592c671b2adf1f0b03ef0040c88b4",
+  "commands": [
+    {
+      "args": [
+        "xcrun",
+        "dwarfdump",
+        "--uuid",
+        "<AE_APP>/Contents/Frameworks/BEE.dylib"
+      ],
+      "bytes": 149,
+      "complete": true,
+      "exitCode": 0,
+      "reason": null,
+      "sha256": "58cccc965949c5cfc143800f5d2bb115ac42dbeb6560d1dcaa52198d5160b5bf"
+    },
+    {
+      "args": [
+        "xcrun",
+        "dwarfdump",
+        "--uuid",
+        "<AE_APP>/Contents/Frameworks/AfterFXLib.framework/Versions/A/AfterFXLib"
+      ],
+      "bytes": 182,
+      "complete": true,
+      "exitCode": 0,
+      "reason": null,
+      "sha256": "5d223214816b04a912abe76516289c3a028da03adb6743ea068a7cad0c9325d6"
+    },
+    {
+      "args": [
+        "xcrun",
+        "llvm-objdump",
+        "--version"
+      ],
+      "bytes": 561,
+      "complete": true,
+      "exitCode": 0,
+      "reason": null,
+      "sha256": "daf97ed1902b65c69716a2f0b1477d0a3a180f1cc673170ac733282e06fed5fb"
+    },
+    {
+      "args": [
+        "xcrun",
+        "nm",
+        "-arch",
+        "arm64",
+        "-U",
+        "<AE_APP>/Contents/Frameworks/BEE.dylib"
+      ],
+      "bytes": 9492430,
+      "complete": true,
+      "exitCode": 0,
+      "reason": null,
+      "sha256": "89c7e5edeb78f068a3290160ed6d966551f868db90405cf926cc023f523699a7"
+    }
+  ],
+  "expectedBodyCount": 7,
+  "kind": "queue-context-static",
+  "manifestSha256": "858207f1bbc9d0d7baf1f14bb4385ca8421995be2f374cee58451c46f4098902",
+  "modules": {
+    "AfterFXLib": {
+      "arm64UUID": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5",
+      "bodies": {},
+      "relativePath": "Contents/Frameworks/AfterFXLib.framework/Versions/A/AfterFXLib",
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a"
+    },
+    "BEE": {
+      "arm64UUID": "161300f3-73f8-3ebc-a751-959df40a073b",
+      "bodies": {},
+      "relativePath": "Contents/Frameworks/BEE.dylib",
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca"
+    }
+  },
+  "policySha256": "1e748db1d0c565f02e23133f265b3d5768445dddabbddcf40c23114c5dee96f5",
+  "privateInvocationAllowed": false,
+  "reason": "DUPLICATE_TEXT_SYMBOL",
+  "requestedSymbols": {
+    "AfterFXLib": [
+      "__Z21SamuraiUpdateParamsUIP9PF_InDataP10PF_OutDataPP11PF_ParamDef",
+      "__ZN7dvacore9messaging6SignalIFvP15BEE_UndoContextELb1EE7ConnectENSt3__18functionIS4_EE",
+      "__ZNSt3__110__function6__funcIZ21SamuraiUpdateParamsUIP9PF_InDataP10PF_OutDataPP11PF_ParamDefE3$_0NS_9allocatorIS9_EEFvP15BEE_UndoContextEEclEOSD_"
+    ],
+    "BEE": [
+      "__Z33BEE_WorkQueue_PostGenericFunctionRKN5boost8functionIFvR11BEE_ProjectEEE",
+      "__ZN29BEE_ThreadedRenderUpdateQueue19PostGenericFunctionERKN5boost8functionIFvR11BEE_ProjectEEE",
+      "__ZN29BEE_ThreadedRenderUpdateQueue22Render_GenericFunctionERKN5boost8functionIFvR11BEE_ProjectEEE",
+      "__ZN11BEE_Globals15GetProjectCloneEv"
+    ]
+  },
+  "runId": "FSTR-AE-Queue-4meaj9_r",
+  "schemaVersion": 1,
+  "sourceCommit": "6c22da433a747800cc473320e76cf4db4fd5eba5",
+  "sourceState": "clean",
+  "toolVersion": "Apple LLVM version 21.0.0\n  Optimized build.\n\n\n  Registered Targets:\n    aarch64    - AArch64 (little endian)\n    aarch64_32 - AArch64 (little endian ILP32)\n    aarch64_be - AArch64 (big endian)\n    arm        - ARM\n    arm64      - ARM64 (little endian)\n    arm64_32   - ARM64 (little endian ILP32)\n    armeb      - ARM (big endian)\n    thumb      - Thumb\n    thumbeb    - Thumb (big endian)\n    wasm32     - WebAssembly 32-bit\n    wasm64     - WebAssembly 64-bit\n    x86        - 32-bit X86: Pentium-Pro and above\n    x86-64     - 64-bit X86: EM64T and AMD64\n"
+}

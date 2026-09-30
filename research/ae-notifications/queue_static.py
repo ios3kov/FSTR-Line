@@ -131,8 +131,12 @@ def arm64_uuid(text: str) -> str:
     return str(uuid.UUID(matches[0]))
 
 
-def text_symbols(text: str) -> dict[str, int]:
-    """Parse defined nm output; diagnostics/unknown output formats fail closed."""
+def text_symbol_table(text: str) -> dict[str, set[int]]:
+    """Preserve every distinct address; local names need not be globally unique.
+
+    This is still a complete, strict parse of the bounded tool output. Nothing
+    here selects an address, establishes an ABI or permits a private call.
+    """
     result = {}
     for line in text.splitlines():
         if not line.strip() or line.rstrip().endswith(":"):
@@ -143,10 +147,32 @@ def text_symbols(text: str) -> dict[str, int]:
         address, kind, symbol = row.groups()
         if kind not in ("t", "T"):
             continue
-        if symbol in result:
-            raise Blocked("DUPLICATE_TEXT_SYMBOL")
-        result[symbol] = int(address, 16)
+        result.setdefault(symbol, set()).add(int(address, 16))
     return result
+
+
+def text_symbols(text: str) -> dict[str, int]:
+    """Strict unique-address view for existing isolated tooling controls."""
+    table = text_symbol_table(text)
+    if any(len(addresses) != 1 for addresses in table.values()):
+        raise Blocked("DUPLICATE_TEXT_SYMBOL")
+    return {name: next(iter(addresses)) for name, addresses in table.items()}
+
+
+def address_evidence(addresses: set[int]) -> dict:
+    """Bound report samples, without discarding addresses used for validation."""
+    return {"distinctAddressCount": len(addresses),
+            "addresses": [hex(a) for a in sorted(addresses)[:4]],
+            "addressesTruncated": len(addresses) > 4}
+
+
+def ambiguity_evidence(defined: dict[str, set[int]], exported: dict[str, set[int]]) -> dict:
+    names = sorted(name for name, addresses in defined.items() if len(addresses) > 1)
+    return {"definedNameCount": len(names),
+            "exportedNameCount": sum(len(a) > 1 for a in exported.values()),
+            "samplesTruncated": len(names) > 12,
+            "samples": [{"symbol": name[:2048], "symbolTruncated": len(name) > 2048,
+                         **address_evidence(defined[name])} for name in names[:12]]}
 
 
 def inspect_body(text: str, symbol: str, address: int) -> dict:
@@ -256,15 +282,19 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> 
         # Every module and requested name must pass before ANY disassembly.
         # An old report, CLI name or nm visibility is not permission to call code.
         for key, path in paths.items():
-            defined = text_symbols(call(["xcrun", "nm", "-arch", "arm64", "-U", str(path)], MAX_NM))
-            exported = text_symbols(call(["xcrun", "nm", "-arch", "arm64", "-gU", str(path)], MAX_NM))
-            if not defined or not exported or any(defined.get(n) != a for n, a in exported.items()):
+            defined = text_symbol_table(call(["xcrun", "nm", "-arch", "arm64", "-U", str(path)], MAX_NM))
+            exported = text_symbol_table(call(["xcrun", "nm", "-arch", "arm64", "-gU", str(path)], MAX_NM))
+            report["modules"][key]["nmAmbiguities"] = ambiguity_evidence(defined, exported)
+            if not defined or not exported or any(not a.issubset(defined.get(n, set()))
+                                                 for n, a in exported.items()):
                 raise Blocked("INCONSISTENT_SYMBOL_TABLES:" + key)
             names = sorted(set(REQUIRED[key]) | {n for n in defined if LEADS.search(n)})
             if len(names) > MAX_LEADS:
                 raise Blocked("CANDIDATE_LIMIT:" + key)
             report["modules"][key]["inventory"] = [
-                {"symbol": n, "address": hex(defined[n]) if n in defined else None,
+                {"symbol": n,
+                 "address": hex(next(iter(defined[n]))) if n in defined and len(defined[n]) == 1 else None,
+                 **address_evidence(defined.get(n, set())),
                  "visibility": "defined-external-nm" if n in exported else
                  "defined-only-in-full-nm" if n in defined else "not-found-in-scanned-module"}
                 for n in names]
@@ -272,7 +302,11 @@ def collect(app: Path, policy: dict, runner=run_tool, *, inspect_symbols=()) -> 
                 if symbol not in defined:
                     reason = "REQUIRED_SYMBOL_MISSING" if symbol in REQUIRED[key] else "SELECTED_SYMBOL_MISSING"
                     raise Blocked(reason + ":" + key + ":" + symbol)
-            addresses[key] = {symbol: defined[symbol] for symbol in requested[key]}
+                if len(defined[symbol]) != 1:
+                    report["ambiguousTarget"] = {"module": key, "symbol": symbol,
+                                                 **address_evidence(defined[symbol])}
+                    raise Blocked("AMBIGUOUS_REQUESTED_TEXT_SYMBOL:" + key + ":" + symbol)
+            addresses[key] = {symbol: next(iter(defined[symbol])) for symbol in requested[key]}
         for key, path in paths.items():
             for symbol in requested[key]:
                 body = call(["xcrun", "llvm-objdump", "--macho", "--arch=arm64",
