@@ -12,6 +12,7 @@ import zipfile
 from pathlib import Path
 
 from smoke_evidence import BoundedLog, reap_owned, save_evidence
+from fixture_liveness import SOURCE, require_progress
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -57,7 +58,7 @@ def run_once(commit, archive):
             evidence['buildId'] = manifest['buildId']
             protocol = _load(kit / 'runtime_protocol.py', 'fixture_runtime_protocol')
             src = t / 'fixture.cpp'
-            src.write_text('#include <unistd.h>\nextern "C" __attribute__((noinline)) void fstr_runtime_candidate(){}\nint main(){for(int i=0;i<2000;i++){fstr_runtime_candidate(); usleep(20000);} return 0;}\n')
+            src.write_text(SOURCE)
             binary = t / 'fstr-runtime-fixture'
             subprocess.run(['xcrun', 'clang++', '-g', '-O0', str(src), '-o', str(binary)], check=True, timeout=60)
             uuid_text = subprocess.check_output(['xcrun', 'dwarfdump', '--uuid', str(binary)], text=True, timeout=30)
@@ -66,8 +67,9 @@ def run_once(commit, archive):
                 raise RuntimeError('Fixture UUID unavailable')
             digest = hashlib.sha256(binary.read_bytes()).hexdigest()
             address = _symbol_file_address(binary, '_fstr_runtime_candidate')
-            target_process = subprocess.Popen([str(binary)])
-            time.sleep(.1)
+            counter = t / 'fixture-counter'
+            target_process = subprocess.Popen([str(binary), str(counter)])
+            evidence['fixtureBeforeAttach'] = require_progress(target_process, counter)
             control = t / 'control.jsonl'
             ack = t / 'ack.jsonl'
             control.touch()
@@ -109,11 +111,15 @@ def run_once(commit, archive):
                 raise RuntimeError('Missing hits or phase IPC')
             if any(r['isNotificationProven'] or r['commitPhase'] != 'UNKNOWN' for r in hits):
                 raise RuntimeError('Observer overclaimed semantics')
+            evidence['parentStage'] = 'fixture-post-detach-progress'
+            evidence['fixtureAfterDetach'] = require_progress(target_process, counter)
             evidence.update(status='PASS', parentStage='verified', hits=len(hits), detached=True, phaseIPC='PASS')
         except Exception as error:
             # Do not print TimeoutExpired.args (contains test filesystem paths).
             evidence.update(status='FAIL', errorType=type(error).__name__)
         finally:
+            if evidence['status'] == 'PASS' and target_process.poll() is not None:
+                evidence.update(status='FAIL', errorType='FixtureExitedBeforeCleanup')
             evidence['debuggerCleanup'] = reap_owned(lldb_process)
             evidence['fixtureCleanup'] = reap_owned(target_process, resume=True)
             if log:

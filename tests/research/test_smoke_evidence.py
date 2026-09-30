@@ -24,9 +24,11 @@ def load_controller():
     module = importlib.util.module_from_spec(spec)
     error = types.SimpleNamespace(Fail=lambda: False)
     fake_lldb = types.SimpleNamespace(SBError=lambda: error, eStateRunning=6,
-                                     eStateExited=10, eStateCrashed=8, eStateDetached=9)
+                                     eStateExited=10, eStateCrashed=8, eStateDetached=9,
+                                     eStateStopped=5, eStateStepping=7)
     logger = types.SimpleNamespace(start_capture=lambda *a, **kw: None,
-                                  mark_phase=lambda *a: None, stop_capture=lambda: None)
+                                  mark_phase=lambda *a: None, stop_capture=lambda: None,
+                                  prepare_shutdown=lambda: None)
     sys.path.insert(0, str(RESEARCH))
     try:
         with mock.patch.dict(sys.modules, {'lldb': fake_lldb, 'trace_callback': logger}):
@@ -149,16 +151,18 @@ class StageTests(unittest.TestCase):
                 c._stage({'diagnosticStages': True, 'ackPath': 'unused'}, result, 'detach-begin')
         self.assertEqual(len(result['diagnosticErrors']), 64)
 
-    def exercise(self, *, stop_error=False):
+    def exercise(self, *, stop_error=False, detach_error=False, setup_error=False, kind="finish"):
         c = load_controller()
         success = types.SimpleNamespace(Fail=lambda: False)
         process = mock.Mock()
         process.IsValid.return_value = True
-        process.GetState.return_value = c.lldb.eStateRunning
+        process.GetState.side_effect = [c.lldb.eStateRunning, c.lldb.eStateStopped]
         process.Continue.return_value = success
-        process.Stop.side_effect = [RuntimeError('owned stop failure'), success] if stop_error else None
-        process.Stop.return_value = success
-        process.Detach.return_value = success
+        process.SendAsyncInterrupt.side_effect = RuntimeError('owned interrupt failure') if stop_error else None
+        process.Stop.side_effect = AssertionError('Synchronous Stop must not be used')
+        process.Detach.return_value = types.SimpleNamespace(Fail=lambda: detach_error)
+        if setup_error:
+            c.trace_callback.start_capture = mock.Mock(side_effect=RuntimeError("owned setup failure"))
         target = mock.Mock()
         target.AttachToProcessWithID.return_value = process
         debugger = mock.Mock(); debugger.CreateTarget.return_value = target
@@ -170,7 +174,7 @@ class StageTests(unittest.TestCase):
                         ('controlPath', 'control.jsonl'), ('ackPath', 'ack.jsonl'),
                         ('tracePath', 'trace.jsonl'), ('resultPath', 'result.json'))}}
             (t / 'plan.json').write_text(json.dumps(plan))
-            (t / 'control.jsonl').write_text('{"kind":"finish","sequence":1}\n')
+            (t / 'control.jsonl').write_text(json.dumps({'kind': kind, 'sequence': 1}) + '\n')
             c.run(debugger, str(t / 'plan.json'))
             rows = [json.loads(line) for line in (t / 'ack.jsonl').read_text().splitlines()]
             result = json.loads((t / 'result.json').read_text())
@@ -179,19 +183,48 @@ class StageTests(unittest.TestCase):
     def test_success_records_shutdown_in_order(self):
         stages, result, process, debugger = self.exercise()
         self.assertEqual(result['status'], 'PASS')
-        expected = ['stop-begin', 'stop-end', 'capture-close-begin', 'capture-close-end',
-                    'detach-begin', 'detach-end', 'target-retained-for-debugger-exit', 'controller-return']
+        expected = ['shutdown-interrupt-begin', 'shutdown-interrupt-sent', 'shutdown-stop-confirmed',
+                    'detach-begin', 'detach-end', 'capture-close-begin', 'capture-close-end',
+                    'target-retained-for-debugger-exit', 'controller-return']
         self.assertEqual([x for x in stages if x in expected], expected)
-        process.Detach.assert_called_once(); debugger.DeleteTarget.assert_not_called()
+        process.Detach.assert_called_once_with(False); debugger.DeleteTarget.assert_not_called()
 
-    def test_stop_failure_retains_fail_and_recovery_stage(self):
+    def test_interrupt_failure_keeps_fail_without_blocking_fallback(self):
         stages, result, process, debugger = self.exercise(stop_error=True)
         self.assertEqual(result['status'], 'FAIL')
-        self.assertIn('stop-begin', stages); self.assertNotIn('stop-end', stages)
-        self.assertIn('recovery-stop-end', stages)
-        self.assertIn('recovery-detach-end', stages)
+        self.assertIn('shutdown-interrupt-begin', stages)
+        self.assertNotIn('shutdown-stop-confirmed', stages)
+        self.assertIn('confirmed stop', result['detachError'])
+        self.assertFalse(result['detached'])
         self.assertEqual(stages[-1], 'controller-return')
-        process.Detach.assert_called_once(); debugger.DeleteTarget.assert_not_called()
+        process.SendAsyncInterrupt.assert_called_once()
+        process.Stop.assert_not_called(); process.Detach.assert_not_called()
+        debugger.DeleteTarget.assert_not_called()
+
+    def test_setup_failure_uses_async_recovery_and_retains_fail(self):
+        stages, result, process, debugger = self.exercise(setup_error=True)
+        self.assertEqual(result['status'], 'FAIL')
+        self.assertTrue(result['detached'])
+        self.assertIn('recovery-stop-confirmed', stages)
+        process.SendAsyncInterrupt.assert_called_once()
+        process.Stop.assert_not_called()
+        process.Detach.assert_called_once_with(False)
+
+    def test_failed_detach_is_not_retried_or_marked_successful(self):
+        stages, result, process, debugger = self.exercise(detach_error=True)
+        self.assertEqual(result['status'], 'FAIL')
+        self.assertFalse(result['detached'])
+        self.assertIn('not retried', result['detachError'])
+        process.Detach.assert_called_once_with(False)
+        self.assertNotIn('recovery-detach-begin', stages)
+
+    def test_abort_still_stops_and_detaches_without_becoming_pass(self):
+        stages, result, process, debugger = self.exercise(kind='abort')
+        self.assertEqual(result['status'], 'BLOCKED')
+        self.assertEqual(result['stage'], 'aborted')
+        self.assertTrue(result['detached'])
+        process.Stop.assert_not_called()
+        process.Detach.assert_called_once_with(False)
 
     def test_reentry_refused_before_creating_another_target(self):
         c = load_controller()

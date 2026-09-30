@@ -57,6 +57,42 @@ def _stage(plan, result, label):
         if len(errors) < 64:
             errors.append({'stage': label, 'errorType': type(error).__name__})
 
+
+# Inner wait is shorter than the existing parent's exit deadline. Native SB calls
+# still rely on that parent watchdog; this is not a guarantee against all hangs.
+_STOP_WAIT_SECONDS = 5.0
+
+
+def _pause_for_detach(debugger, process, plan, result, prefix='shutdown'):
+    """Request interruption without synchronous Stop/Halt; never call target code."""
+    _stage(plan, result, prefix + '-pause-begin')
+    debugger.SetAsync(True)
+    # A late breakpoint callback must not auto-resume a stop during teardown.
+    # This only changes logger control state, not AE state or coverage claims.
+    trace_callback.prepare_shutdown()
+    deadline = time.monotonic() + _STOP_WAIT_SECONDS
+    state = process.GetState()
+    if state != lldb.eStateStopped:
+        if state not in (lldb.eStateRunning, lldb.eStateStepping):
+            raise RuntimeError('Target is not running or stopped before detach')
+        _stage(plan, result, prefix + '-interrupt-begin')
+        process.SendAsyncInterrupt()
+        _stage(plan, result, prefix + '-interrupt-sent')
+        while True:
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Timed out confirming target stop before detach')
+            state = process.GetState()
+            if state == lldb.eStateStopped:
+                break
+            if state not in (lldb.eStateRunning, lldb.eStateStepping):
+                raise RuntimeError('Target ended or changed state while stopping')
+            # Yield to the debugger's event/callback thread. No AE-state polling.
+            time.sleep(0.01)
+    if time.monotonic() >= deadline:
+        raise RuntimeError('Stop confirmation arrived after its deadline')
+    result['stopConfirmed'] = True
+    _stage(plan, result, prefix + '-stop-confirmed')
+
 def run(debugger,plan_name):
     global _run_started
     if _run_started:
@@ -69,7 +105,8 @@ def run(debugger,plan_name):
             'scope':'observational LLDB breakpoint trace; terminal interaction stays in parent launcher',
             'SYNC-001':'NOT RUN','pid':plan.get('pid'),'breakpoints':[],'detached':False,
             'interactive':True}
-    target=None; process=None; attached=False; capture_started=False
+    target=None; process=None; attached=False
+    pause_attempted=False; detach_attempted=False
     debugger.SetAsync(False)
     try:
         _stage(plan, result, 'create-target-begin')
@@ -115,7 +152,6 @@ def run(debugger,plan_name):
                                      breakpoints=bp_meta,max_events=int(plan.get('maxEvents',5000)),
                                      max_seconds=int(plan['durationSeconds'])+30,
                                      max_frames=int(plan.get('maxFrames',8)))
-        capture_started=True
         trace_callback.mark_phase('attach-verified')
         debugger.SetAsync(True)
         cont=process.Continue()
@@ -163,26 +199,18 @@ def run(debugger,plan_name):
             else:
                 raise RuntimeError('Interactive control protocol timed out')
 
-        _stage(plan, result, 'shutdown-sync-begin')
-        debugger.SetAsync(False)
-        _stage(plan, result, 'shutdown-state-begin')
-        shutdown_state = process.GetState()
-        _stage(plan, result, 'shutdown-state-end')
-        if shutdown_state==lldb.eStateRunning:
-            _stage(plan, result, 'stop-begin')
-            stop_error=process.Stop()
-            _stage(plan, result, 'stop-end')
-            if stop_error.Fail():
-                raise RuntimeError('Could not pause process for clean detach: '+str(stop_error))
-        _stage(plan, result, 'capture-close-begin')
-        trace_callback.stop_capture(); capture_started=False
-        _stage(plan, result, 'capture-close-end')
+        pause_attempted=True
+        _pause_for_detach(debugger, process, plan, result)
         _stage(plan, result, 'detach-begin')
-        detach_error=process.Detach()
+        detach_attempted=True
+        detach_error=process.Detach(False)
         _stage(plan, result, 'detach-end')
         if detach_error.Fail():
             raise RuntimeError('Detach failed: '+str(detach_error))
         attached=False
+        _stage(plan, result, 'capture-close-begin')
+        trace_callback.stop_capture()
+        _stage(plan, result, 'capture-close-end')
         if finished and not aborted:
             result.update(status='PASS',stage='complete',detached=True,
                           note='PASS means observer ran and detached, not notification coverage.')
@@ -196,24 +224,26 @@ def run(debugger,plan_name):
         _stage(plan, result, 'result-write-end')
     except Exception as error:
         _stage(plan, result, 'exception-cleanup-begin')
-        if capture_started:
-            try: trace_callback.stop_capture()
-            except Exception: pass
         result.update(status='FAIL' if attached else result.get('status','FAIL'),
                       stage=result.get('stage','runtime'),error=str(error))
         if attached and process and process.IsValid():
             try:
-                _stage(plan, result, 'recovery-sync-begin')
-                debugger.SetAsync(False)
-                _stage(plan, result, 'recovery-state-begin')
-                if process.GetState()==lldb.eStateRunning:
-                    _stage(plan, result, 'recovery-stop-begin')
-                    process.Stop()
-                    _stage(plan, result, 'recovery-stop-end')
+                # Do not retry an unconfirmed stop through blocking Detach/Stop.
+                # Preserve FAIL; the parent separately records cleanup/exit.
+                if not pause_attempted:
+                    pause_attempted=True
+                    _pause_for_detach(debugger, process, plan, result, 'recovery')
+                if result.get('stopConfirmed') is not True:
+                    raise RuntimeError('Detach not attempted without confirmed stop')
+                if detach_attempted:
+                    raise RuntimeError('Failed detach is not retried')
                 _stage(plan, result, 'recovery-detach-begin')
-                detach_error=process.Detach()
+                detach_attempted=True
+                detach_error=process.Detach(False)
                 _stage(plan, result, 'recovery-detach-end')
-                result['detached']=not detach_error.Fail(); attached=False
+                result['detached']=not detach_error.Fail()
+                if result['detached']:
+                    attached=False
             except Exception as detach_problem:
                 result['detachError']=str(detach_problem)
         try: _write(result_path,result)

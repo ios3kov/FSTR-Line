@@ -100,10 +100,20 @@ def _stack(thread):
         pass
     return rows
 
+def prepare_shutdown():
+    """Prevent subsequent callbacks from auto-resuming during observer teardown.
+
+    No SB API calls under this lock. The controller must still confirm stopped
+    state and successful detach; setting this flag alone proves neither.
+    """
+    with _lock:
+        if _capture is not None:
+            _capture['shutdownRequested'] = True
+
 def on_breakpoint(frame,bp_loc,internal_dict):
     """False resumes after this breakpoint; True pauses. Never calls EvaluateExpression."""
     with _lock:
-        if _capture is None or _capture['stopped']:
+        if _capture is None or _capture['stopped'] or _capture.get('shutdownRequested', False):
             return True
         try:
             if (_capture['hits']>=_capture['maxEvents'] or
