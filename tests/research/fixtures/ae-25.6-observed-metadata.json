@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "source": "User-supplied collector report, metadata only",
+  "reportSha256": "146b2f75a8e6e6847ee049a09f5588d3d8d3763b563a96b5d6454e2321e55255",
+  "appName": "Adobe After Effects 2025.app",
+  "metadata": {
+    "CFBundleIdentifier": "com.adobe.AfterEffects.application",
+    "CFBundleShortVersionString": "25.6.0",
+    "CFBundleVersion": "25.6.0.101",
+    "CFBundleExecutable": "After Effects"
+  },
+  "runtimeIdentityVerified": false
+}

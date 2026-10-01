@@ -9,14 +9,15 @@
   <body>
     <header class="toolbar">
       <strong>FSTR Line</strong>
-      <label><input id="auto-sync" type="checkbox" /> Auto Sync (2s)</label>
+      <label><input id="auto-sync" type="checkbox" /> Experimental polling (2s)</label>
       <button id="refresh" type="button">Refresh</button>
     </header>
     <p id="status" data-state="ready">Starting…</p>
-    <ol id="timeline-output" aria-label="Visual tracks"></ol>
+    <ol id="timeline-output" aria-label="Read-only visual tracks"></ol>
     <details id="diagnostics">
       <summary>Diagnostics</summary>
       <p id="build-status">Checking loaded build…</p>
+      <p>Read-only prototype. Direct AE notifications are not implemented. Editing awaits native runtime acceptance.</p>
       <p>Bridge attempts (last 20; response means a reply arrived, not validation success):</p>
       <pre id="bridge-log">No attempts yet</pre>
       <p>Snapshot: integer frames relative to composition time zero; outFrame is exclusive. Refresh to update. Names are included below.</p>

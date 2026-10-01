@@ -1,0 +1,39 @@
+name: Integration gate
+on:
+  push:
+    branches: ['integration/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6, Node 24 action runtime
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Core and adapter regression
+        run: npm test
+      - name: CEP build
+        run: npm run check:cep
+      - name: Host, UI and research regression
+        run: |
+          node --test tests/runtime/*.test.mjs
+          python3 -B -m unittest discover -s tests/research -p 'test_*.py'
+      - name: Package integrity
+        run: |
+          node scripts/verify-cep.mjs
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=normal)"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: FSTR-Line-integration-${{ github.sha }}
+          path: dist/cep
+          if-no-files-found: error

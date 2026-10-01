@@ -60,3 +60,99 @@ test("diagnostics observer failures do not fail reads", async () => {
     { onAttempt() { throw new Error("view failure"); } });
   assert.deepEqual(await adapter.readSnapshot(), current);
 });
+
+test("timed-out host read prevents subsequent reads, diagnostics and unsent writes until callback", async () => {
+  const callbacks: ((value: string) => void)[] = [];
+  const adapter = new CEPAdapter({ evalScript(_script, callback) { callbacks.push(callback); } }, { timeoutMs: 5 });
+  const first = adapter.readSnapshot();
+  const queued = adapter.readSnapshot();
+  const rejected = assert.rejects(queued, /HOST_CALL_PENDING/);
+  await assert.rejects(first, /timed out/);
+  await rejected;
+  await assert.rejects(adapter.readDiagnostics(), /HOST_CALL_PENDING/);
+  const command = createMoveLayersCommand(current, [1], 1, "not-sent");
+  await assert.rejects(adapter.execute(command), /HOST_CALL_PENDING/);
+  assert.equal(callbacks.length, 1);
+  callbacks[0]!(reply);
+  const recovered = adapter.readSnapshot();
+  await Promise.resolve(); await Promise.resolve();
+  callbacks[1]!(reply);
+  assert.deepEqual(await recovered, current);
+  // A command refused before dispatch must not acquire mutation uncertainty.
+  const write = adapter.execute(command);
+  await Promise.resolve(); await Promise.resolve();
+  callbacks[2]!(JSON.stringify({ protocolVersion: 1, ok: true,
+    data: { operationId: command.operationId, changed: true, snapshot: current } }));
+  assert.equal((await write).operationId, command.operationId);
+});
+
+test("a duplicate late callback cannot clear another call's pending guard", async () => {
+  const callbacks: ((value: string) => void)[] = [];
+  const adapter = new CEPAdapter({ evalScript(_script, callback) { callbacks.push(callback); } }, { timeoutMs: 5 });
+  await assert.rejects(adapter.readSnapshot(), /timed out/);
+  callbacks[0]!(reply);
+  await assert.rejects(adapter.readSnapshot(), /timed out/);
+  callbacks[0]!(reply);
+  await assert.rejects(adapter.readSnapshot(), /HOST_CALL_PENDING/);
+  assert.equal(callbacks.length, 2);
+  callbacks[1]!(reply);
+});
+
+test("synchronous dispatch exception retains the guard until a possible late callback", async () => {
+  let callback!: (value: string) => void;
+  let calls = 0;
+  const adapter = new CEPAdapter({ evalScript(_script, received) {
+    calls += 1; callback = received; throw new Error("dispatch outcome unknown");
+  } });
+  await assert.rejects(adapter.readSnapshot(), /dispatch outcome unknown/);
+  await assert.rejects(adapter.readSnapshot(), /HOST_CALL_PENDING/);
+  assert.equal(calls, 1);
+  callback(reply);
+});
+
+test("notification read retains its pending promise after deadline until the host callback", async () => {
+  let callback!: (value: string) => void;
+  let calls = 0;
+  const adapter = new CEPAdapter({ evalScript(_script, received) { calls += 1; callback = received; } }, { timeoutMs: 5 });
+  const read = adapter.readNotificationSnapshot();
+  let settled = false;
+  const observed = read.then(() => { settled = true; }, () => { settled = true; });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(settled, false);
+  await assert.rejects(adapter.readSnapshot(), /HOST_CALL_PENDING/);
+  assert.equal(calls, 1);
+  callback(reply);
+  await assert.rejects(read, /timed out/);
+  await observed;
+  assert.equal(settled, true);
+});
+
+test("notification read passes successful snapshots and completed host errors normally", async () => {
+  let next = reply;
+  const adapter = new CEPAdapter({ evalScript(_script, callback) { callback(next); } });
+  assert.deepEqual(await adapter.readNotificationSnapshot(), current);
+  next = JSON.stringify({ protocolVersion: 1, ok: false, error: { code: "NO_ACTIVE_COMP", message: "closed" } });
+  await assert.rejects(adapter.readNotificationSnapshot(), /closed/);
+});
+
+test("notification completion belongs to the failed call, not a later queued call", async () => {
+  const callbacks: ((value: string) => void)[] = [];
+  let next: Promise<unknown> | undefined;
+  let startNext = true;
+  const adapter = new CEPAdapter({ evalScript(_script, callback) { callbacks.push(callback); } }, {
+    timeoutMs: 5,
+    onAttempt(attempt) {
+      if (startNext && attempt.outcome === "transport-error") {
+        startNext = false;
+        callbacks[0]!(reply);
+        next = adapter.readSnapshot();
+        void next.catch(() => undefined);
+      }
+    },
+  });
+  await assert.rejects(adapter.readNotificationSnapshot(), /timed out/);
+  assert.equal(callbacks.length, 2);
+  // The first notification read must reject without waiting for this callback.
+  callbacks[1]!(reply);
+  assert.deepEqual(await next, current);
+});

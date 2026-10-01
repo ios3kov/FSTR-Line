@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 7,
+  "protocolVersion": 7,
+  "aeBundleId": "com.adobe.AfterEffects.application",
+  "aeShortVersion": "25.6.0",
+  "aeBundleVersion": "25.6.0.101",
+  "sourceFocusedReportSha256": "0609b3de91f67f56e942708438f575f1d89fb46440e9bf0b95f98f3bf4165e93",
+  "sourceRuntimeReportSha256": "888d47eadebf4c5ad8531d4ec4ed0e76c08e61a65764e1fd225707c8bc2390bd",
+  "durationSeconds": 570,
+  "maxFrames": 8,
+  "attachReadyTimeoutSeconds": 30,
+  "ackTimeoutSeconds": 10,
+  "shutdownTimeoutSeconds": 30,
+  "modules": {
+    "BEE": {
+      "relativePath": "Contents/Frameworks/BEE.dylib",
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "uuid": "161300f3-73f8-3ebc-a751-959df40a073b"
+    },
+    "AfterFXLib": {
+      "relativePath": "Contents/Frameworks/AfterFXLib.framework/Versions/A/AfterFXLib",
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a",
+      "uuid": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5"
+    }
+  },
+  "breakpoints": [
+    {
+      "label": "process-project-changes",
+      "role": "global-change-candidate",
+      "module": "BEE",
+      "fileAddress": "0x7afa7c",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "render-end-undo-group",
+      "role": "boundary-candidate",
+      "module": "BEE",
+      "fileAddress": "0x778c54",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "cmd-seek-item-to-time",
+      "role": "playhead-candidate",
+      "module": "BEE",
+      "fileAddress": "0x626d58",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "set-content-changed",
+      "role": "content-change-candidate",
+      "module": "BEE",
+      "fileAddress": "0x64a33c",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "end-group",
+      "role": "boundary-candidate",
+      "module": "BEE",
+      "fileAddress": "0x6444ac",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "layer-switch-internal",
+      "role": "mutation-marker",
+      "module": "BEE",
+      "fileAddress": "0x2a3460",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "select-layer",
+      "role": "selection-marker",
+      "module": "BEE",
+      "fileAddress": "0x302a8",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "layerselection-set",
+      "role": "selection-marker",
+      "module": "AfterFXLib",
+      "fileAddress": "0x36a750",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "undo-command",
+      "role": "command-marker",
+      "module": "BEE",
+      "fileAddress": "0x645958",
+      "minLocations": 1,
+      "maxLocations": 1
+    },
+    {
+      "label": "redo-command",
+      "role": "command-marker",
+      "module": "BEE",
+      "fileAddress": "0x645f24",
+      "minLocations": 1,
+      "maxLocations": 1
+    }
+  ],
+  "preRestart": [
+    {
+      "label": "idle-control",
+      "kind": "manual",
+      "instructionRu": "Ничего не делай в After Effects примерно 3 секунды."
+    },
+    {
+      "label": "native-layer-timing",
+      "kind": "manual",
+      "instructionRu": "Один раз передвинь ИЛИ подрежь обычный слой на таймлайне."
+    },
+    {
+      "label": "native-layer-add",
+      "kind": "manual",
+      "instructionRu": "Добавь один слой: выдели слой и нажми Cmd+D."
+    },
+    {
+      "label": "native-layer-delete",
+      "kind": "manual",
+      "instructionRu": "Удали только что добавленный слой клавишей Delete."
+    },
+    {
+      "label": "native-layer-reorder",
+      "kind": "manual",
+      "instructionRu": "Перетащи один слой на одну позицию выше или ниже."
+    },
+    {
+      "label": "native-selection",
+      "kind": "manual",
+      "instructionRu": "Один раз выдели другой слой."
+    },
+    {
+      "label": "native-switches",
+      "kind": "manual",
+      "instructionRu": "Один раз переключи глазик, Solo, Lock или Audio у слоя."
+    },
+    {
+      "label": "native-undo",
+      "kind": "manual",
+      "instructionRu": "Один раз нажми Cmd+Z — Отменить."
+    },
+    {
+      "label": "native-redo",
+      "kind": "manual",
+      "instructionRu": "Один раз нажми Cmd+Shift+Z — Повторить."
+    },
+    {
+      "label": "native-comp-switch",
+      "kind": "manual",
+      "instructionRu": "Переключись на другую открытую композицию."
+    },
+    {
+      "label": "native-playhead",
+      "kind": "manual",
+      "instructionRu": "Подвигай ползунок времени примерно 2 секунды и остановись."
+    },
+    {
+      "label": "extendscript-origin",
+      "kind": "jsx",
+      "script": "FSTR-ExtendScript-Origin.jsx",
+      "instructionRu": "Автоматический тест ExtendScript. Ничего не делай в AE; нажми Enter, чтобы запустить."
+    },
+    {
+      "label": "extendscript-burst",
+      "kind": "burst",
+      "script": "FSTR-Burst.jsx",
+      "instructionRu": "Автоматический burst: 20 быстрых изменений через ExtendScript. Нажми Enter, чтобы запустить."
+    },
+    {
+      "label": "native-rapid-switch",
+      "kind": "manual",
+      "instructionRu": "Быстро 10 раз щёлкни глазик выбранного слоя, затем вернись и нажми Enter."
+    },
+    {
+      "label": "other-plugin-origin",
+      "kind": "manual-optional-plugin",
+      "instructionRu": "Если у тебя есть СТОРОННИЙ AE plugin, который реально меняет слой/композицию, сделай через него одно изменение. Если такого нет — просто нажми Enter без действия."
+    },
+    {
+      "label": "idle-before-restart",
+      "kind": "manual",
+      "instructionRu": "Ничего не делай примерно 3 секунды."
+    }
+  ],
+  "postRestart": [
+    {
+      "label": "restart-idle",
+      "kind": "manual",
+      "instructionRu": "После перезапуска ничего не делай примерно 3 секунды."
+    },
+    {
+      "label": "restart-layer-timing",
+      "kind": "manual",
+      "instructionRu": "После перезапуска один раз передвинь или подрежь слой."
+    },
+    {
+      "label": "restart-undo",
+      "kind": "manual",
+      "instructionRu": "Нажми Cmd+Z один раз."
+    },
+    {
+      "label": "restart-redo",
+      "kind": "manual",
+      "instructionRu": "Нажми Cmd+Shift+Z один раз."
+    },
+    {
+      "label": "restart-playhead",
+      "kind": "manual",
+      "instructionRu": "Подвигай ползунок времени примерно 2 секунды."
+    },
+    {
+      "label": "restart-extendscript",
+      "kind": "jsx",
+      "script": "FSTR-ExtendScript-Origin.jsx",
+      "instructionRu": "Повторный автоматический ExtendScript после restart. Нажми Enter, чтобы запустить."
+    },
+    {
+      "label": "restart-idle-after",
+      "kind": "manual",
+      "instructionRu": "Ничего не делай примерно 3 секунды."
+    }
+  ],
+  "acceptance": "One Runtime-AE.command run covers native structural/timing/context actions, ExtendScript origin, rapid burst/multiplicity/performance evidence, optional third-party plugin-origin attempt, manual AE restart/reopen and post-restart repeat. Post-action snapshots are evidence of observed final state, not proof that breakpoint entry itself is post-commit."
+}

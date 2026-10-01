@@ -8,7 +8,7 @@ Authoritative product requirement: **SYNC-001 — «Наша панель тож
 
 The user requires AE-originated notifications for native Timeline changes, rather than periodic full layer reads. No perceptible UI/playback degradation is the performance goal; zero resource usage is not a realistic guarantee.
 
-**Result: implementation BLOCKED pending a verified event source.** The official AE 25.6 SDK headers were inspected and do not expose a complete Timeline change subscription for this target. This is not proof that no private/future API exists. A native rewrite is not justified by the evidence yet.
+**Current result (updated 2026-09-29): public API remains insufficient, but internal AE research has produced real target-build change-path evidence.** The official AE 25.6 SDK headers still do not expose a complete Timeline change subscription. Supervised runtime research on AE 25.6.0.101 has observed direct internal paths for the required native UI matrix, ExtendScript-origin changes, active-composition transitions, Undo/Redo/playhead, restart/reopen, and an independently compiled AEGP plugin mutation. This is research evidence, not a production subscription API. Production implementation therefore remains BLOCKED pending a compatible/safe delivery mechanism plus post-commit/performance/stability acceptance.
 
 ## Sources inspected
 
@@ -75,10 +75,6 @@ Planned sequence:
    event behavior, restart behavior, crash/hang behavior, and performance
    impact are recorded.
 
-Private or undocumented behavior is not a production solution merely because
-it can be observed. Any candidate that is version-fragile, requires unsafe
-memory assumptions, or cannot cover all required origins and state changes is
-recorded as research evidence and rejected for SYNC-001. No private hook will
-be shipped without a separate compatibility, safety, and maintenance decision.
+Private or undocumented behavior is not a production solution merely because it can be observed. The 2026-09-29 evidence now establishes research-level origin/coverage for native UI, ExtendScript and an independent AEGP helper, including exact state correlation for the helper and a script-origin post-endUndoGroup positive control. The common project-processing points also fire during some idle/background work, so they cannot be interpreted as one logical notification per hit.
 
-This research stage changes documentation only. No runtime compatibility or performance PASS follows from it.
+No private hook will be shipped without a separate compatibility, safety, maintenance and applicable licensing decision. The next gate is a candidate-specific production-mechanism proof with failure-safe version checks, post-commit read semantics, duplicate/coalescing/missed-event characterization, panel-closed/error/no-op cases, and uninstrumented CPU/memory/playback measurements. No runtime compatibility or performance PASS follows from the LLDB evidence alone.

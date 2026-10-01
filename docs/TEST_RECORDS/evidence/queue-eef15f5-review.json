@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "kind": "review-of-user-supplied-static-report",
+  "runId": "FSTR-AE-Queue-t5rmrf54",
+  "sourceCommit": "eef15f5803f69731acf825cd1d45b1ee7648e525",
+  "buildId": "fstr-queue-eef15f5803f6",
+  "archiveSha256": "95db0b6ff9bde57bb19bf3785d5d3dab7c02a910ef45cbeecdda44db213f75f7",
+  "reportSha256": "bccf024bdef4fcb11d036ae6b1aeeb7b5a84f6b3ee1324f3cb89b1f4cca81e01",
+  "kitSha256": "e39612905f239cb0dc755053a63ea34cb88aa48762913065912a33741e02353c",
+  "manifestSha256": "53d1177b74ea98e45fe5d12c574fc2a70ec230a277910dc52867fd047f650258",
+  "collectorSha256": "3dafe1c99a4a7aebf9f235e6f6c8341e60c6e2a3d0b85aa46dfea0f6122403bb",
+  "policySha256": "1e748db1d0c565f02e23133f265b3d5768445dddabbddcf40c23114c5dee96f5",
+  "collectionStatusReported": "PASS",
+  "SYNC-001": "NOT RUN",
+  "privateInvocationAllowed": false,
+  "moduleIdentitySource": "Report declarations matched to pinned kit policy; no independent live Mac rehash here.",
+  "expectedBodies": 7,
+  "observedBodies": 7,
+  "completeCommandsReported": 14,
+  "modules": {
+    "AfterFXLib": {
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a",
+      "arm64UUID": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5",
+      "relativePath": "Contents/Frameworks/AfterFXLib.framework/Versions/A/AfterFXLib"
+    },
+    "BEE": {
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "arm64UUID": "161300f3-73f8-3ebc-a751-959df40a073b",
+      "relativePath": "Contents/Frameworks/BEE.dylib"
+    }
+  },
+  "unrenderedInstructionWords": {
+    "count": 20,
+    "distinctWords": 9,
+    "interpretation": "All nine distinct words independently decoded with LLVM 17 +lse in an owned arm64 Mach-O object; no Adobe code executed.",
+    "mnemonics": [
+      "ldadd",
+      "ldaddal"
+    ],
+    "limitation": "Original collection PASS does not imply fully decoded instructions or complete control-flow analysis."
+  },
+  "newInventoryLeads": [
+    {
+      "module": "BEE",
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueue18AddFunctionToQueueERKN5boost8functionIFvvEEEP15BEE_UndoContextsPKcS9_PKNSt3__112basic_stringIhNSA_11char_traitsIhEEN7dvacore9allocator12STLAllocatorIhEEEENS_11CommandTypeE",
+      "address": "0x777bfc",
+      "visibility": "defined-only-in-full-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueue23ProcessFromRenderThreadEy",
+      "address": "0x781130",
+      "visibility": "defined-only-in-full-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN29BEE_ThreadedRenderUpdateQueue29Render_DeserializeFullProjectERKNSt3__112basic_stringIhNS0_11char_traitsIhEEN7dvacore9allocator12STLAllocatorIhEEEEiRKNS4_7utility4GuidE",
+      "address": "0x783798",
+      "visibility": "defined-only-in-full-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN11BEE_Globals12ProjectBirthEv",
+      "address": "0x368d94",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN11BEE_Globals12ProjectDeathEv",
+      "address": "0x369700",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN11BEE_Globals10GetProjectEv",
+      "address": "0x3699bc",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN11BEE_Globals14GetProjectFauxEv",
+      "address": "0x3699f8",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN11BEE_Globals13IsProjectOpenEv",
+      "address": "0x3699ac",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN11BEE_Globals18IsProjectCloneOpenEv",
+      "address": "0x3699cc",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__ZN11BEE_Project14GetUndoContextEv",
+      "address": "0x3a9b80",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__Z30BEE_WorkQueue_RegisterListenerRKN5boost8functionIFv14ItemChangeTypeNS_10shared_ptrI18BEE_WorkQueue_ItemEEEEE",
+      "address": "0x7eaa3c",
+      "visibility": "defined-external-nm"
+    },
+    {
+      "module": "BEE",
+      "symbol": "__Z32BEE_WorkQueue_DeregisterListenerRKN7dvacore7utility4GuidE",
+      "address": "0x7eac80",
+      "visibility": "defined-external-nm"
+    }
+  ],
+  "limitations": [
+    "Raw nm outputs are absent: command output hashes are provenance, not replayable original tables.",
+    "Pointer lifetimes, queue thread/order, clone association and native API safety remain unproven.",
+    "Full disassembly and user paths are not redistributed in this summary."
+  ],
+  "reportIntegrityStatus": "PASS"
+}

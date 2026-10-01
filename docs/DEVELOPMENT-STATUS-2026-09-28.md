@@ -1,116 +1,56 @@
 # FSTR Line — текущий статус разработки
 
-Дата: 2026-09-28  
-Целевая среда: After Effects 25.6.0.101 / CEP 12 / macOS Apple Silicon
+Обновлено: 2026-10-01. Ветка `integration/host-safety-notifications`, Draft PR #2.
+Принято **0 из 5 фаз**. SYNC-001 не закрыт. Main/merge/deploy/release не затронуты.
 
-## Краткий итог
+## Текущий шаг — AEGP helper и автоматизированные no-LLDB runtime gates
 
-FSTR Line умеет читать состояние активной композиции, отображать его в панели
-и выполнять базовые операции редактирования через After Effects. Полная
-автоматическая синхронизация панели с изменениями в native Timeline пока не
-реализована: поддерживаемый полный источник push-уведомлений не найден.
+Последний implementation HEAD этого шага: `04d9bbd04830e548a13abc6028526b3e0e09f228`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Архив SDK распакован и его реальные объявления использованы при компиляции.
+SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
-## Что готово
+Добавлены вход AEGP, собственная команда Start/Stop, обработчики menu/idle/death
+и чтение времени активного слоя через SDK. Настоящий source callback создаёт
+pending; без события idle не читает проект. Повторные события объединяются,
+ошибка чтения не запускает бесконечный повтор, событие во время чтения делает
+снимок неподтверждённым. Указатели payload не читаются и не сохраняются.
 
-- versioned normalized snapshot contract;
-- преобразование времени в целые кадры;
-- deterministic track packing с сохранением AE Z-order;
-- semantic move/trim/switch/select commands;
-- snapshot/revision guards и stale-command rejection;
-- FakeHostAdapter и pure Core fixtures;
-- lifecycle controller панели: no-composition/loading/ready/refreshing/error;
-- refresh coalescing и invalidation устаревших запросов;
-- сохранение последнего корректного projection при ошибке refresh;
-- CEP read/refresh PoC и базовый runtime lifecycle;
-- экспериментальный Auto Sync через polling, выключен по умолчанию.
+Добавлена macOS-проверка уже загруженных BEE/AfterFXLib: точная версия, hash,
+UUID, заголовки/код в памяти и принадлежность экспортов. Отсутствующая библиотека
+не загружается. Частная подписка выключена в обычной сборке; исследовательское
+включение отдельно разрешается при сборке. Неизвестный результат регистрации/удаления блокирует повторы. Модуль pin-ится только после точной проверки host identity непосредственно перед private Insert; default/отклонённый старт его не pin-ит. Ошибки до первого зарегистрированного host hook полностью освобождают локальный State. После возможной регистрации callback/refcon и код остаются resident. Окончательная безопасность lifecycle внутри AE пока не доказана.
 
-Локальная регрессия Core/CEP на предыдущих этапах проходила: до 45 тестов
-PASS в зависимости от этапа. Эти тесты подтверждают Core, transport и
-read/refresh поведение, но не закрывают SYNC-001.
+Локальный SDK-control покрывает восемь fresh-process сценариев AEGP с настоящими SDK-объявлениями и собственным host-окружением; dispatcher проверяется в optimized и ASan/UBSan. Добавлены no-LLDB JSONL trace и fail-closed parser: disabled-start запрещает private activity, active proof требует регистрацию, минимум две последовательные stable observation, собственный Stop/Remove и чистый host exit. Для контролируемого прогона parser теперь принимает build-bound expected-state plan и требует точное число/порядок `layer id + offset/in/duration`; snapshot-read failure блокирует PASS. Это доказывает наблюдаемое состояние, но само по себе не доказывает origin действия. В bundle recipe добавлен подписываемый `FSTRChainProbeBuild.json` с commit/Build ID и явными `AEGP_load=NOT RUN`, `SYNC-001=NOT RUN`, `handoffApproved=false`.
 
-## Что проверено по синхронизации
+Exact HEAD `21a2d05` прошёл Integration gate `36834338257` и Read-only module input `36834338195`. Notification research tools `36834338125` прошёл новый research unit regression и остальные ранние проверки, затем упал в старом LLDB `mac_runtime_attach_smoke`: owned fixture завершился `-9` после detach. Это тот же открытый класс Issue #3; он не чинится и не ретраится в этом этапе. Это Linux/hosted-macOS evidence, **не полная SDK macOS-сборка и не запуск AE**.
 
-Проверены публичные источники событий After Effects 25.6:
+Готов рецепт clean macOS bundle build с PiPL, Build ID, embedded ownership receipt и проверкой подписи. Перед подписью exact `.rsrc` теперь обязательно проходит DeRez-проверку: один PiPL `16000`, `Kind=AEGP`, имя/категория и `CodeMacARM64=EntryPointFunc`; расхождение fail-closed блокирует artifact. Добавлен безопасный disabled-start runner и отдельный research-opt-in `run_script_origin.py`: он отказывается работать при уже запущенном AE или непустом/сохранённом startup-проекте, создаёт только собственную несохранённую test-comp, выполняет два script-origin timing edit, Undo/Redo, Stop/Remove и валидирует no-LLDB trace. При невозможности доказать ownership он не закрывает потенциально пользовательский проект. Исправлена safety-ошибка в regex определения уже запущенного AE; добавлен regression-test на реальный `.app/Contents/MacOS/After Effects` путь.
 
-- AEGP command/menu/idle hooks;
-- `AEGP_Command_ALL`;
-- render timestamps и render callbacks;
-- `PF_AdvItemSuite1`;
-- effect/UI callbacks;
-- import/AEIO callbacks;
-- render queue monitor;
-- CEP CSEvent/PlugPlug;
-- ExtendScript `Project.revision`;
-- PICA/SP/ADM-related APIs.
+На `0ff7476a...` script-origin gate усилен: после каждого edit/Undo/Redo он отдельно читает фактический `layer id/startTime/inPoint/duration` через публичный ExtendScript и требует, чтобы AEGP trace содержал ровно ту же последовательность. Времена сравниваются как эквивалентные рациональные значения, а не по внутреннему масштабу `A_Time`. Поэтому четыре произвольных observation больше не могут дать PASS. Exact-commit CI: Integration gate `36843261930` PASS, Notification research tools `36843262065` PASS, Read-only module input `36843262009` PASS. Это всё ещё automated/model/hosted-macOS evidence, не реальный AE runtime.
 
-`AEGP_Command_ALL` был проверен отдельным native probe. Probe загрузился в AE
-25.6, но проверенная ExtendScript-операция создания composition/layer и
-изменения их состояния не вызвала command callback. Это не подтверждает его
-как полный источник уведомлений.
+Implementation HEAD `5c2ae201...`: Integration gate PASS (run 36839331202), macOS Research unit regression PASS в run 36839331191. На текущем build-hardening increment добавлена fail-closed проверка уже скомпилированного PiPL через DeRez и regression на неправильный Kind/name/entry/duplicate resource; exact-head CI фиксируется отдельно после push. Остальные legacy LLDB шаги этого workflow не используются как критерий нового gate и могут по-прежнему отражать открытый Issue #3. **Реальная SDK macOS-сборка и запуск этих gates в AE 25.6.0.101 всё ещё NOT RUN.**
+[Реализация, точные проверки и ограничения](TEST_RECORDS/AEGP-SDK-BRIDGE-2026-10-01.md).
 
-Обнаруженный `AEGP_RegisterListener` относится только к
-`AEGP_RenderQueueMonitorSuite1` и сообщает о render jobs, frames и output
-modules. Он не сообщает об изменениях Timeline.
+Runtime-runner safety review на текущем increment: disabled-start больше не закрывает AE, пока read-only preflight не доказал пустой несохранённый startup-project; при восстановленном/неизвестном проекте gate становится BLOCKED. Оба no-LLDB runner'а не удаляют исследовательский bundle при работающем AE или неизвестном состоянии процесса. Script-origin до первого mutating create помечает ownership как неизвестный, поэтому частично созданный test-project не может быть ошибочно закрыт как «пустой». Для private subscription ведётся явное состояние: известный active допускает один bounded Stop; после неизвестного результата Stop/Remove запрещены повторный toggle, автоматический Quit и удаление bundle. Это устраняет риск удаления загруженного кода, закрытия непроверенного проекта и shutdown при неизвестной регистрации. Реальный AE runtime всё ещё NOT RUN.
 
-## Текущий блокер
+Callback attribution hardening on the current increment: each edit/Undo/Redo must produce a new AEGP observation before the runner performs its public ExtendScript state read. The later read is ground truth only and cannot be the source of the callback counted for that phase. Any extra stable observation still fails the strict final state-sequence check. Real AE runtime remains NOT RUN.
 
-**SYNC-001 — BLOCKED.**
+Undo/Redo determinism hardening on `0436701`: each of the two controlled script timing edits now runs inside its own explicit `app.beginUndoGroup()/app.endUndoGroup()` pair with `try/finally`. This guarantees the runtime gate is asking AE to create two distinct undoable script actions before the separate Undo and Redo phases, instead of depending on implicit script undo behavior. Regression coverage checks one balanced group per edit and ordering around the mutation. Exact-commit CI: Integration gate `36869059679` PASS; Notification research tools `36869059643` PASS; Read-only module input `36869059698` PASS. The successful legacy LLDB path in this run does not close intermittent Issue #3. Real AE 25.6.0.101 runtime remains NOT RUN.
 
-Требование: панель должна получать прямые уведомления AE об изменениях,
-сделанных через native UI, ExtendScript и другие plugins, включая:
+Undo/Redo command dispatch hardening on `5129fcb`: before any project mutation the runner resolves the exact current AE `Undo` and `Redo` menu command IDs while the menu labels are still stable, validates two distinct positive IDs, records them in evidence, and later executes the numeric IDs directly. This avoids depending on dynamic labels such as `Undo FSTR Chain Probe Script Edit`; `findMenuCommandId()` is no longer called during Undo/Redo phases. The first implementation commit `865a998` exposed a test-isolation regression on macOS CI because two failure-path tests accidentally invoked real `osascript`; `5129fcb` fixes only those test mocks. On `5129fcb`, Research unit regression PASS, Integration gate `36870075957` PASS and Read-only module input `36870075731` PASS. Notification research tools `36870075728` fails later only in the existing LLDB owned-fixture parent step (#3); no retry-to-green. Real AE runtime remains NOT RUN.
 
-- move/trim/start/in/out;
-- добавление, удаление и порядок слоёв;
-- selection и switches;
-- смену composition/project;
-- playhead;
-- Undo/Redo.
+Native gate automation on `04d9bbd`: added `run_native_gates.py`, which executes disabled-start first and permits script-origin only after an exact PASS. It stops on the first FAIL/BLOCKED, validates scoped child evidence, hashes, exact source commit and AE version, and writes one aggregate `native-gates.json`; no LLDB is added. Initial commit `65e98db` exposed a real macOS canonical-path defect (`/var` vs `/private/var`) in evidence normalization; `04d9bbd` fixes the implementation by resolving the repo root before relative-path validation, while preserving the regression. Exact-commit CI is fully green: Integration gate `36871208396` PASS; Notification research tools `36871208585` PASS; Read-only module input `36871208473` PASS. This still does not substitute for the actual AE runtime gate.
 
-Polling, `Project.revision`, idle-проверки и события, которые отправляет сама
-FSTR Line, не считаются выполнением этого требования.
+## Следующий шаг
 
-## Что не следует считать готовым
+Запустить сначала `run_disabled_start.py`, затем `run_script_origin.py` на авторизованном Apple Silicon Mac с exact AE 25.6.0.101 и предоставленным SDK. Первый gate подтверждает загрузку exact disabled build без private activity; второй — opt-in регистрацию, два script-origin изменения, Undo/Redo, собственный Stop/Remove и чистый exit без LLDB. После этого отдельно остаётся native-UI/plugin-origin/full-field coverage и performance. SDK больше не является отсутствующим входом; не хватает реального host-прогона. Исследовательский helper пользователю как продукт не передаётся.
 
-- Полной event-based synchronization нет.
-- Runtime coverage для всех native Timeline сценариев не доказана.
-- Auto Sync не является финальным решением SYNC-001.
-- Private или reverse-engineered hook ещё не найден, не проверен и не внедрён.
-- Нельзя заявлять production-ready direct synchronization.
+Полная матрица SYNC-001, post-commit, проекты/контекст и performance не приняты.
+#3 и прежние runtime FAIL остаются открытыми; доработка LLDB не является текущей целью.
 
-## Следующий этап
+## Сохранённая база
 
-Отдельно запланировано исследование внутреннего поведения AE 25.6:
-
-1. зафиксировать identity и hash бинарника AE;
-2. искать строки, символы и dispatch-пути, связанные с project/Timeline;
-3. наблюдать вызовы debugger/read-only tracing на изолированном тестовом
-   проекте;
-4. проверить native UI, playhead, selection, project changes, Undo/Redo,
-   ExtendScript и plugin-originated edits;
-5. при наличии конкретного кандидата создать отдельный diagnostic probe;
-6. принять кандидат только после полной coverage matrix, проверки restart,
-   пропусков/дубликатов, стабильности и влияния на производительность.
-
-Этот этап является исследовательским. Наблюдение внутреннего вызова само по
-себе не закрывает SYNC-001 и не означает, что механизм можно использовать в
-production.
-
-## Основные документы и commits
-
-- `docs/PRODUCTION_PLAN.md` — продуктовые требования и архитектура;
-- `docs/EVENT_SYNC_RESEARCH.md` — research gate и критерии SYNC-001;
-- `docs/TEST_RECORDS/FULL-PUBLIC-NOTIFICATION-AUDIT-2026-09-28.md` — полный
-  аудит публичных категорий API;
-- `docs/TEST_RECORDS/COMMAND-PROBE-RUNTIME-2026-09-28.md` — runtime evidence;
-- `docs/TEST_RECORDS/INTERNAL-AE-RESEARCH-PLAN-2026-09-28.md` — план следующего
-  этапа.
-
-Последние commits:
-
-```text
-e7d38c0 Document internal AE notification research plan
-4f3fa96 Complete public notification source audit
-f8de508 Add command hook runtime probe
-```
-
-Рабочее дерево на момент создания этого статуса было чистым.
+[Предыдущее ядро](TEST_RECORDS/CHAIN-PROBE-CORE-2026-09-30.md) не изменено.
+[Найденная цепочка UI](TEST_RECORDS/BEE-CALLBACK-SOURCE-2026-09-30.md).
+[Отказ от dirty-only](TEST_RECORDS/DIRECT-SOURCE-MODULE-REVIEW-2026-09-30.md).
+Все исторические test records и исходные файлы сохранены.

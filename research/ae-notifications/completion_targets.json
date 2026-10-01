@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "kind": "completion-research-targets",
+  "aeBundleId": "com.adobe.AfterEffects.application",
+  "aeShortVersion": "25.6.0",
+  "aeBundleVersion": "25.6.0.101",
+  "modules": {
+    "BEE": {
+      "relativePath": "Contents/Frameworks/BEE.dylib",
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "uuid": "161300f3-73f8-3ebc-a751-959df40a073b"
+    }
+  },
+  "breakpoints": [
+    {"label":"command-completion-edge","role":"activity-edge-candidate","module":"BEE","fileAddress":"0x649bf4","minLocations":1,"maxLocations":1},
+    {"label":"command-signal-call","role":"signal-call-candidate","module":"BEE","fileAddress":"0x649c10","minLocations":1,"maxLocations":1},
+    {"label":"group-completion-edge","role":"activity-edge-candidate","module":"BEE","fileAddress":"0x649d68","minLocations":1,"maxLocations":1},
+    {"label":"group-signal-call","role":"signal-call-candidate","module":"BEE","fileAddress":"0x649d84","minLocations":1,"maxLocations":1},
+    {"label":"undo-completion-edge","role":"activity-edge-candidate","module":"BEE","fileAddress":"0x649e88","minLocations":1,"maxLocations":1},
+    {"label":"undo-signal-call","role":"signal-call-candidate","module":"BEE","fileAddress":"0x649ea4","minLocations":1,"maxLocations":1},
+    {"label":"redo-completion-edge","role":"activity-edge-candidate","module":"BEE","fileAddress":"0x649f6c","minLocations":1,"maxLocations":1},
+    {"label":"redo-signal-call","role":"signal-call-candidate","module":"BEE","fileAddress":"0x649f88","minLocations":1,"maxLocations":1}
+  ],
+  "acceptance": "Research only. Edge hits precede NumSlots; call-site hits precede signal invocation, not callback completion. Neither proves success, post-commit state, subscriber delivery or complete mutation coverage. A runner must independently verify exact module hash/UUID and bind an explicitly scoped test PID before using these points. No attach or launcher is provided by this file.",
+  "SYNC-001": "NOT RUN"
+}

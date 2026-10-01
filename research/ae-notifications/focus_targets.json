@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "sourceReportSha256": "806bbef5a272548a1825c7a4dc3f200705b6b3ed76274dc99b6868ee4e20f4a9",
+  "aeBuild": "25.6.0.101",
+  "modules": [
+    {
+      "relativePath": "Contents/Frameworks/BEE.dylib",
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "uuid": "161300f3-73f8-3ebc-a751-959df40a073b",
+      "symbols": [
+        "__ZN9BEE_Layer17CmdPreParamChangeERK16TDB_StreamIDPath",
+        "__ZN9BEE_Layer15CmdParamChangedERK16TDB_StreamIDPathRK6T_Time"
+      ]
+    },
+    {
+      "relativePath": "Contents/Frameworks/AfterFXLib.framework/Versions/A/AfterFXLib",
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a",
+      "uuid": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5",
+      "symbols": []
+    }
+  ],
+  "filters": [
+    "BEE_Layer", "BEE_Selection", "BEE_UndoContext", "CmdParamChanged",
+    "CmdPreParamChange", "LifetimeObserver", "Observer", "Signal",
+    "MessageNameFor", "Selection", "Undo", "Redo", "Playhead",
+    "CurrentTime", "TimeChanged", "Dispatcher", "Notification"
+  ],
+  "lookupFilters": [
+    "BEE_Layer", "BEE_Selection", "BEE_UndoContext",
+    "CmdParamChanged", "CmdPreParamChange", "LifetimeObserverToken",
+    "ProjectSettingsChanged", "BEEp_CLayerDispatcher", "BEEp_CProjectDispatcher"
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "testRunId": "DIRECT-SOURCE-20260930-01",
+  "baselineCommit": "78700e2be647f9fd88702566f4f9aee4df08503f",
+  "inputZipSha256": "2fb3acad42354fa7de409e1d8b14720cc6a4e546fbe5fad3cc5c38e3ec0fda7d",
+  "modules": {
+    "BEE.dylib": {
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "bytes": 31373056,
+      "arm64UUID": "161300f3-73f8-3ebc-a751-959df40a073b",
+      "sliceOffset": 16384
+    },
+    "AfterFXLib": {
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a",
+      "bytes": 45998720,
+      "arm64UUID": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5",
+      "sliceOffset": 16384
+    },
+    "dvacore": {
+      "sha256": "cb6faaf5b745903b80b44105b658ab68186d5065ae47c8a57c9b23e26aa8ecb0",
+      "bytes": 7772464,
+      "arm64UUID": "4427999d-3db3-3964-82f7-18df4fa24d76",
+      "sliceOffset": 16384
+    }
+  },
+  "tool": "LLVM llvm-objdump 17.0.0 on Linux, symbol-bounded arm64 static analysis",
+  "bodies": [
+    {
+      "symbol": "__ZN11BEE_Project17SetContentChangedEb",
+      "module": "BEE.dylib",
+      "start": "0x3a1e10",
+      "endExclusive": "0x3a1ef8",
+      "instructionCount": 58,
+      "rawBodySha256": "894cc5fbe0aad08c28feb657c757eb6ddddf955440f2e31079450be0430401f9",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN11BEE_Project19BroadcastDirtyStateEPS_b",
+      "module": "BEE.dylib",
+      "start": "0x3a4b60",
+      "endExclusive": "0x3a4b90",
+      "instructionCount": 12,
+      "rawBodySha256": "d78f9a81ca4435e2d84b77dfd907a3768ca01381abb4c22117cb7feb553c48ac",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN11BEE_Project30ConnectDirtyStateChangedSignalERKNSt3__18functionIFvPS_bEEE",
+      "module": "BEE.dylib",
+      "start": "0x3a6bc0",
+      "endExclusive": "0x3a6cf4",
+      "instructionCount": 77,
+      "rawBodySha256": "d39004ca2c17dd5a0c7aa5b39e440a15fb320830169cede061154ddfe381a93f",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN15BEE_UndoContext16SetExecutingRedoEb",
+      "module": "BEE.dylib",
+      "start": "0x649ebc",
+      "endExclusive": "0x649fa0",
+      "instructionCount": 57,
+      "rawBodySha256": "5a241eb47073d77b06e650a150a455068ef8dd81a99ba5cd4aed00ff185b13d9",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN15BEE_UndoContext16SetExecutingUndoEb",
+      "module": "BEE.dylib",
+      "start": "0x649db0",
+      "endExclusive": "0x649ebc",
+      "instructionCount": 67,
+      "rawBodySha256": "c8ea938c550249b8cf8dbbb417aed1d285eeae75c773b6be72d3d55eeee942e2",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN15BEE_UndoContext17SetContentChangedEb",
+      "module": "BEE.dylib",
+      "start": "0x64a33c",
+      "endExclusive": "0x64a358",
+      "instructionCount": 7,
+      "rawBodySha256": "71b017786a20e441cf6058357674a07976509d1d725bda102461405efb41f9c8",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN15BEE_UndoContext19SetExecutingCommandEb",
+      "module": "BEE.dylib",
+      "start": "0x649b3c",
+      "endExclusive": "0x649c28",
+      "instructionCount": 59,
+      "rawBodySha256": "4c4ca5cc1e17509f72a192c32d0ffa541d472f9abcf656c5cda804d8582b5a57",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN15BEE_UndoContext22OnUndoCommandCompletedEv",
+      "module": "BEE.dylib",
+      "start": "0x649c6c",
+      "endExclusive": "0x649cb0",
+      "instructionCount": 17,
+      "rawBodySha256": "305a26a5a2d7c0b74c338be2e00f6d6bd1850e55f889d82c871d2a56172d30c8",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN15BEE_UndoContext24SetExecutingCommandGroupEb",
+      "module": "BEE.dylib",
+      "start": "0x649cb0",
+      "endExclusive": "0x649db0",
+      "instructionCount": 64,
+      "rawBodySha256": "e830d800a6332a4ad4f4e6b8648862dcf75d2f67b79ac084194106fa7175f1f4",
+      "disassemblyBytesMatch": true
+    },
+    {
+      "symbol": "__ZN15BEE_UndoContext25SetContentChangedCallbackEN5boost8functionIFvbEEE",
+      "module": "BEE.dylib",
+      "start": "0x64a358",
+      "endExclusive": "0x64a438",
+      "instructionCount": 56,
+      "rawBodySha256": "25d87fb627f8c38e295aeaf7829ea02489d12ff7566aed229323b287dc3cde7f",
+      "disassemblyBytesMatch": true
+    }
+  ],
+  "dirtySetterGate": {
+    "address": "0x3a1e34",
+    "instructionWord": "0x54000360",
+    "equalityTarget": "0x3a1ea0",
+    "equalitySkipsNotification": true,
+    "branchTargetIndependentlyDecoded": true,
+    "localBooleanCases": [
+      {
+        "previous": false,
+        "requested": false,
+        "entersNotificationBlock": false
+      },
+      {
+        "previous": false,
+        "requested": true,
+        "entersNotificationBlock": true
+      },
+      {
+        "previous": true,
+        "requested": false,
+        "entersNotificationBlock": true
+      },
+      {
+        "previous": true,
+        "requested": true,
+        "entersNotificationBlock": false
+      }
+    ],
+    "scope": "branch semantics only; no complete AE execution simulated"
+  },
+  "completionConnect": {
+    "symbol": "__ZN7dvacore9messaging6SignalIFvP15BEE_UndoContextELb1EE7ConnectENSt3__18functionIS4_EE",
+    "exportTriePresence": {
+      "BEE.dylib": false,
+      "AfterFXLib": false,
+      "dvacore": false
+    },
+    "scope": "exact symbol in these three arm64 export tries only"
+  },
+  "conclusions": {
+    "dirtySignalStandalone": "REJECTED_FOR_REPEATED_DIRTY_SETTER_NOTIFICATIONS",
+    "completionSignal": "CONTINUE_REGISTRATION_RESEARCH"
+  },
+  "actualAE": "NOT RUN",
+  "nativeSubscription": "NOT RUN",
+  "SYNC-001": "NOT RUN"
+}

@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "testRunId": "BEE-CALLBACK-SOURCE-20260930-01",
+  "baselineCommit": "cfa8a1db2fcd576a0023cdee579c7f83c40d04e6",
+  "scope": "static inspection only; no loaded or executed Adobe code",
+  "inputZipSha256": "2fb3acad42354fa7de409e1d8b14720cc6a4e546fbe5fad3cc5c38e3ec0fda7d",
+  "tools": {
+    "llvm-objdump": "17.0.0"
+  },
+  "modules": [
+    {
+      "name": "BEE.dylib",
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "arm64UUID": "161300f3-73f8-3ebc-a751-959df40a073b"
+    },
+    {
+      "name": "AfterFXLib",
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a",
+      "arm64UUID": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5"
+    },
+    {
+      "name": "dvacore",
+      "sha256": "cb6faaf5b745903b80b44105b658ab68186d5065ae47c8a57c9b23e26aa8ecb0",
+      "arm64UUID": "4427999d-3db3-3964-82f7-18df4fa24d76"
+    }
+  ],
+  "functions": [
+    ["BEE.dylib", "__Z19BEE_Callback_InsertPFiR19BEE_FilterFuncChainI9BEE_CBMsgPvES1_S0_S1_ES1_", "0x333624", "0x333774", 84, "5f3eafb1f1255a24bc61e02e79729a01449e8aaa9ac2e75c348c77012eead119"],
+    ["BEE.dylib", "__Z19BEE_Callback_Removei", "0x333774", "0x3338f4", 96, "9e9dcac5e1b8e33b2edb4f1ea4d6f92b527a1721914b575786d6ba47631f8d7f"],
+    ["BEE.dylib", "__ZN11BEE_Project36NotifyUnmessagedProjectModificationsEv", "0x3ab380", "0x3ab3d8", 22, "48e2b40a7e48ba90fcc13d6d6f24523057472fc5c5689fa0e05696365a7517df"],
+    ["AfterFXLib", "__Z12NewFauxCCompv", "0xab96a4", "0xab9744", 40, "491450ca45cfa11786447b149017a3aaec68da32687df0e3239ff765cba935f5"],
+    ["AfterFXLib", "__Z15CallbackFromBEER19BEE_FilterFuncChainI9BEE_CBMsgPvES1_S0_S1_", "0x6fd7a4", "0x6fd880", 55, "ddcec50f1a8fb6ee0993fa49aa83158a2a676591cf7505af5aeca2100174b04d"],
+    ["AfterFXLib", "__Z16FEE_BEE_Callback9BEE_CBMsgPv", "0x818f64", "0x81dfb8", 5141, "c3944b174adb7f213075edbe6432eba73a0c4e032f99485444a61f51eeb88427"],
+    ["AfterFXLib", "__ZN19ScQuietBEECallbacks6TempCBER19BEE_FilterFuncChainI9BEE_CBMsgPvES2_S1_S2_", "0xac445c", "0xac44a0", 17, "c821ebcb26849ff85f5ba169ccb7cf016223e01d42496b431d75f4498f0153d0"],
+    ["AfterFXLib", "__ZN22BEECancelCallbackEater5BEEcbER19BEE_FilterFuncChainI9BEE_CBMsgPvES2_S1_S2_", "0x40ccfc", "0x40ce98", 103, "4df619a7f507297876c67a09987b4f1d58e5f96967fe8bef30133cfc9f25ffb3"],
+    ["AfterFXLib", "__ZN22BEECancelCallbackEaterC2EN7dvacore7utility19RefCountedInterface12IntrusivePtrIN2ae3egg20FreezeProgressDialogEEE", "0x40cbf4", "0x40ccfc", 66, "41bfcd38292adff64fd9b13d888d646074016a9eda86fad73f7e15858a2170ae"],
+    ["AfterFXLib", "__ZN22BEECancelCallbackEaterD1Ev", "0x40cb9c", "0x40cbf4", 22, "201db6c8dfec1b10a05ca8f1c6a55c7acc1b734c2be283d3f9dd3a095e6bea03"],
+    ["AfterFXLib", "__ZN7CEggApp11BirthSuitesEv", "0x769c04", "0x769ca4", 40, "81fee2fe67361bea2d1a76e941ee4dd9278ef1d1bf8c03ebbc9edc50f3be7930"],
+    ["BEE.dylib", "__Z17BEEp_SetLayerTimeP15BEE_LTimeChange", "0x2a22b8", "0x2a25d8", 200, "07fca3dabdf860d7820828c57d01787b69d50cf85838bb271ed431faa34c00f4"],
+    ["BEE.dylib", "__Z18BEE_Callback_Birthv", "0x33321c", "0x333420", 129, "9935cde1b09d113dd2a0c94605104d6bf658c0f622f99e9eed18c8fd2fd1ea46"],
+    ["BEE.dylib", "__Z19BEEp_SetLayerSwitchP9BEE_Layerih", "0x2a3460", "0x2a3664", 129, "d81626a6174256f9a9cf54a5853f29d8ff4df4eed55e6d9f18fa19bf2865c5d3"],
+    ["BEE.dylib", "__Z22BEE_Callback_UI_Submit9BEE_CBMsgPv", "0x3338f4", "0x3339c0", 51, "24b2614ccd2df3647e8b28832043ade3645cc49b07e678d06ea8194f97dbee8e"],
+    ["BEE.dylib", "__ZN11BEE_Project5CloseEb", "0x3a3ef8", "0x3a4808", 580, "596e43938ebca659415f1ed48fe8cdeb0416e8cc483078d2955a35f1cbc8b741"],
+    ["BEE.dylib", "__ZN12BEE_CompItem12ReorderLayerEii", "0x337fe0", "0x338114", 77, "83d893c7f9cc5c4c96a0f1d66f743b201c78c3319a332b14932a22e224b42795"],
+    ["BEE.dylib", "__ZN12_GLOBAL__N_119BEEp_UndoRedoCallUIE9BEE_CBMsg12BEE_TaskSpecb", "0x645e30", "0x645f24", 61, "769baef98983ad74a7b41f8057327f9c3802d5da3a52da0d9e7d7688835d0ee8"],
+    ["BEE.dylib", "__ZN12_GLOBAL__N_127BEEp_NotifyUndoRedoUIThreadEP11BEE_Project9BEE_CBMsg12BEE_TaskSpecb", "0x646cd8", "0x646cfc", 9, "2889ad6c7a0a7d89c3d25b48df3d3ef84bb1eae28f90f56ba06675e40ec092e3"],
+    ["BEE.dylib", "__ZN14BEE_FilterFuncI9BEE_CBMsgPvE7ExecuteER19BEE_FilterFuncChainIS0_S1_ES0_S1_", "0x335438", "0x3354e4", 43, "94e7b95daf5abb79f0f7ae08e35a8e1206432f25eb7bd72d1c38959e1c97bc75"],
+    ["BEE.dylib", "__ZN19BEE_SetItemTimeTask7ExecuteEP12BEE_TaskSpecP8BEE_TaskPb", "0x4ff8e8", "0x4ffdac", 305, "4e2696ae39c63bc1b289601b225d5451f25e6a2f98bd5a8354f31010b3d05761"],
+    ["BEE.dylib", "__ZN20BEE_FilterFuncLogger18ConvertMsgtoStringE9BEE_CBMsg", "0x334114", "0x33413c", 10, "c62d452b20d78a87592e1e179c8d0858f79a6d3b5a1a739e8cbd9a5b5ee310ba"],
+    ["BEE.dylib", "__ZN20BEE_SetSelectionTask7ExecuteEP12BEE_TaskSpecP8BEE_TaskPb", "0x4eca54", "0x4ecbc8", 93, "bfabfbe0d308870fe78773438d9556d3cfa9f48a33ab5e748ffe6b197ceca115"],
+    ["BEE.dylib", "__ZN27BEE_FilterFuncChainIteratorI9BEE_CBMsgPvE8ContinueES0_S1_", "0x3353b0", "0x335438", 34, "62a8541c80536c0c6e4357b9ca4da52be7dc1b29c3b5f32b94dd5ba6fe8916f6"],
+    ["BEE.dylib", "__ZN29BEE_FilterFuncChainControllerI9BEE_CBMsgPvE7ExecuteES0_S1_", "0x3339c0", "0x333ac4", 65, "009e2d8f0a36e3ccaa6fa7e2ba085efc585b2604d1e9f4cada58f638e8de8d68"]
+  ],
+  "verifiedInstructionPositions": 7472,
+  "independentBranchChecks": [
+    {
+      "label": "timing",
+      "module": "BEE.dylib",
+      "site": "0x2a251c",
+      "target": "0x3338f4",
+      "instructionHex": "f6440294"
+    },
+    {
+      "label": "flags",
+      "module": "BEE.dylib",
+      "site": "0x2a3574",
+      "target": "0x3338f4",
+      "instructionHex": "e0400294"
+    },
+    {
+      "label": "reorder",
+      "module": "BEE.dylib",
+      "site": "0x3380ec",
+      "target": "0x3338f4",
+      "instructionHex": "02eeff97"
+    },
+    {
+      "label": "selection",
+      "module": "BEE.dylib",
+      "site": "0x4ecb30",
+      "target": "0x3338f4",
+      "instructionHex": "711bf997"
+    },
+    {
+      "label": "item-time",
+      "module": "BEE.dylib",
+      "site": "0x4ffca4",
+      "target": "0x3338f4",
+      "instructionHex": "14cff897"
+    },
+    {
+      "label": "project-close",
+      "module": "BEE.dylib",
+      "site": "0x3a4004",
+      "target": "0x3338f4",
+      "instructionHex": "3c3efe97"
+    },
+    {
+      "label": "native-registration",
+      "module": "AfterFXLib",
+      "site": "0x769c18",
+      "target": "0x168ec1c",
+      "instructionHex": "01943c94"
+    }
+  ],
+  "messageNames": [
+    {
+      "id": 23,
+      "hexId": "0x17",
+      "name": "BEE_CB_LAYER_LEAVING",
+      "pointer": "0xed9690",
+      "pointerSlot": "0xfec6a8"
+    },
+    {
+      "id": 24,
+      "hexId": "0x18",
+      "name": "BEE_CB_LAYER_APPEARING",
+      "pointer": "0xed96a5",
+      "pointerSlot": "0xfec6b0"
+    },
+    {
+      "id": 26,
+      "hexId": "0x1a",
+      "name": "BEE_CB_LAYER_REORDER",
+      "pointer": "0xed9700",
+      "pointerSlot": "0xfec6c0"
+    },
+    {
+      "id": 27,
+      "hexId": "0x1b",
+      "name": "BEE_CB_LAYER_FLAG_CHANGED",
+      "pointer": "0xed9715",
+      "pointerSlot": "0xfec6c8"
+    },
+    {
+      "id": 59,
+      "hexId": "0x3b",
+      "name": "BEE_CB_LAYER_TIMESTUFF_CHANGED",
+      "pointer": "0xed99f8",
+      "pointerSlot": "0xfec7c8"
+    },
+    {
+      "id": 84,
+      "hexId": "0x54",
+      "name": "BEE_CB_UNDO",
+      "pointer": "0xed9c72",
+      "pointerSlot": "0xfec890"
+    },
+    {
+      "id": 85,
+      "hexId": "0x55",
+      "name": "BEE_CB_REDO",
+      "pointer": "0xed9c7e",
+      "pointerSlot": "0xfec898"
+    },
+    {
+      "id": 87,
+      "hexId": "0x57",
+      "name": "BEE_CB_SELECTION_CHANGED",
+      "pointer": "0xed9ca2",
+      "pointerSlot": "0xfec8a8"
+    },
+    {
+      "id": 89,
+      "hexId": "0x59",
+      "name": "BEE_CB_PROJECT_NEW",
+      "pointer": "0xed9cd6",
+      "pointerSlot": "0xfec8b8"
+    },
+    {
+      "id": 90,
+      "hexId": "0x5a",
+      "name": "BEE_CB_PROJECT_CLOSED",
+      "pointer": "0xed9ce9",
+      "pointerSlot": "0xfec8c0"
+    },
+    {
+      "id": 91,
+      "hexId": "0x5b",
+      "name": "BEE_CB_PROJECT_OPENED",
+      "pointer": "0xed9cff",
+      "pointerSlot": "0xfec8c8"
+    },
+    {
+      "id": 95,
+      "hexId": "0x5f",
+      "name": "BEE_CB_ITEM_TIME_CHANGED",
+      "pointer": "0xed9d6d",
+      "pointerSlot": "0xfec8e8"
+    }
+  ],
+  "uiCaseTable": {
+    "address": "0x18acd7c",
+    "dispatchBase": "0x8190d8",
+    "encoding": "little-endian uint16 indexed by message-3, target=dispatchBase+entry*4",
+    "cases": [
+      {
+        "message": 22,
+        "slotAddress": "0x18acda2",
+        "entryHex": "8c0d",
+        "caseAddress": "0x81c708"
+      },
+      {
+        "message": 23,
+        "slotAddress": "0x18acda4",
+        "entryHex": "7d06",
+        "caseAddress": "0x81aacc"
+      },
+      {
+        "message": 24,
+        "slotAddress": "0x18acda6",
+        "entryHex": "f505",
+        "caseAddress": "0x81a8ac"
+      },
+      {
+        "message": 25,
+        "slotAddress": "0x18acda8",
+        "entryHex": "1103",
+        "caseAddress": "0x819d1c"
+      },
+      {
+        "message": 26,
+        "slotAddress": "0x18acdaa",
+        "entryHex": "ae03",
+        "caseAddress": "0x819f90"
+      },
+      {
+        "message": 27,
+        "slotAddress": "0x18acdac",
+        "entryHex": "5203",
+        "caseAddress": "0x819e20"
+      },
+      {
+        "message": 59,
+        "slotAddress": "0x18acdec",
+        "entryHex": "d604",
+        "caseAddress": "0x81a430"
+      },
+      {
+        "message": 84,
+        "slotAddress": "0x18ace1e",
+        "entryHex": "6100",
+        "caseAddress": "0x81925c"
+      },
+      {
+        "message": 85,
+        "slotAddress": "0x18ace20",
+        "entryHex": "6100",
+        "caseAddress": "0x81925c"
+      },
+      {
+        "message": 87,
+        "slotAddress": "0x18ace24",
+        "entryHex": "f901",
+        "caseAddress": "0x8198bc"
+      },
+      {
+        "message": 89,
+        "slotAddress": "0x18ace28",
+        "entryHex": "f300",
+        "caseAddress": "0x8194a4"
+      },
+      {
+        "message": 90,
+        "slotAddress": "0x18ace2a",
+        "entryHex": "f300",
+        "caseAddress": "0x8194a4"
+      },
+      {
+        "message": 91,
+        "slotAddress": "0x18ace2c",
+        "entryHex": "7308",
+        "caseAddress": "0x81b2a4"
+      },
+      {
+        "message": 95,
+        "slotAddress": "0x18ace34",
+        "entryHex": "e901",
+        "caseAddress": "0x81987c"
+      },
+      {
+        "message": 116,
+        "slotAddress": "0x18ace5e",
+        "entryHex": "8c0d",
+        "caseAddress": "0x81c708"
+      }
+    ]
+  },
+  "continuation": {
+    "objectVptrAssignedAt": "0x333a04",
+    "vtableAddressPoint": "0xfec5c8",
+    "methodSlotOffset": "0x10",
+    "methodSlotAddress": "0xfec5d8",
+    "resolvedMethod": "0x3353b0",
+    "nativeForwarderCall": "0x6fd7d0",
+    "fixupResolution": "llvm-objdump --macho --arch=arm64 --dyld-info; raw chained words are not treated as addresses"
+  },
+  "sourceClaims": {
+    "exportedAddRemove": "STATIC_VERIFIED",
+    "nativeClientUsesRegistrar": "STATIC_VERIFIED",
+    "selectedProducersReachChain": "STATIC_VERIFIED",
+    "nativeAEProbe": "NOT RUN",
+    "safeExternalABI": "NOT ACCEPTED",
+    "postCommitDelivery": "UNPROVEN",
+    "fullTimelineCoverage": "UNPROVEN",
+    "SYNC-001": "NOT RUN"
+  },
+  "functionColumns": [
+    "module",
+    "symbol",
+    "start",
+    "endExclusive",
+    "instructionPositions",
+    "bodySha256"
+  ],
+  "allFunctionBytesMatched": true
+}

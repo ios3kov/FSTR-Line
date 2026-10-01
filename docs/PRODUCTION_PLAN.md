@@ -2,7 +2,7 @@
 
 ## Current Development Status
 
-**Priority gate: direct AE-originated Timeline notifications — BLOCKED pending verified API.** User rejected periodic full-layer reads as the final synchronization design. The official AE 25.6 SDK headers were inspected: command/menu/idle hooks and render-change queries exist, but no complete push notification API for the required Timeline state was found. Native runtime probe is therefore not applicable. See `docs/EVENT_SYNC_RESEARCH.md` and `docs/TEST_RECORDS/SDK-25.6-HEADER-AUDIT-2026-09-28.md`. Existing Auto Sync prototype is not acceptance evidence for this requirement. Next step: obtain an Adobe-supported notification mechanism or clarification; do not substitute polling.
+**Priority gate: direct AE-originated Timeline notifications — RESEARCH COVERAGE OBSERVED, PRODUCTION MECHANISM BLOCKED.** Periodic full-layer/revision/idle polling remains rejected as the final design. The official AE 25.6 SDK still exposes no complete public push subscription. Supervised real-AE research on 25.6.0.101 now observes internal paths for native UI changes, ExtendScript, active-comp, Undo/Redo/playhead and an independent public-SDK AEGP helper mutation, with state correlation and script-origin post-endUndoGroup evidence. These LLDB breakpoints are measuring instrumentation, not a shipping API. The next gate is a compatibility/safety decision plus candidate-specific post-commit/stability and uninstrumented performance proof. See `docs/EVENT_SYNC_RESEARCH.md` and 2026-09-29 notification test records.
 
 **Milestone: CEP read/refresh PoC и panel lifecycle — implementation complete, local verification PASS.**
 
@@ -63,7 +63,7 @@ FSTR Line должна получать уведомления об измене
 - Нет ощутимого ухудшения отзывчивости и воспроизведения AE; это подтверждается сравнительными замерами, а не обещанием нулевой нагрузки.
 - Приёмка требует доказанного API-источника уведомлений и runtime-тестов в целевой версии AE.
 
-Статус: **BLOCKED — источник полного набора уведомлений ещё не подтверждён**. Это обязательное продуктовое требование, а не утверждение о текущих возможностях. Ограничение API не отменяет его автоматически; изменение требования требует согласования с пользователем. Research и coverage matrix: `docs/EVENT_SYNC_RESEARCH.md`.
+Статус: **RESEARCH COVERAGE OBSERVED / PRODUCTION BLOCKED**. На AE 25.6.0.101 подтверждены внутренние change paths и происхождение изменений от native UI, ExtendScript и отдельного AEGP-плагина. Но LLDB evidence не является production-подпиской. До приёмки обязательны shipping-compatible/failure-safe механизм, доказанные post-commit semantics для него, missed/duplicate/coalescing/error/panel-closed cases и сравнительные uninstrumented performance/playback замеры. Research и coverage matrix: `docs/EVENT_SYNC_RESEARCH.md`.
 
 ---
 
@@ -531,3 +531,52 @@ v1 считается production-ready только когда:
 - Core начинает зависеть от CEP-specific API.
 
 Сначала устраняется архитектурная причина, затем работа продолжается.
+
+## 18. Будущая разработка: FSTR Layer Groups
+
+Добавлено по запросу пользователя 2026-09-29. Статус: идея в backlog,
+не реализация и не обязательство текущего milestone. Вернуться к оценке
+после завершения текущего плана; приоритет SYNC-001 и его production gates
+не меняется.
+
+Цель: раскрывающиеся папки/группы слоёв без precomp, чтобы организовывать
+большие композиции, сохраняя слои в исходной композиции.
+
+Первый кандидат для спецификации — группы внутри панели FSTR: создание,
+переименование, раскрытие/сворачивание и сохранение состава. Вложенность
+и перетаскивание оценить отдельно. Организационные группы не должны сами
+менять parenting, трансформации, эффекты, порядок слоёв или результат рендера.
+Папки непосредственно в штатном Timeline AE — отдельный research, техническая
+возможность не подтверждена и не обещана.
+
+Перед реализацией определить хранение и устойчивую идентичность групп,
+поведение при внешних изменениях/удалении слоёв, дублировании композиции,
+Undo/Redo, save/reopen и работе без FSTR. Проверить совместимость с packing
+и надёжной синхронизацией SYNC-001. Исследовать существующие решения и спрос;
+упомянутая популярность запроса пока не проверена независимо.
+
+### Дополнение: раскрываемые precomp в панели FSTR
+
+Согласовано с пользователем 2026-09-29 как будущая фича после завершения
+текущей разработки. Отображать существующий precomp как раскрываемую группу
+с внутренними слоями в панели FSTR, без обязательного перехода в другую
+вкладку. Это представление вложенной композиции, а не преобразование её
+в организационную папку и не замена группам без precomp.
+
+Предусмотреть два визуально различимых типа:
+
+- организационная папка: слои текущей композиции без создания precomp;
+- precomp-группа: существующая вложенная композиция со своей семантикой
+  времени, трансформаций, эффектов и рендера.
+
+Первый кандидат — раскрытие только для просмотра и навигации. Само раскрытие
+не должно менять проект или результат рендера. Редактирование внутренних
+слоёв на общей временной шкале — отдельный последующий scope, не обещанный
+в первой версии.
+
+До реализации определить отображение сдвига времени, stretch/time remap,
+вложенных precomp и нескольких экземпляров одной исходной композиции.
+Различать путь конкретного экземпляра и общую исходную композицию; будущие
+изменения источника могут затронуть все его экземпляры. Проверить внешние
+изменения, Undo/Redo, save/reopen, производительность раскрытия и совместимость
+с packing/SYNC-001. Техническая реализуемость и UX ещё требуют проверки.

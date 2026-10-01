@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 2,
+  "protocolVersion": 2,
+  "aeBundleId": "com.adobe.AfterEffects.application",
+  "aeShortVersion": "25.6.0",
+  "aeBundleVersion": "25.6.0.101",
+  "sourceContextReportSha256": "780327bb9297f69dc4473f565e2f9c2895ab8fa53c4172234a3d8735c48ec1e7",
+  "durationSeconds": 180,
+  "maxFrames": 12,
+  "attachReadyTimeoutSeconds": 30,
+  "ackTimeoutSeconds": 10,
+  "shutdownTimeoutSeconds": 30,
+  "modules": {
+    "BEE": {
+      "relativePath": "Contents/Frameworks/BEE.dylib",
+      "sha256": "817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca",
+      "uuid": "161300f3-73f8-3ebc-a751-959df40a073b"
+    },
+    "AfterFXLib": {
+      "relativePath": "Contents/Frameworks/AfterFXLib.framework/Versions/A/AfterFXLib",
+      "sha256": "ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a",
+      "uuid": "edc800d6-9e4b-3a03-9bbb-8239f3f6eea5"
+    }
+  },
+  "breakpoints": [
+    {"label":"process-project-changes-entry","role":"project-change-entry","module":"BEE","fileAddress":"0x7af9f4","minLocations":1,"maxLocations":1},
+    {"label":"after-process-from-render-thread","role":"project-change-boundary","module":"BEE","fileAddress":"0x7afa7c","minLocations":1,"maxLocations":1},
+    {"label":"process-project-changes-return","role":"project-change-return","module":"BEE","fileAddress":"0x7b055c","minLocations":1,"maxLocations":1},
+    {"label":"render-end-undo-group","role":"transaction-marker","module":"BEE","fileAddress":"0x778c54","minLocations":1,"maxLocations":1},
+    {"label":"set-content-changed","role":"transaction-marker","module":"BEE","fileAddress":"0x64a33c","minLocations":1,"maxLocations":1},
+    {"label":"end-group","role":"transaction-marker","module":"BEE","fileAddress":"0x6444ac","minLocations":1,"maxLocations":1},
+    {"label":"layer-switch-internal","role":"mutation-marker","module":"BEE","fileAddress":"0x2a3460","minLocations":1,"maxLocations":1}
+  ],
+  "phases": [
+    {"label":"idle-control","kind":"manual","instructionRu":"Ничего не делай в After Effects примерно 3 секунды."},
+    {"label":"script-postcommit","kind":"marker-script","instructionRu":"Автоматический post-commit marker. Ничего не делай в AE; нажми Enter для запуска."},
+    {"label":"idle-after","kind":"manual","instructionRu":"Ничего не делай примерно 3 секунды."}
+  ],
+  "historicalEvidence": {
+    "activeComp": "OBSERVED",
+    "stateOracle": "OBSERVED",
+    "sourceReportSha256": "780327bb9297f69dc4473f565e2f9c2895ab8fa53c4172234a3d8735c48ec1e7"
+  },
+  "acceptance": "Marker file must contain before, after-mutation and after-end-undo timestamps. State oracle must remain valid. The probe tests whether post-render-thread boundary and function return occur after the script endUndoGroup marker; success is script-origin timing evidence only, not universal native post-commit proof."
+}

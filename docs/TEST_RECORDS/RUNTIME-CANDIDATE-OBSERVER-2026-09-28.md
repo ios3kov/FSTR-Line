@@ -1,0 +1,11 @@
+# Candidate runtime observer — 2026-09-28
+
+Static input is the user's real AE 25.6.0.101 reports. Exact module identities are pinned to BEE.dylib SHA-256 817b9de9c6d57b5d6988b634842090e1528fe817a5685c8d1ff358553c6660ca / UUID 161300f3-73f8-3ebc-a751-959df40a073b and AfterFXLib SHA-256 ce3aa2f16fe5449a77379a6b622e1a221596e511b86f7708dd3e2f7a3cced01a / UUID edc800d6-9e4b-3a03-9bbb-8239f3f6eea5.
+
+Observed static symbols include BEE_UndoContext::OnUndoCommandCompleted at BEE file address 0x649c6c, GetUndoCommandCompletedSignal at 0x64a6fc, BEE_Undo at 0x645958, BEE_Redo at 0x645f24, BEE_CmdModifySelection at 0x5580c, BEE_SelectLayer at 0x302a8, multiple derived CmdParamChanged functions, and AfterFXLib references to BEE_UndoContext::GetUndoCommandCompletedSignal plus a defined PostMessageToUIThread specialization for ProjectSettingsChangedMessage. These are internal static leads, not stable/public APIs.
+
+The runtime observer does not call those functions. It attaches LLDB to one already-running exact AE process, verifies loaded module UUIDs, creates regex breakpoints, and logs function-entry hits with timestamps. The callback does not EvaluateExpression, inspect project data, read target variables, call target code or write target memory. The controller never launches or kills AE; on success it pauses only for clean detach. Attach/permission failure is BLOCKED and must not be bypassed by changing SIP, signing or security policy.
+
+Initial manual native-UI phases are: idle; layer timing; selection; switches; undo; redo; playhead; idle. Phase markers are timing correlation only. A breakpoint hit remains commitPhase=UNKNOWN and isNotificationProven=false. This stage can reject candidates or establish that they observe actions, but cannot by itself prove post-commit availability or full SYNC-001. ExtendScript and other-plugin origins remain subsequent required gates.
+
+Predeclared acceptance for handoff: unit tests; exact runtime ZIP; macOS attach to an owned compiler-built fixture with at least one breakpoint hit, clean detach and no semantic overclaim; all previous integration/research gates; clean source and artifact identity. Actual AE runtime remains NOT RUN until the user runs the exact verified observer in a disposable/saved AE session.

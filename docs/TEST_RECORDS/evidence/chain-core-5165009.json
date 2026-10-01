@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "testRunId": "CHAIN-CORE-20260930-01",
+  "baselineCommit": "516500997b48d4e4dd523156290165bc05b21214",
+  "scope": "Implemented C++ observer on owned ABI-shaped chain; not an AEGP plugin",
+  "localSourceState": "source subset; full clone unavailable (DNS)",
+  "sourceSha256": {
+    "research/ae-notifications/chain-probe/chain_abi.hpp": "a785e78effa62571612c1ff7b19e383be015745a263c31ba5ee0f8b77807f184",
+    "research/ae-notifications/chain-probe/observer.hpp": "183ce2d4c18598587df9e780b1073706bf098a98914364977810f7e345116d20",
+    "research/ae-notifications/chain-probe/README.md": "d7e339a63a6c86714b9997f0f9de25f615bce2265bd67060bbd56efb2c5d8621",
+    "tests/research/chain_probe_control.cpp": "baaec437f5b6267992c1a5b6252cc915133cd2196e8e6d928c0cb0cfd9e5b8e0",
+    "tests/research/test_chain_probe.py": "3fbec3ef1b87e153b7048f1e12dc38c9902e7214bf07753e611777b3b85f0385"
+  },
+  "platform": "Linux x86_64",
+  "python": "3.13.5",
+  "compiler": "clang version 17.0.0 (https://github.com/swiftlang/llvm-project.git 10999b6d034fe318f3d56c83bddb6572593a8bb0)",
+  "command": [
+    "python3",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests/research",
+    "-p",
+    "test_chain_probe.py",
+    "-v"
+  ],
+  "exitCode": 0,
+  "checks": {
+    "nativeOptimized": "PASS",
+    "nativeASanUBSan": "PASS",
+    "arm64CompilerLowering": "PASS"
+  },
+  "nativeScenarioGroupsPerBuild": 10,
+  "leakSanitizer": "NOT RUN",
+  "AEGPBuild": "BLOCKED: matching SDK not present",
+  "actualBEERegistration": "NOT RUN",
+  "actualAE": "NOT RUN",
+  "SYNC-001": "NOT RUN",
+  "log": "test_arm64_lowered_forwarding_without_sdk_or_private_calls (test_chain_probe.ChainProbeTests.test_arm64_lowered_forwarding_without_sdk_or_private_calls) ... ok\ntest_native_optimized (test_chain_probe.ChainProbeTests.test_native_optimized) ... ok\ntest_native_sanitized (test_chain_probe.ChainProbeTests.test_native_sanitized) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 1.959s\n\nOK\n",
+  "notes": [
+    "No vendor libraries loaded or published",
+    "Fixture registration/removal is serialized; not proof of BEE thread safety",
+    "Logical disable does not unregister, authorize destruction or unload",
+    "Counters are not a post-commit state snapshot"
+  ],
+  "localTestLogSha256": "43e2c7680b05565d508e7f54d447f315f6cf62f90091cb6149caeafd5a003651"
+}
