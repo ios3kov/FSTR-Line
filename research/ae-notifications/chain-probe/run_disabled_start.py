@@ -29,7 +29,7 @@ BUNDLE_ID='tv.fstr.line.chain-probe'
 AE_BUNDLE_ID='com.adobe.AfterEffects.application'
 AE_SHORT_VERSION='25.6.0'
 AE_BUILD_VERSION='25.6.0.101'
-AE_PROCESS_PATTERN=r'Adobe After Effects.*\\.app/Contents/MacOS/After Effects'
+AE_PROCESS_PATTERN=r'Adobe After Effects.*\.app/Contents/MacOS/After Effects'
 
 class GateError(RuntimeError):
     pass
