@@ -84,7 +84,7 @@ def verify_active(rows,min_observations=2):
     if not events or events[0]!='LOADED_DISABLED_BUILD_ID_IN_EVENT_TYPE_NO_PROJECT_READS':
         raise EvidenceError('ACTIVE_LOAD_MARKER_MISSING')
     command_id=_command(events)
-    if any(event.startswith(prefix) for prefix in FATAL_PREFIXES):
+    if any(any(event.startswith(prefix) for prefix in FATAL_PREFIXES) for event in events):
         raise EvidenceError('FATAL_EVENT_OBSERVED')
     registrations=[i for i,e in enumerate(events) if e=='REGISTERED_RESEARCH_ONLY_SYNC001_NOT_RUN']
     removals=[i for i,e in enumerate(events) if e=='REMOVED_OWN_ID']
