@@ -29,6 +29,7 @@ BUNDLE_ID='tv.fstr.line.chain-probe'
 AE_BUNDLE_ID='com.adobe.AfterEffects.application'
 AE_SHORT_VERSION='25.6.0'
 AE_BUILD_VERSION='25.6.0.101'
+AE_PROCESS_PATTERN=r'Adobe After Effects.*\\.app/Contents/MacOS/After Effects'
 
 class GateError(RuntimeError):
     pass
@@ -93,7 +94,7 @@ def discover_ae_app(explicit=None):
 def ae_pids():
     if platform.system()!='Darwin':
         return []
-    done=run(['/usr/bin/pgrep','-f','Adobe After Effects'],timeout=5,check=False)
+    done=run(['/usr/bin/pgrep','-f',AE_PROCESS_PATTERN],timeout=5,check=False)
     if done.returncode not in (0,1):
         raise GateError('AE_PROCESS_QUERY_FAILED')
     return [int(value) for value in done.stdout.split() if value.isdigit()]
@@ -126,6 +127,8 @@ def clean_owned_install():
     if OWNED_ROOT.is_symlink() or not OWNED_ROOT.is_dir():
         raise GateError('OWNED_ROOT_UNSAFE')
     entries=list(OWNED_ROOT.iterdir())
+    if TARGET.is_symlink():
+        raise GateError('OWNED_TARGET_SYMLINK_REFUSED')
     if any(entry!=TARGET for entry in entries):
         raise GateError('OWNED_ROOT_UNKNOWN_CONTENT')
     if TARGET.exists() and not is_owned_bundle(TARGET):
@@ -294,6 +297,7 @@ def main():
     evidence={'schemaVersion':1,'kind':'FSTRChainProbeDisabledStart','runId':run_id,
               'status':'FAIL','AEGP_load':'NOT RUN','SYNC-001':'NOT RUN','handoffApproved':False}
     trace_path=None
+    installed_by_run=False
     try:
         if platform.system()!='Darwin' or platform.machine()!='arm64':
             raise GateError('BLOCKED_NATIVE_APPLE_SILICON_REQUIRED')
@@ -309,6 +313,7 @@ def main():
         evidence['sourceCommit']=record['sourceCommit']; evidence['buildId']=record['buildId']
         evidence['buildRecordSha256']=digest(record_path)
         install_owned(bundle,record)
+        installed_by_run=True
         before=set(Path('/tmp').glob('FSTRChainProbe-*-'+record['buildId']+'-*'))
         launch_ae(app)
         wait_for_ae(time.monotonic()+args.timeout,True)
@@ -330,11 +335,14 @@ def main():
             evidence['status']='BLOCKED'
         raise
     finally:
-        try:
-            clean_owned_install()
-            evidence['ownedInstallCleanup']='PASS'
-        except Exception as cleanup_error:
-            evidence['ownedInstallCleanup']='FAIL:'+str(cleanup_error)
+        if installed_by_run:
+            try:
+                clean_owned_install()
+                evidence['ownedInstallCleanup']='PASS'
+            except Exception as cleanup_error:
+                evidence['ownedInstallCleanup']='FAIL:'+str(cleanup_error)
+        else:
+            evidence['ownedInstallCleanup']='NOT_NEEDED'
         evidence_path=write_evidence(run_id,evidence)
         print(json.dumps({'evidence':str(evidence_path),'status':evidence['status']}))
         if trace_path and trace_path.exists() and not ae_pids():
