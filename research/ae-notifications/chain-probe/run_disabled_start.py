@@ -225,10 +225,21 @@ def verify_bundle_files(bundle,record):
 
 def install_owned(bundle,record):
     OWNED_ROOT.mkdir(parents=True,exist_ok=True)
-    shutil.copytree(bundle,TARGET)
-    verify_bundle_files(TARGET,record)
-    run(['/usr/bin/codesign','--verify','--strict',str(TARGET)],timeout=30)
-    return TARGET
+    try:
+        shutil.copytree(bundle,TARGET)
+        verify_bundle_files(TARGET,record)
+        run(['/usr/bin/codesign','--verify','--strict',str(TARGET)],timeout=30)
+        return TARGET
+    except Exception:
+        if TARGET.is_symlink():
+            TARGET.unlink()
+        elif TARGET.exists():
+            shutil.rmtree(TARGET)
+        try:
+            OWNED_ROOT.rmdir()
+        except OSError:
+            pass
+        raise
 
 def new_trace(build_id,before,deadline):
     pattern='FSTRChainProbe-*-'+build_id+'-*'
