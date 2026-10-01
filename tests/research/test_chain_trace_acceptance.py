@@ -84,6 +84,17 @@ class TraceAcceptanceTests(unittest.TestCase):
         with self.assertRaisesRegex(trace.EvidenceError,'IDENTITY_MISMATCH'):
             trace.parse_trace(path,'other-build')
 
+    def test_parser_rejects_non_object_json(self):
+        temp=tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        path=Path(temp.name)/'trace.jsonl'
+        path.write_text('[]\\n',encoding='utf-8')
+        with self.assertRaisesRegex(trace.EvidenceError,'SCHEMA_INVALID'):
+            trace.parse_trace(path,BUILD)
+
+    def test_active_refuses_less_than_two_observations(self):
+        with self.assertRaisesRegex(trace.EvidenceError,'MIN_OBSERVATIONS_TOO_SMALL'):
+            trace.verify_active(self.parse(ACTIVE),1)
+
     def test_parser_rejects_extra_schema_field(self):
         with self.assertRaisesRegex(trace.EvidenceError,'SCHEMA_INVALID'):
             self.parse(DISABLED,lambda data:data[0].__setitem__('extra',1))
