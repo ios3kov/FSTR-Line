@@ -77,6 +77,23 @@ class DisabledStartRunnerTests(unittest.TestCase):
             finally:
                 gate.OWNED_ROOT=original_root; gate.TARGET=original_target
 
+    def test_partial_install_rolls_back_owned_target_on_codesign_failure(self):
+        with tempfile.TemporaryDirectory() as td:
+            source_root=Path(td)/'source'; source_root.mkdir()
+            bundle,receipt=self.bundle(source_root)
+            files={str(p.relative_to(bundle)):gate.digest(p) for p in bundle.rglob('*') if p.is_file()}
+            record={'sourceCommit':receipt['sourceCommit'],'buildId':receipt['buildId'],'files':files}
+            original_root,original_target,original_run=gate.OWNED_ROOT,gate.TARGET,gate.run
+            owned=Path(td)/'owned'; target=owned/'FSTRChainProbe.plugin'
+            try:
+                gate.OWNED_ROOT=owned; gate.TARGET=target
+                gate.run=lambda *args,**kwargs: (_ for _ in ()).throw(gate.GateError('CODESIGN_FAIL'))
+                with self.assertRaisesRegex(gate.GateError,'CODESIGN_FAIL'):
+                    gate.install_owned(bundle,record)
+                self.assertFalse(target.exists())
+            finally:
+                gate.OWNED_ROOT=original_root; gate.TARGET=original_target; gate.run=original_run
+
     def test_validate_ae_app_requires_exact_25_6_0_101(self):
         with tempfile.TemporaryDirectory(suffix='.app') as td:
             app=Path(td); mac=app/'Contents/MacOS'; mac.mkdir(parents=True)
