@@ -65,6 +65,32 @@ python3 -B -m unittest discover -s tests/research -p test_chain_aegp.py -v
 ```
 
 
+
+### Automated disabled-start gate
+
+A focused macOS runner is prepared for the first real host gate:
+
+```sh
+python3 -B research/ae-notifications/chain-probe/run_disabled_start.py \
+  --sdk /path/to/ae25.6_61.64bit.AfterEffectsSDK
+```
+
+It requires Apple Silicon and exact AE 25.6.0.101, refuses to run while any AE
+process is already running, builds the default **private-registration-disabled**
+bundle, checks for duplicate FSTR Chain Probe bundles, and temporarily installs
+only under the owned per-user development folder
+`~/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/FSTR-Line-Research`.
+It never writes a project, preference or security setting. It waits for the
+Build-ID-bound trace, asks the AE instance it launched to quit normally, validates
+disabled-start evidence, removes only its identified owned bundle, and writes a
+unique ignored `dist/chain-probe-runtime/<Run ID>/disabled-start.json` record.
+
+The runner does not force-kill AE. A running AE before the test, ambiguous exact
+AE app, foreign duplicate plug-in, unverified bundle, missing trace or failure to
+quit cleanly is BLOCKED/FAIL, never PASS. This runner is implemented and unit
+checked but **real Mac/AE execution remains NOT RUN** until it is executed on the
+authorized target machine.
+
 ### No-LLDB evidence validation
 
 The trace parser is fail-closed and does not launch AE. Disabled mode proves only
