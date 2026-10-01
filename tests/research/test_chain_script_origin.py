@@ -2,7 +2,9 @@ import importlib.util
 import json
 import plistlib
 import tempfile
+import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -96,6 +98,83 @@ class ScriptOriginRunnerTests(unittest.TestCase):
                 gate.require_empty_unsaved_project('AE')
         finally:
             gate.do_script=original
+
+    def test_partial_project_creation_failure_does_not_quit_or_remove_loaded_bundle(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            bundle=root/'FSTRChainProbe.plugin'; bundle.mkdir()
+            record_path=root/'build-record.json'; record_path.write_text('{}',encoding='utf-8')
+            trace_path=root/'trace.jsonl'; trace_path.write_text('{}\n',encoding='utf-8')
+            record={'sourceCommit':'a'*40,'buildId':'fstr-test','files':{}}
+            clean=mock.Mock()
+            quit_ae=mock.Mock()
+            with mock.patch.object(sys,'argv',['run_script_origin.py','--sdk',str(root/'sdk')]), \
+                 mock.patch.object(gate.base.platform,'system',return_value='Darwin'), \
+                 mock.patch.object(gate.base.platform,'machine',return_value='arm64'), \
+                 mock.patch.object(gate.base,'ae_pids',return_value=[]), \
+                 mock.patch.object(gate.base,'discover_ae_app',return_value={'path':root/'AE.app','name':'AE'}), \
+                 mock.patch.object(gate.base,'clean_owned_install',clean), \
+                 mock.patch.object(gate.base,'refuse_conflicting_copies'), \
+                 mock.patch.object(gate,'build_active',return_value=(bundle,record,record_path)), \
+                 mock.patch.object(gate,'verify_active_bundle'), \
+                 mock.patch.object(gate,'install_active'), \
+                 mock.patch.object(gate.base,'digest',return_value='hash'), \
+                 mock.patch.object(gate.base,'launch_ae'), \
+                 mock.patch.object(gate.base,'wait_for_ae'), \
+                 mock.patch.object(gate.base,'new_trace',return_value=trace_path), \
+                 mock.patch.object(gate.base,'trace_ready'), \
+                 mock.patch.object(gate,'require_empty_unsaved_project'), \
+                 mock.patch.object(gate,'create_owned_test_project',side_effect=gate.GateError('CREATE_FAIL')), \
+                 mock.patch.object(gate.base,'cleanup_ae_running',return_value=True), \
+                 mock.patch.object(gate.base,'request_quit',quit_ae), \
+                 mock.patch.object(gate,'write_evidence',return_value=root/'evidence.json'):
+                with self.assertRaisesRegex(gate.GateError,'CREATE_FAIL'):
+                    gate.main()
+            self.assertEqual(clean.call_count,1)  # preflight cleanup only
+            quit_ae.assert_not_called()
+
+    def test_active_probe_failure_never_quits_if_stop_outcome_becomes_unknown(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            bundle=root/'FSTRChainProbe.plugin'; bundle.mkdir()
+            record_path=root/'build-record.json'; record_path.write_text('{}',encoding='utf-8')
+            trace_path=root/'trace.jsonl'; trace_path.write_text('{}\n',encoding='utf-8')
+            record={'sourceCommit':'a'*40,'buildId':'fstr-test','files':{}}
+            clean=mock.Mock()
+            quit_ae=mock.Mock()
+            close_owned=mock.Mock()
+            toggle=mock.Mock(side_effect=['STARTED',gate.GateError('STOP_FAIL')])
+            with mock.patch.object(sys,'argv',['run_script_origin.py','--sdk',str(root/'sdk')]), \
+                 mock.patch.object(gate.base.platform,'system',return_value='Darwin'), \
+                 mock.patch.object(gate.base.platform,'machine',return_value='arm64'), \
+                 mock.patch.object(gate.base,'ae_pids',return_value=[]), \
+                 mock.patch.object(gate.base,'discover_ae_app',return_value={'path':root/'AE.app','name':'AE'}), \
+                 mock.patch.object(gate.base,'clean_owned_install',clean), \
+                 mock.patch.object(gate.base,'refuse_conflicting_copies'), \
+                 mock.patch.object(gate,'build_active',return_value=(bundle,record,record_path)), \
+                 mock.patch.object(gate,'verify_active_bundle'), \
+                 mock.patch.object(gate,'install_active'), \
+                 mock.patch.object(gate.base,'digest',return_value='hash'), \
+                 mock.patch.object(gate.base,'launch_ae'), \
+                 mock.patch.object(gate.base,'wait_for_ae'), \
+                 mock.patch.object(gate.base,'new_trace',return_value=trace_path), \
+                 mock.patch.object(gate.base,'trace_ready'), \
+                 mock.patch.object(gate,'require_empty_unsaved_project'), \
+                 mock.patch.object(gate,'create_owned_test_project',return_value=12), \
+                 mock.patch.object(gate,'toggle_probe',toggle), \
+                 mock.patch.object(gate,'wait_for_prefix',return_value=[]), \
+                 mock.patch.object(gate,'observation_count',return_value=0), \
+                 mock.patch.object(gate,'set_start_time',side_effect=gate.GateError('EDIT_FAIL')), \
+                 mock.patch.object(gate,'require_owned_project_and_close',close_owned), \
+                 mock.patch.object(gate.base,'cleanup_ae_running',return_value=True), \
+                 mock.patch.object(gate.base,'request_quit',quit_ae), \
+                 mock.patch.object(gate,'write_evidence',return_value=root/'evidence.json'):
+                with self.assertRaisesRegex(gate.GateError,'EDIT_FAIL'):
+                    gate.main()
+            self.assertEqual(toggle.call_count,2)  # start + one cleanup stop attempt
+            self.assertEqual(clean.call_count,1)   # preflight cleanup only
+            close_owned.assert_not_called()
+            quit_ae.assert_not_called()
 
     def test_owned_project_cleanup_checks_identity_before_close(self):
         original=gate.do_script; scripts=[]
