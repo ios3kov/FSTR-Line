@@ -69,6 +69,13 @@ class TraceAcceptanceTests(unittest.TestCase):
         self.assertEqual(result['stateSequence'],'OBSERVED')
         self.assertEqual(result['stateLabels'],['edit-1','edit-2'])
 
+    def test_expected_states_accept_equivalent_rational_scales(self):
+        expected=expected_states()
+        expected[0]={**expected[0],'offset':(4,48),'in':(6,48),'duration':(120,48)}
+        expected[1]={**expected[1],'offset':(8,48),'in':(10,48),'duration':(120,48)}
+        result=trace.verify_expected_states(self.parse(ACTIVE),expected)
+        self.assertEqual(result['stateSequence'],'OBSERVED')
+
     def test_expected_states_reject_state_mismatch(self):
         expected=expected_states(); expected[1]={**expected[1],'offset':(99,24)}
         with self.assertRaisesRegex(trace.EvidenceError,'EXPECTED_STATE_MISMATCH:2:edit-2'):

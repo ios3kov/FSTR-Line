@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 import uuid
+from fractions import Fraction
 from pathlib import Path
 
 SOURCE=Path(__file__).resolve().parent
@@ -190,6 +191,39 @@ def toggle_probe(app_name):
         raise GateError('PROBE_TOGGLE_UNCONFIRMED')
     return result
 
+def fraction_pair(value):
+    try:
+        fraction=Fraction(str(value))
+    except (ValueError,ZeroDivisionError) as error:
+        raise GateError('LAYER_STATE_TIME_INVALID') from error
+    return [fraction.numerator,fraction.denominator]
+
+def read_layer_state(app_name,label):
+    script=(
+        'var c=app.project.activeItem;'
+        'if(!(c instanceof CompItem)||c.name!=="FSTR Chain Probe Test") throw new Error("FSTR_COMP_MISMATCH");'
+        'var l=c.layer(1); if(l.name!=="FSTR Probe Layer") throw new Error("FSTR_LAYER_MISMATCH");'
+        '"FSTR_LAYER_STATE:"+[l.id,l.startTime,l.inPoint,(l.outPoint-l.inPoint)].join("|");'
+    )
+    result=do_script(app_name,script)
+    marker='FSTR_LAYER_STATE:'
+    if marker not in result:
+        raise GateError('LAYER_STATE_UNCONFIRMED')
+    fields=result.split(marker,1)[1].strip().split('|')
+    if len(fields)!=4:
+        raise GateError('LAYER_STATE_FORMAT_INVALID')
+    try:
+        layer_id=int(fields[0])
+    except ValueError as error:
+        raise GateError('LAYER_STATE_ID_INVALID') from error
+    if layer_id<=0:
+        raise GateError('LAYER_STATE_ID_INVALID')
+    state={'label':label,'id':layer_id,'offset':fraction_pair(fields[1]),
+           'in':fraction_pair(fields[2]),'duration':fraction_pair(fields[3])}
+    if state['duration'][0]<0:
+        raise GateError('LAYER_STATE_DURATION_INVALID')
+    return state
+
 def set_start_time(app_name,value):
     script=(
         'var c=app.project.activeItem;'
@@ -256,7 +290,7 @@ def main():
         wait_for_prefix(trace_path,record['buildId'],'REGISTERED_RESEARCH_ONLY_SYNC001_NOT_RUN',
                         time.monotonic()+args.timeout)
 
-        phases=[]
+        phases=[]; expected_states=[]
         for label,action in (
             ('script-edit-1',lambda:set_start_time(app['name'],1.0)),
             ('script-edit-2',lambda:set_start_time(app['name'],2.0)),
@@ -265,10 +299,15 @@ def main():
         ):
             before_count=observation_count(trace_path,record['buildId'])
             started=time.time_ns(); action(); ended=time.time_ns()
+            state=read_layer_state(app['name'],label)
+            if state['id']!=layer_id:
+                raise GateError('LAYER_STATE_ID_CHANGED:'+label)
+            expected_states.append(state)
             after_count=wait_for_new_observation(
                 trace_path,record['buildId'],before_count,time.monotonic()+args.timeout,label)
             phases.append({'label':label,'startedNs':started,'endedNs':ended,
-                           'observationsBefore':before_count,'observationsAfter':after_count})
+                           'observationsBefore':before_count,'observationsAfter':after_count,
+                           'publicState':state})
 
         toggle_probe(app['name'])
         wait_for_prefix(trace_path,record['buildId'],'REMOVED_OWN_ID',time.monotonic()+args.timeout)
@@ -276,10 +315,11 @@ def main():
         base.request_quit(app['name']); base.wait_for_ae(time.monotonic()+args.timeout,False)
 
         rows=trace_gate.parse_trace(trace_path,record['buildId'])
-        result=trace_gate.verify_active(rows,min_observations=4)
+        result=trace_gate.verify_expected_states(rows,expected_states)
         evidence.update({'status':'PASS','AEGP_load':'OBSERVED',
                          'SYNC-001':'PARTIAL_SCRIPT_ORIGIN_RUNTIME_EVIDENCE_ONLY',
-                         'traceResult':result,'phases':phases,'traceSha256':base.digest(trace_path)})
+                         'traceResult':result,'phases':phases,'expectedStates':expected_states,
+                         'traceSha256':base.digest(trace_path)})
         out=ROOT/'dist/chain-probe-runtime'/run_id; out.mkdir(parents=True,exist_ok=True)
         shutil.copy2(trace_path,out/'trace.jsonl')
     except (OSError,subprocess.SubprocessError,GateError,base.GateError,

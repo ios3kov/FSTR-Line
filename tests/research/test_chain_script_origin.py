@@ -56,6 +56,29 @@ class ScriptOriginRunnerTests(unittest.TestCase):
         self.assertIn('DoScript "1+1;"',calls[0][2])
         self.assertIn('tell application "Adobe After Effects 2025"',calls[0][2])
 
+    def test_fraction_pair_reduces_decimal_time(self):
+        self.assertEqual(gate.fraction_pair('1.5'),[3,2])
+        self.assertEqual(gate.fraction_pair('2'),[2,1])
+
+    def test_read_layer_state_returns_public_ground_truth(self):
+        original=gate.do_script
+        try:
+            gate.do_script=lambda *args,**kwargs:'FSTR_LAYER_STATE:12|1.5|2|8'
+            state=gate.read_layer_state('AE','undo')
+        finally:
+            gate.do_script=original
+        self.assertEqual(state,{'label':'undo','id':12,'offset':[3,2],
+                                'in':[2,1],'duration':[8,1]})
+
+    def test_read_layer_state_rejects_malformed_result(self):
+        original=gate.do_script
+        try:
+            gate.do_script=lambda *args,**kwargs:'FSTR_LAYER_STATE:12|1|2'
+            with self.assertRaisesRegex(gate.GateError,'LAYER_STATE_FORMAT_INVALID'):
+                gate.read_layer_state('AE','edit')
+        finally:
+            gate.do_script=original
+
     def test_project_preflight_blocks_unproven_empty_state(self):
         original=gate.do_script
         try:

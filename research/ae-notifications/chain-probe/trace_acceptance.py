@@ -174,6 +174,9 @@ def verify_active(rows,min_observations=2):
             'firstGeneration':generations[0],'lastGeneration':generations[-1],
             'AEGP_load':'OBSERVED','SYNC-001':'PARTIAL_RUNTIME_EVIDENCE_ONLY'}
 
+def _same_rational(left,right):
+    return left[0]*right[1] == right[0]*left[1]
+
 def verify_expected_states(rows,expected_states):
     result=verify_active(rows,len(expected_states))
     actual=[value for _,value in _observations(_events(rows))]
@@ -186,7 +189,9 @@ def verify_expected_states(rows,expected_states):
             'in':(observed['in_value'],observed['in_scale']),
             'duration':(observed['duration_value'],observed['duration_scale']),
         }
-        if observed['active']!=1 or actual_state!={key:expected[key] for key in ('id','offset','in','duration')}:
+        if (observed['active']!=1 or actual_state['id']!=expected['id'] or
+            any(not _same_rational(actual_state[key],expected[key])
+                for key in ('offset','in','duration'))):
             raise EvidenceError(f'EXPECTED_STATE_MISMATCH:{index}:{expected["label"]}')
     result.update({'stateSequence':'OBSERVED','expectedStateCount':len(expected_states),
                    'stateLabels':[state['label'] for state in expected_states]})
