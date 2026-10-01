@@ -106,6 +106,20 @@ creating output. A native SDK bundle was NOT built locally. The recipe fixes the
 macOS exact-commit results are recorded in PR #2; previous successes are not reused.
 The separate existing LLDB #3 FAIL is not repaired or waived by this work.
 
+## Build-hardening follow-up — compiled PiPL verification
+
+The macOS builder now treats the compiled PiPL itself as an acceptance input, not
+only the source `.r` file. After `Rez -useDF`, it runs `DeRez` against the exact
+generated `FSTRChainProbe.rsrc` with the supplied SDK type declarations and blocks
+unless there is exactly one PiPL resource ID 16000 with `Kind { AEGP }`, name
+`FSTR Chain Probe`, category `General Plugin`, and
+`CodeMacARM64 { "EntryPointFunc" }`.
+
+A pure regression test exercises the parser against valid output and rejects wrong
+Kind, wrong name, wrong entry point and duplicate PiPL resources. This is build
+hardening only: it does not claim that the bundle loaded in AE. Real Apple Silicon
+Rez/DeRez execution remains part of the native build gate.
+
 ## Next real gate
 
 Run the full recipe with the provided SDK on an authorized Apple Silicon build
