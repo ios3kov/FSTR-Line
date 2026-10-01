@@ -69,10 +69,13 @@ def read_child_evidence(path,expected_kind,expected_status,evidence_root=EVIDENC
         row.get('kind')!=expected_kind or row.get('handoffApproved') is not False or
         row.get('status')!=expected_status):
         raise GateError('CHILD_EVIDENCE_IDENTITY_INVALID')
+    root_identity=Path(ROOT).resolve(strict=True)
+    if not _inside(path,root_identity):
+        raise GateError('CHILD_EVIDENCE_REPO_PATH_REFUSED')
     summary={
         'kind':expected_kind,
         'status':row['status'],
-        'evidence':str(path.relative_to(ROOT)),
+        'evidence':str(path.relative_to(root_identity)),
         'sha256':digest(path),
         'AEGP_load':row.get('AEGP_load','NOT RUN'),
         'SYNC-001':row.get('SYNC-001','NOT RUN'),
