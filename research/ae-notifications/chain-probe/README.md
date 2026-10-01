@@ -91,6 +91,29 @@ quit cleanly is BLOCKED/FAIL, never PASS. This runner is implemented and unit
 checked but **real Mac/AE execution remains NOT RUN** until it is executed on the
 authorized target machine.
 
+### Automated script-origin runtime gate
+
+After disabled-start passes, the research-opt-in helper has a separate automated
+script-origin smoke runner:
+
+```sh
+python3 -B research/ae-notifications/chain-probe/run_script_origin.py \\
+  --sdk /path/to/ae25.6_61.64bit.AfterEffectsSDK
+```
+
+It refuses an already-running AE and any non-empty/saved startup project. It creates
+only an unsaved owned test comp + shape layer, toggles the research command through
+After Effects scripting, performs two timing edits followed by Undo and Redo, waits
+for a new no-LLDB observation after each phase, stops/removes its own registration,
+then closes only the exact owned test project without saving. It never changes AE
+preferences/security settings and never force-kills AE. Failure to prove ownership
+leaves AE running rather than risking user data.
+
+This gate is intentionally **partial**: it establishes script-origin correlation and
+lifecycle evidence for the exact build, but does not accept native-UI origin, other
+plugins, full Timeline field coverage, performance, or complete SYNC-001. Real target
+execution remains required; CI only exercises the runner's safety and parser logic.
+
 ### No-LLDB evidence validation
 
 The trace parser is fail-closed and does not launch AE. Disabled mode proves only
