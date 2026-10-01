@@ -258,6 +258,22 @@ def write_evidence(run_id,payload):
     path.write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
     return path
 
+def run_observed_phase(app_name,trace_path,build_id,timeout,layer_id,label,action):
+    # Attribute the notification to the mutating action before issuing the
+    # public read used as ground truth. If the read itself emits a callback,
+    # the strict final observation count will reject that extra event.
+    before_count=observation_count(trace_path,build_id)
+    started=time.time_ns(); action(); ended=time.time_ns()
+    after_count=wait_for_new_observation(
+        trace_path,build_id,before_count,time.monotonic()+timeout,label)
+    state=read_layer_state(app_name,label)
+    if state['id']!=layer_id:
+        raise GateError('LAYER_STATE_ID_CHANGED:'+label)
+    phase={'label':label,'startedNs':started,'endedNs':ended,
+           'observationsBefore':before_count,'observationsAfter':after_count,
+           'publicState':state}
+    return phase,state
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sdk',type=Path,required=True)
@@ -305,17 +321,9 @@ def main():
             ('undo',lambda:execute_named_command(app['name'],'Undo')),
             ('redo',lambda:execute_named_command(app['name'],'Redo')),
         ):
-            before_count=observation_count(trace_path,record['buildId'])
-            started=time.time_ns(); action(); ended=time.time_ns()
-            state=read_layer_state(app['name'],label)
-            if state['id']!=layer_id:
-                raise GateError('LAYER_STATE_ID_CHANGED:'+label)
-            expected_states.append(state)
-            after_count=wait_for_new_observation(
-                trace_path,record['buildId'],before_count,time.monotonic()+args.timeout,label)
-            phases.append({'label':label,'startedNs':started,'endedNs':ended,
-                           'observationsBefore':before_count,'observationsAfter':after_count,
-                           'publicState':state})
+            phase,state=run_observed_phase(
+                app['name'],trace_path,record['buildId'],args.timeout,layer_id,label,action)
+            phases.append(phase); expected_states.append(state)
 
         probe_state='unknown'
         toggle_probe(app['name'])
