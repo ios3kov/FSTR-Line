@@ -161,3 +161,13 @@ Commit `0436701ae6f83c600ccb2abaf8a1edb65165c049` makes the script-origin Undo/R
 Exact-commit CI: Integration gate `36869059679` PASS; Notification research tools `36869059643` PASS; Read-only module input `36869059698` PASS. The macOS research workflow also passed its legacy LLDB steps on this run, but intermittent Issue #3 remains open and is not reclassified by a single successful run.
 
 This is evidence/run-control hardening only. No real AE 25.6.0.101 process was launched by CI; the Apple Silicon SDK bundle build and disabled-start/script-origin runtime gates remain NOT RUN here. SYNC-001 remains open; Phase 0 remains 0/5 accepted.
+
+## Exact-head follow-up — 5129fcb
+
+The runtime runner no longer resolves the Undo/Redo menu commands after creating named undo groups. Adobe's scripting contract requires `findMenuCommandId(command)` to match the text exactly as shown in the UI, while `beginUndoGroup(undoString)` changes the Edit-menu Undo text. To avoid that dynamic-label dependency, the runner now resolves `Undo` and `Redo` IDs before any project mutation, requires two distinct positive IDs, records them in evidence, and later calls `app.executeCommand(id)` directly for the two phases.
+
+Commit `865a99810c676a7fff767af5f34e818fecdd39a6` initially added this behavior and correctly exposed a test-isolation defect: two existing failure-path unit tests reached real `osascript` on the macOS runner instead of mocking the new preflight. That commit's Notification Research unit step failed and is preserved as FAIL evidence. Commit `5129fcb1b8dce99e7c3b21ae99ad8e5e9c7a745a` fixes those test mocks without weakening the new preflight.
+
+Exact `5129fcb` evidence: Research unit regression PASS; Integration gate `36870075957` PASS; Read-only module input `36870075731` PASS. Notification research tools `36870075728` reaches the legacy LLDB parent step and then fails in the already-open Issue #3 class; the new unit regression is green and no retry-to-green was used.
+
+This remains runner/evidence hardening only. Full native Apple Silicon SDK bundle build in the user's AE environment, disabled-start load proof and script-origin Undo/Redo runtime proof are still NOT RUN here. SYNC-001 remains open; Phase 0 remains 0/5 accepted.

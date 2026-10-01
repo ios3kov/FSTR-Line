@@ -5,7 +5,7 @@
 
 ## Текущий шаг — AEGP helper и автоматизированные no-LLDB runtime gates
 
-Последний implementation HEAD этого шага: `0436701ae6f83c600ccb2abaf8a1edb65165c049`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Последний implementation HEAD этого шага: `5129fcb1b8dce99e7c3b21ae99ad8e5e9c7a745a`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
 Архив SDK распакован и его реальные объявления использованы при компиляции.
 SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
@@ -36,6 +36,8 @@ Runtime-runner safety review на текущем increment: disabled-start бо�
 Callback attribution hardening on the current increment: each edit/Undo/Redo must produce a new AEGP observation before the runner performs its public ExtendScript state read. The later read is ground truth only and cannot be the source of the callback counted for that phase. Any extra stable observation still fails the strict final state-sequence check. Real AE runtime remains NOT RUN.
 
 Undo/Redo determinism hardening on `0436701`: each of the two controlled script timing edits now runs inside its own explicit `app.beginUndoGroup()/app.endUndoGroup()` pair with `try/finally`. This guarantees the runtime gate is asking AE to create two distinct undoable script actions before the separate Undo and Redo phases, instead of depending on implicit script undo behavior. Regression coverage checks one balanced group per edit and ordering around the mutation. Exact-commit CI: Integration gate `36869059679` PASS; Notification research tools `36869059643` PASS; Read-only module input `36869059698` PASS. The successful legacy LLDB path in this run does not close intermittent Issue #3. Real AE 25.6.0.101 runtime remains NOT RUN.
+
+Undo/Redo command dispatch hardening on `5129fcb`: before any project mutation the runner resolves the exact current AE `Undo` and `Redo` menu command IDs while the menu labels are still stable, validates two distinct positive IDs, records them in evidence, and later executes the numeric IDs directly. This avoids depending on dynamic labels such as `Undo FSTR Chain Probe Script Edit`; `findMenuCommandId()` is no longer called during Undo/Redo phases. The first implementation commit `865a998` exposed a test-isolation regression on macOS CI because two failure-path tests accidentally invoked real `osascript`; `5129fcb` fixes only those test mocks. On `5129fcb`, Research unit regression PASS, Integration gate `36870075957` PASS and Read-only module input `36870075731` PASS. Notification research tools `36870075728` fails later only in the existing LLDB owned-fixture parent step (#3); no retry-to-green. Real AE runtime remains NOT RUN.
 
 ## Следующий шаг
 
