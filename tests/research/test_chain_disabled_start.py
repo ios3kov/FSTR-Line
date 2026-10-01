@@ -64,6 +64,12 @@ class DisabledStartRunnerTests(unittest.TestCase):
         self.assertEqual(captured[0][2],gate.AE_PROCESS_PATTERN)
         self.assertIn('.app/Contents/MacOS/After Effects',gate.AE_PROCESS_PATTERN)
 
+    def test_ae_process_pattern_matches_real_app_executable_path(self):
+        sample='/Applications/Adobe After Effects 2025/Adobe After Effects 2025.app/Contents/MacOS/After Effects'
+        self.assertIsNotNone(__import__('re').search(gate.AE_PROCESS_PATTERN,sample))
+        malformed='/Applications/Adobe After Effects 2025/Adobe After Effects 2025Xapp/Contents/MacOS/After Effects'
+        self.assertIsNone(__import__('re').search(gate.AE_PROCESS_PATTERN,malformed))
+
     def test_owned_cleanup_refuses_symlink_target(self):
         with tempfile.TemporaryDirectory() as td:
             original_root,original_target=gate.OWNED_ROOT,gate.TARGET
