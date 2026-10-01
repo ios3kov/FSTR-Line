@@ -34,6 +34,25 @@ class AegpProbeTests(unittest.TestCase):
         self.assertEqual(row['SYNC-001'], 'NOT RUN')
         self.assertFalse(row['handoffApproved'])
 
+    def test_compiled_pipl_validation_is_fail_closed(self):
+        path = SRC / 'build_probe.py'
+        spec = importlib.util.spec_from_file_location('fstr_chain_build_probe_pipl', path)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        valid = '''resource 'PiPL' (16000) {
+            { Kind { AEGP }, Name { "FSTR Chain Probe" },
+              Category { "General Plugin" },
+              CodeMacARM64 { "EntryPointFunc" } }
+        };'''
+        module.validate_pipl_dump(valid)
+        for broken in (
+            valid.replace('AEGP', 'AEEffect'),
+            valid.replace('FSTR Chain Probe', 'Wrong'),
+            valid.replace('EntryPointFunc', 'OtherEntry'),
+            valid + valid,
+        ):
+            with self.assertRaises(ValueError):
+                module.validate_pipl_dump(broken)
+
     def test_event_dispatch_optimized_and_sanitized(self):
         with tempfile.TemporaryDirectory() as td:
             exe = str(Path(td) / 'dispatch')
