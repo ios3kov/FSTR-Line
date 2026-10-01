@@ -5,7 +5,7 @@
 
 ## Текущий шаг — AEGP helper и no-LLDB evidence gate
 
-Текущий проверенный HEAD: `35c2c5d77cd3cba0ac1bdacb6d9320f22182851e`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Текущий проверенный HEAD: `21a2d0599d1bdbff6cc6d960a79bc9cf6e0de4d8`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
 Архив SDK распакован и его реальные объявления использованы при компиляции.
 SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
@@ -20,9 +20,9 @@ UUID, заголовки/код в памяти и принадлежность 
 не загружается. Частная подписка выключена в обычной сборке; исследовательское
 включение отдельно разрешается при сборке. Неизвестный результат регистрации/удаления блокирует повторы. Модуль pin-ится только после точной проверки host identity непосредственно перед private Insert; default/отклонённый старт его не pin-ит. Ошибки до первого зарегистрированного host hook полностью освобождают локальный State. После возможной регистрации callback/refcon и код остаются resident. Окончательная безопасность lifecycle внутри AE пока не доказана.
 
-Локальный SDK-control покрывает восемь fresh-process сценариев AEGP с настоящими SDK-объявлениями и собственным host-окружением; dispatcher проверяется в optimized и ASan/UBSan. Добавлены no-LLDB JSONL trace и fail-closed parser: disabled-start запрещает private activity, active proof требует регистрацию, минимум две последовательные stable observation, собственный Stop/Remove и чистый host exit. В bundle recipe добавлен подписываемый `FSTRChainProbeBuild.json` с commit/Build ID и явными `AEGP_load=NOT RUN`, `SYNC-001=NOT RUN`, `handoffApproved=false`.
+Локальный SDK-control покрывает восемь fresh-process сценариев AEGP с настоящими SDK-объявлениями и собственным host-окружением; dispatcher проверяется в optimized и ASan/UBSan. Добавлены no-LLDB JSONL trace и fail-closed parser: disabled-start запрещает private activity, active proof требует регистрацию, минимум две последовательные stable observation, собственный Stop/Remove и чистый host exit. Для контролируемого прогона parser теперь принимает build-bound expected-state plan и требует точное число/порядок `layer id + offset/in/duration`; snapshot-read failure блокирует PASS. Это доказывает наблюдаемое состояние, но само по себе не доказывает origin действия. В bundle recipe добавлен подписываемый `FSTRChainProbeBuild.json` с commit/Build ID и явными `AEGP_load=NOT RUN`, `SYNC-001=NOT RUN`, `handoffApproved=false`.
 
-Exact HEAD `35c2c5d` прошёл Integration gate `36833726253` и Read-only module input `36833726379`. Notification research tools `36833726281` дошёл через новые unit/research checks, но упал в старом LLDB `mac_runtime_attach_smoke`: третий owned-fixture run завершился `-9` после detach. Это тот же открытый класс Issue #3; он не чинится и не ретраится в этом этапе. Это Linux/hosted-macOS evidence, **не полная SDK macOS-сборка и не запуск AE**.
+Exact HEAD `21a2d05` прошёл Integration gate `36834338257` и Read-only module input `36834338195`. Notification research tools `36834338125` прошёл новый research unit regression и остальные ранние проверки, затем упал в старом LLDB `mac_runtime_attach_smoke`: owned fixture завершился `-9` после detach. Это тот же открытый класс Issue #3; он не чинится и не ретраится в этом этапе. Это Linux/hosted-macOS evidence, **не полная SDK macOS-сборка и не запуск AE**.
 
 Готов рецепт clean macOS bundle build с PiPL, Build ID, embedded ownership receipt и проверкой подписи; полная сборка с SDK на Mac, установка/загрузка и реальные события ещё NOT RUN.
 [Реализация, точные проверки и ограничения](TEST_RECORDS/AEGP-SDK-BRIDGE-2026-10-01.md).

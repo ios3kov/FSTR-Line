@@ -63,7 +63,7 @@ registry. Native registration/removal concurrency remains an unaccepted runtime 
 
 ## Post-checkpoint hardening and evidence gate
 
-Current reviewed HEAD: `35c2c5d77cd3cba0ac1bdacb6d9320f22182851e`; checkpoint ancestor: `6bef1e475ef944cdd471a84041d7d4035b732d8c`.
+Current reviewed HEAD: `21a2d0599d1bdbff6cc6d960a79bc9cf6e0de4d8`; checkpoint ancestor: `6bef1e475ef944cdd471a84041d7d4035b732d8c`.
 
 The helper was hardened without changing the product architecture (FSTR Line remains CEP + ExtendScript; this AEGP bundle is research-only):
 
@@ -76,7 +76,7 @@ During implementation the trace tests exposed and preserved two actual failures 
 
 Exact-head CI: Integration gate `36833726253` PASS; Read-only module input `36833726379` PASS. Notification research tools `36833726281` completed the new research unit regression successfully, then failed in the unrelated existing LLDB owned-fixture test: two attach runs passed and the third ended with fixture cleanup exit `-9` after detach. This remains Issue #3 and is neither retried-to-green nor treated as a new SYNC-001 blocker.
 
-The no-LLDB parser currently proves evidence shape/order only. It does not prove that observations correspond to the intended native/script/Undo/Redo operations or their post-commit state. That correlation is part of the real-AE gate and must not be inferred from two increasing generations.
+The no-LLDB parser now supports an exact, Build-ID-bound expected-state plan. For that mode it requires the exact observation count/order and exact active-layer `id`, `offset`, `in` and `duration`, and rejects snapshot-read failures. This improves repeated-state/post-read evidence. It still does not prove action origin (native UI, script, Undo/Redo) without independent controlled real-AE ground truth.
 
 ## Checks defined and executed
 
@@ -119,3 +119,9 @@ disposable project without LLDB, preserving unrelated subscribers and host state
 Project/comp identity, post-commit timing, native/script/other-plugin origins,
 selection/playhead coverage, callback interference/removal and performance remain
 NOT RUN/BLOCKED. No plugin is handed to the user. SYNC-001 remains open.
+
+## Exact-head follow-up — 21a2d05
+
+Commit `21a2d0599d1bdbff6cc6d960a79bc9cf6e0de4d8` adds strict expected-state correlation to the no-LLDB trace gate and regression coverage for state mismatch, extra observations, malformed observations and snapshot-read failure. Integration gate `36834338257` PASS; Read-only module input `36834338195` PASS. Notification research tools `36834338125` passed the new research unit regression, then failed only in the existing LLDB owned-fixture path with post-detach fixture exit `-9`. Issue #3 remains open; no retry-to-green or LLDB fix is part of this stage.
+
+Real Apple Silicon SDK bundle build, AE load, disabled-start runtime, controlled repeated changes, script-origin, Undo/Redo and safe Stop remain NOT RUN in this environment. SYNC-001 remains open and Phase 0 remains 0/5 accepted.
