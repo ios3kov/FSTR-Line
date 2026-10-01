@@ -6,8 +6,17 @@ from pathlib import Path
 
 MAX_BYTES=1024*1024
 MAX_LINES=10000
+MAX_EXPECTED_BYTES=64*1024
+MAX_EXPECTED_STATES=100
 COMMAND_RE=re.compile(r'^COMMAND_READY id=([1-9][0-9]*)$')
-OBS_RE=re.compile(r'^OBSERVATION_NOT_COMMIT_PROOF generation=([0-9]+)\b')
+OBS_RE=re.compile(
+    r'^OBSERVATION_NOT_COMMIT_PROOF generation=(?P<generation>[0-9]+) '
+    r'active=(?P<active>[01]) id=(?P<id>-?[0-9]+) '
+    r'offset=(?P<offset_value>-?[0-9]+)/(?P<offset_scale>[0-9]+) '
+    r'in=(?P<in_value>-?[0-9]+)/(?P<in_scale>[0-9]+) '
+    r'duration=(?P<duration_value>-?[0-9]+)/(?P<duration_scale>[0-9]+) '
+    r'entered=(?P<entered>[0-9]+) zero=(?P<zero>[0-9]+) '
+    r'error=(?P<error>[0-9]+) unwound=(?P<unwound>[0-9]+)$')
 FATAL_PREFIXES=(
     'HOST_EXIT_FORWARDING_RETAINED',
     'REMOVE_BLOCKED_FORWARDING_RETAINED',
@@ -16,6 +25,7 @@ FATAL_PREFIXES=(
     'INSERT_FAILED_NO_RETRY',
     'INSERT_OUTCOME_UNKNOWN_NO_RETRY',
     'PROBE_MODULE_PIN_FAILED_NO_RETRY',
+    'SNAPSHOT_FAILED_PENDING_RETAINED_NO_IDLE_RETRY',
     'SNAPSHOT_EXCEPTION_PENDING_RETAINED',
     'INITIALIZATION_PARTIAL_DISABLED',
 )
@@ -54,6 +64,45 @@ def parse_trace(path: Path, expected_build_id: str):
             rows.append(row)
     return rows
 
+def load_expected_states(path: Path, expected_build_id: str):
+    path=Path(path)
+    if path.is_symlink() or not path.is_file():
+        raise EvidenceError('EXPECTED_STATES_NOT_REGULAR_FILE')
+    size=path.stat().st_size
+    if size<=0 or size>MAX_EXPECTED_BYTES:
+        raise EvidenceError('EXPECTED_STATES_SIZE_INVALID')
+    try:
+        data=json.loads(path.read_text(encoding='utf-8',errors='strict'))
+    except json.JSONDecodeError as error:
+        raise EvidenceError('EXPECTED_STATES_JSON_INVALID') from error
+    if not isinstance(data,dict) or set(data)!={'schemaVersion','kind','buildId','states'}:
+        raise EvidenceError('EXPECTED_STATES_SCHEMA_INVALID')
+    if data['schemaVersion']!=1 or data['kind']!='FSTRChainProbeExpectedStates' or data['buildId']!=expected_build_id:
+        raise EvidenceError('EXPECTED_STATES_IDENTITY_MISMATCH')
+    states=data['states']
+    if not isinstance(states,list) or not 2<=len(states)<=MAX_EXPECTED_STATES:
+        raise EvidenceError('EXPECTED_STATES_COUNT_INVALID')
+    normalized=[]; labels=set()
+    for index,state in enumerate(states,1):
+        if not isinstance(state,dict) or set(state)!={'label','id','offset','in','duration'}:
+            raise EvidenceError(f'EXPECTED_STATE_SCHEMA_INVALID:{index}')
+        label=state['label']
+        if not isinstance(label,str) or not label or len(label)>80 or '\n' in label or label in labels:
+            raise EvidenceError(f'EXPECTED_STATE_LABEL_INVALID:{index}')
+        if type(state['id']) is not int or state['id']<=0:
+            raise EvidenceError(f'EXPECTED_STATE_ID_INVALID:{index}')
+        values={}
+        for key in ('offset','in','duration'):
+            pair=state[key]
+            if not isinstance(pair,list) or len(pair)!=2 or any(type(value) is not int for value in pair) or pair[1]<=0:
+                raise EvidenceError(f'EXPECTED_STATE_TIME_INVALID:{index}:{key}')
+            values[key]=(pair[0],pair[1])
+        if values['duration'][0]<0:
+            raise EvidenceError(f'EXPECTED_STATE_TIME_INVALID:{index}:duration')
+        labels.add(label)
+        normalized.append({'label':label,'id':state['id'],**values})
+    return normalized
+
 def _events(rows):
     return [row['event'] for row in rows]
 
@@ -62,6 +111,25 @@ def _command(events):
     if len(ids)!=1:
         raise EvidenceError('COMMAND_READY_COUNT_INVALID')
     return ids[0]
+
+def _observation(event):
+    if not event.startswith('OBSERVATION_NOT_COMMIT_PROOF'):
+        return None
+    match=OBS_RE.fullmatch(event)
+    if not match:
+        raise EvidenceError('OBSERVATION_FORMAT_INVALID')
+    values={key:int(value) for key,value in match.groupdict().items()}
+    if values['active'] and (values['offset_scale']<=0 or values['in_scale']<=0 or values['duration_scale']<=0):
+        raise EvidenceError('OBSERVATION_TIME_SCALE_INVALID')
+    return values
+
+def _observations(events):
+    observations=[]
+    for index,event in enumerate(events):
+        observation=_observation(event)
+        if observation is not None:
+            observations.append((index,observation))
+    return observations
 
 def verify_disabled(rows):
     events=_events(rows)
@@ -92,16 +160,12 @@ def verify_active(rows,min_observations=2):
         raise EvidenceError('REGISTRATION_COUNT_INVALID')
     if len(removals)!=1 or removals[0]<=registrations[0]:
         raise EvidenceError('REMOVAL_ORDER_INVALID')
-    observations=[]
-    for i,event in enumerate(events):
-        match=OBS_RE.match(event)
-        if match:
-            observations.append((i,int(match.group(1))))
+    observations=_observations(events)
     if len(observations)<min_observations:
         raise EvidenceError('OBSERVATION_COUNT_INSUFFICIENT')
     if observations[0][0]<=registrations[0] or observations[-1][0]>=removals[0]:
         raise EvidenceError('OBSERVATION_ORDER_INVALID')
-    generations=[value for _,value in observations]
+    generations=[value['generation'] for _,value in observations]
     if any(b<=a for a,b in zip(generations,generations[1:])):
         raise EvidenceError('OBSERVATION_GENERATION_NOT_INCREASING')
     if events[-1]!='HOST_EXIT_NO_REGISTRATION':
@@ -110,16 +174,44 @@ def verify_active(rows,min_observations=2):
             'firstGeneration':generations[0],'lastGeneration':generations[-1],
             'AEGP_load':'OBSERVED','SYNC-001':'PARTIAL_RUNTIME_EVIDENCE_ONLY'}
 
+def verify_expected_states(rows,expected_states):
+    result=verify_active(rows,len(expected_states))
+    actual=[value for _,value in _observations(_events(rows))]
+    if len(actual)!=len(expected_states):
+        raise EvidenceError('EXPECTED_STATE_OBSERVATION_COUNT_MISMATCH')
+    for index,(observed,expected) in enumerate(zip(actual,expected_states),1):
+        actual_state={
+            'id':observed['id'],
+            'offset':(observed['offset_value'],observed['offset_scale']),
+            'in':(observed['in_value'],observed['in_scale']),
+            'duration':(observed['duration_value'],observed['duration_scale']),
+        }
+        if observed['active']!=1 or actual_state!={key:expected[key] for key in ('id','offset','in','duration')}:
+            raise EvidenceError(f'EXPECTED_STATE_MISMATCH:{index}:{expected["label"]}')
+    result.update({'stateSequence':'OBSERVED','expectedStateCount':len(expected_states),
+                   'stateLabels':[state['label'] for state in expected_states]})
+    return result
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--trace',type=Path,required=True)
     parser.add_argument('--build-id',required=True)
     parser.add_argument('--mode',choices=('disabled','active'),required=True)
     parser.add_argument('--min-observations',type=int,default=2)
+    parser.add_argument('--expected-states',type=Path,
+                        help='strict build-bound expected active-layer state sequence; active mode only')
     args=parser.parse_args()
     try:
         rows=parse_trace(args.trace,args.build_id)
-        result=verify_disabled(rows) if args.mode=='disabled' else verify_active(rows,args.min_observations)
+        if args.mode=='disabled':
+            if args.expected_states:
+                raise EvidenceError('EXPECTED_STATES_REQUIRE_ACTIVE_MODE')
+            result=verify_disabled(rows)
+        elif args.expected_states:
+            states=load_expected_states(args.expected_states,args.build_id)
+            result=verify_expected_states(rows,states)
+        else:
+            result=verify_active(rows,args.min_observations)
     except (OSError,UnicodeError,EvidenceError) as error:
         raise SystemExit('FAIL: '+str(error))
     print(json.dumps(result,sort_keys=True))

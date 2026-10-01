@@ -64,6 +64,43 @@ FSTR_AE_SDK_ROOT=/path/to/ae25.6_61.64bit.AfterEffectsSDK \
 python3 -B -m unittest discover -s tests/research -p test_chain_aegp.py -v
 ```
 
+
+### No-LLDB evidence validation
+
+The trace parser is fail-closed and does not launch AE. Disabled mode proves only
+that the helper loaded with the expected Build ID and never registered the private
+callback. Active mode additionally requires registration, ordered stable reads,
+own-ID removal and clean exit.
+
+For a controlled repeated-edit/Undo/Redo run, bind the trace to an exact expected
+active-layer state sequence:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "FSTRChainProbeExpectedStates",
+  "buildId": "fstr-chain-aegp-<commit>-research-opt-in",
+  "states": [
+    {"label":"edit-1","id":12,"offset":[2,24],"in":[3,24],"duration":[60,24]},
+    {"label":"edit-2","id":12,"offset":[4,24],"in":[5,24],"duration":[60,24]}
+  ]
+}
+```
+
+```sh
+python3 -B research/ae-notifications/chain-probe/trace_acceptance.py \
+  --trace /tmp/FSTRChainProbe-... \
+  --build-id fstr-chain-aegp-<commit>-research-opt-in \
+  --mode active \
+  --expected-states /path/to/expected-states.json
+```
+
+This requires the exact number and order of stable observations to match the plan
+and rejects snapshot-read failures. It still does **not** prove action origin
+(native UI vs script vs Undo/Redo) by itself; origin needs independent controlled
+ground truth from the real-AE run. It is partial runtime evidence, never a full
+SYNC-001 PASS.
+
 On Linux the SDK control uses the supplied header's own Android conditional branch;
 this tests C++ implementation/declarations, **not macOS SDK ABI or Android host support**.
 The loader test needs macOS and no Adobe SDK. Missing inputs are reported as skipped,
