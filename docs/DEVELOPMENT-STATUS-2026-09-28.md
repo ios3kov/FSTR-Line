@@ -5,7 +5,7 @@
 
 ## Текущий шаг — AEGP helper и автоматизированные no-LLDB runtime gates
 
-Последний implementation HEAD этого шага: `0ff7476a6b95edaea2693f8740ddc6874c8b70df`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Последний implementation HEAD этого шага: `0436701ae6f83c600ccb2abaf8a1edb65165c049`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
 Архив SDK распакован и его реальные объявления использованы при компиляции.
 SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
@@ -34,6 +34,8 @@ Implementation HEAD `5c2ae201...`: Integration gate PASS (run 36839331202), macO
 Runtime-runner safety review на текущем increment: disabled-start больше не закрывает AE, пока read-only preflight не доказал пустой несохранённый startup-project; при восстановленном/неизвестном проекте gate становится BLOCKED. Оба no-LLDB runner'а не удаляют исследовательский bundle при работающем AE или неизвестном состоянии процесса. Script-origin до первого mutating create помечает ownership как неизвестный, поэтому частично созданный test-project не может быть ошибочно закрыт как «пустой». Для private subscription ведётся явное состояние: известный active допускает один bounded Stop; после неизвестного результата Stop/Remove запрещены повторный toggle, автоматический Quit и удаление bundle. Это устраняет риск удаления загруженного кода, закрытия непроверенного проекта и shutdown при неизвестной регистрации. Реальный AE runtime всё ещё NOT RUN.
 
 Callback attribution hardening on the current increment: each edit/Undo/Redo must produce a new AEGP observation before the runner performs its public ExtendScript state read. The later read is ground truth only and cannot be the source of the callback counted for that phase. Any extra stable observation still fails the strict final state-sequence check. Real AE runtime remains NOT RUN.
+
+Undo/Redo determinism hardening on `0436701`: each of the two controlled script timing edits now runs inside its own explicit `app.beginUndoGroup()/app.endUndoGroup()` pair with `try/finally`. This guarantees the runtime gate is asking AE to create two distinct undoable script actions before the separate Undo and Redo phases, instead of depending on implicit script undo behavior. Regression coverage checks one balanced group per edit and ordering around the mutation. Exact-commit CI: Integration gate `36869059679` PASS; Notification research tools `36869059643` PASS; Read-only module input `36869059698` PASS. The successful legacy LLDB path in this run does not close intermittent Issue #3. Real AE 25.6.0.101 runtime remains NOT RUN.
 
 ## Следующий шаг
 

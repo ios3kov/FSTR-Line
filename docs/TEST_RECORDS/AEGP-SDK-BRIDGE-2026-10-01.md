@@ -153,3 +153,11 @@ Code review found and fixed fail-open cleanup risks before the real AE gate. The
 ## Callback attribution ordering hardening — 2026-10-01
 
 The script-origin runner now waits for a new AEGP observation immediately after each edit/Undo/Redo and only then performs the public ExtendScript layer-state read used as ground truth. This removes the control read itself as a possible source of the callback credited to that phase. The strict final parser still requires the exact four-state sequence, so a read-triggered extra stable observation fails closed instead of being accepted. Added regression coverage asserts the call order `count -> action -> wait -> read`. This is runner/evidence hardening only; real AE 25.6.0.101 runtime acceptance remains NOT RUN.
+
+## Exact-head follow-up — 0436701
+
+Commit `0436701ae6f83c600ccb2abaf8a1edb65165c049` makes the script-origin Undo/Redo sequence explicit and reproducible. Each controlled timing edit is wrapped in its own `app.beginUndoGroup("FSTR Chain Probe Script Edit")` / `app.endUndoGroup()` pair with `try/finally`, so the two edits are deliberately separate undoable actions before the runner executes Undo then Redo. A regression test verifies one balanced group per edit and that the mutation occurs inside the group.
+
+Exact-commit CI: Integration gate `36869059679` PASS; Notification research tools `36869059643` PASS; Read-only module input `36869059698` PASS. The macOS research workflow also passed its legacy LLDB steps on this run, but intermittent Issue #3 remains open and is not reclassified by a single successful run.
+
+This is evidence/run-control hardening only. No real AE 25.6.0.101 process was launched by CI; the Apple Silicon SDK bundle build and disabled-start/script-origin runtime gates remain NOT RUN here. SYNC-001 remains open; Phase 0 remains 0/5 accepted.
