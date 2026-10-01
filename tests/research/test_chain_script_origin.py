@@ -1,4 +1,5 @@
 import importlib.util
+from contextlib import ExitStack
 import json
 import plistlib
 import tempfile
@@ -108,29 +109,30 @@ class ScriptOriginRunnerTests(unittest.TestCase):
             record={'sourceCommit':'a'*40,'buildId':'fstr-test','files':{}}
             clean=mock.Mock()
             quit_ae=mock.Mock()
-            with mock.patch.object(sys,'argv',['run_script_origin.py','--sdk',str(root/'sdk')]), \
-                 mock.patch.object(gate.base.platform,'system',return_value='Darwin'), \
-                 mock.patch.object(gate.base.platform,'machine',return_value='arm64'), \
-                 mock.patch.object(gate.base,'ae_pids',return_value=[]), \
-                 mock.patch.object(gate.base,'discover_ae_app',return_value={'path':root/'AE.app','name':'AE'}), \
-                 mock.patch.object(gate.base,'clean_owned_install',clean), \
-                 mock.patch.object(gate.base,'refuse_conflicting_copies'), \
-                 mock.patch.object(gate,'build_active',return_value=(bundle,record,record_path)), \
-                 mock.patch.object(gate,'verify_active_bundle'), \
-                 mock.patch.object(gate,'install_active'), \
-                 mock.patch.object(gate.base,'digest',return_value='hash'), \
-                 mock.patch.object(gate.base,'launch_ae'), \
-                 mock.patch.object(gate.base,'wait_for_ae'), \
-                 mock.patch.object(gate.base,'new_trace',return_value=trace_path), \
-                 mock.patch.object(gate.base,'trace_ready'), \
-                 mock.patch.object(gate,'require_empty_unsaved_project'), \
-                 mock.patch.object(gate,'create_owned_test_project',side_effect=gate.GateError('CREATE_FAIL')), \
-                 mock.patch.object(gate.base,'cleanup_ae_running',return_value=True), \
-                 mock.patch.object(gate.base,'request_quit',quit_ae), \
-                 mock.patch.object(gate,'write_evidence',return_value=root/'evidence.json'):
+            with ExitStack() as stack:
+                stack.enter_context(mock.patch.object(sys,'argv',['run_script_origin.py','--sdk',str(root/'sdk')]))
+                stack.enter_context(mock.patch.object(gate.base.platform,'system',return_value='Darwin'))
+                stack.enter_context(mock.patch.object(gate.base.platform,'machine',return_value='arm64'))
+                stack.enter_context(mock.patch.object(gate.base,'ae_pids',return_value=[]))
+                stack.enter_context(mock.patch.object(gate.base,'discover_ae_app',return_value={'path':root/'AE.app','name':'AE'}))
+                stack.enter_context(mock.patch.object(gate.base,'clean_owned_install',clean))
+                stack.enter_context(mock.patch.object(gate.base,'refuse_conflicting_copies'))
+                stack.enter_context(mock.patch.object(gate,'build_active',return_value=(bundle,record,record_path)))
+                stack.enter_context(mock.patch.object(gate,'verify_active_bundle'))
+                stack.enter_context(mock.patch.object(gate,'install_active'))
+                stack.enter_context(mock.patch.object(gate.base,'digest',return_value='hash'))
+                stack.enter_context(mock.patch.object(gate.base,'launch_ae'))
+                stack.enter_context(mock.patch.object(gate.base,'wait_for_ae'))
+                stack.enter_context(mock.patch.object(gate.base,'new_trace',return_value=trace_path))
+                stack.enter_context(mock.patch.object(gate.base,'trace_ready'))
+                stack.enter_context(mock.patch.object(gate,'require_empty_unsaved_project'))
+                stack.enter_context(mock.patch.object(gate,'create_owned_test_project',side_effect=gate.GateError('CREATE_FAIL')))
+                stack.enter_context(mock.patch.object(gate.base,'cleanup_ae_running',return_value=True))
+                stack.enter_context(mock.patch.object(gate.base,'request_quit',quit_ae))
+                stack.enter_context(mock.patch.object(gate,'write_evidence',return_value=root/'evidence.json'))
                 with self.assertRaisesRegex(gate.GateError,'CREATE_FAIL'):
                     gate.main()
-            self.assertEqual(clean.call_count,1)  # preflight cleanup only
+            self.assertEqual(clean.call_count,1)
             quit_ae.assert_not_called()
 
     def test_active_probe_failure_never_quits_if_stop_outcome_becomes_unknown(self):
@@ -144,35 +146,36 @@ class ScriptOriginRunnerTests(unittest.TestCase):
             quit_ae=mock.Mock()
             close_owned=mock.Mock()
             toggle=mock.Mock(side_effect=['STARTED',gate.GateError('STOP_FAIL')])
-            with mock.patch.object(sys,'argv',['run_script_origin.py','--sdk',str(root/'sdk')]), \
-                 mock.patch.object(gate.base.platform,'system',return_value='Darwin'), \
-                 mock.patch.object(gate.base.platform,'machine',return_value='arm64'), \
-                 mock.patch.object(gate.base,'ae_pids',return_value=[]), \
-                 mock.patch.object(gate.base,'discover_ae_app',return_value={'path':root/'AE.app','name':'AE'}), \
-                 mock.patch.object(gate.base,'clean_owned_install',clean), \
-                 mock.patch.object(gate.base,'refuse_conflicting_copies'), \
-                 mock.patch.object(gate,'build_active',return_value=(bundle,record,record_path)), \
-                 mock.patch.object(gate,'verify_active_bundle'), \
-                 mock.patch.object(gate,'install_active'), \
-                 mock.patch.object(gate.base,'digest',return_value='hash'), \
-                 mock.patch.object(gate.base,'launch_ae'), \
-                 mock.patch.object(gate.base,'wait_for_ae'), \
-                 mock.patch.object(gate.base,'new_trace',return_value=trace_path), \
-                 mock.patch.object(gate.base,'trace_ready'), \
-                 mock.patch.object(gate,'require_empty_unsaved_project'), \
-                 mock.patch.object(gate,'create_owned_test_project',return_value=12), \
-                 mock.patch.object(gate,'toggle_probe',toggle), \
-                 mock.patch.object(gate,'wait_for_prefix',return_value=[]), \
-                 mock.patch.object(gate,'observation_count',return_value=0), \
-                 mock.patch.object(gate,'set_start_time',side_effect=gate.GateError('EDIT_FAIL')), \
-                 mock.patch.object(gate,'require_owned_project_and_close',close_owned), \
-                 mock.patch.object(gate.base,'cleanup_ae_running',return_value=True), \
-                 mock.patch.object(gate.base,'request_quit',quit_ae), \
-                 mock.patch.object(gate,'write_evidence',return_value=root/'evidence.json'):
+            with ExitStack() as stack:
+                stack.enter_context(mock.patch.object(sys,'argv',['run_script_origin.py','--sdk',str(root/'sdk')]))
+                stack.enter_context(mock.patch.object(gate.base.platform,'system',return_value='Darwin'))
+                stack.enter_context(mock.patch.object(gate.base.platform,'machine',return_value='arm64'))
+                stack.enter_context(mock.patch.object(gate.base,'ae_pids',return_value=[]))
+                stack.enter_context(mock.patch.object(gate.base,'discover_ae_app',return_value={'path':root/'AE.app','name':'AE'}))
+                stack.enter_context(mock.patch.object(gate.base,'clean_owned_install',clean))
+                stack.enter_context(mock.patch.object(gate.base,'refuse_conflicting_copies'))
+                stack.enter_context(mock.patch.object(gate,'build_active',return_value=(bundle,record,record_path)))
+                stack.enter_context(mock.patch.object(gate,'verify_active_bundle'))
+                stack.enter_context(mock.patch.object(gate,'install_active'))
+                stack.enter_context(mock.patch.object(gate.base,'digest',return_value='hash'))
+                stack.enter_context(mock.patch.object(gate.base,'launch_ae'))
+                stack.enter_context(mock.patch.object(gate.base,'wait_for_ae'))
+                stack.enter_context(mock.patch.object(gate.base,'new_trace',return_value=trace_path))
+                stack.enter_context(mock.patch.object(gate.base,'trace_ready'))
+                stack.enter_context(mock.patch.object(gate,'require_empty_unsaved_project'))
+                stack.enter_context(mock.patch.object(gate,'create_owned_test_project',return_value=12))
+                stack.enter_context(mock.patch.object(gate,'toggle_probe',toggle))
+                stack.enter_context(mock.patch.object(gate,'wait_for_prefix',return_value=[]))
+                stack.enter_context(mock.patch.object(gate,'observation_count',return_value=0))
+                stack.enter_context(mock.patch.object(gate,'set_start_time',side_effect=gate.GateError('EDIT_FAIL')))
+                stack.enter_context(mock.patch.object(gate,'require_owned_project_and_close',close_owned))
+                stack.enter_context(mock.patch.object(gate.base,'cleanup_ae_running',return_value=True))
+                stack.enter_context(mock.patch.object(gate.base,'request_quit',quit_ae))
+                stack.enter_context(mock.patch.object(gate,'write_evidence',return_value=root/'evidence.json'))
                 with self.assertRaisesRegex(gate.GateError,'EDIT_FAIL'):
                     gate.main()
-            self.assertEqual(toggle.call_count,2)  # start + one cleanup stop attempt
-            self.assertEqual(clean.call_count,1)   # preflight cleanup only
+            self.assertEqual(toggle.call_count,2)
+            self.assertEqual(clean.call_count,1)
             close_owned.assert_not_called()
             quit_ae.assert_not_called()
 
