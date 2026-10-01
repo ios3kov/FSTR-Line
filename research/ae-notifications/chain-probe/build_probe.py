@@ -22,6 +22,19 @@ def run(args):
     return done.stdout.strip()
 
 
+def bundle_receipt(commit, build_id, research_opt_in):
+    return {
+        'schemaVersion': 1,
+        'kind': 'FSTRChainProbeResearch',
+        'sourceCommit': commit,
+        'buildId': build_id,
+        'privateProbeOptIn': bool(research_opt_in),
+        'AEGP_load': 'NOT RUN',
+        'SYNC-001': 'NOT RUN',
+        'handoffApproved': False,
+    }
+
+
 def build(sdk, research_opt_in=False):
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         raise ValueError('BLOCKED: a native Apple Silicon macOS build is required')
@@ -64,6 +77,8 @@ def build(sdk, research_opt_in=False):
         '-framework','CoreFoundation','-framework','CoreServices','-o',str(binary)])
     run(['xcrun','Rez','-useDF','-i',str(resources),str(SOURCE/'Probe_PiPL.r'),
          '-o',str(res/'FSTRChainProbe.rsrc')])
+    (res/'FSTRChainProbeBuild.json').write_text(
+        json.dumps(bundle_receipt(commit,build_id,research_opt_in),indent=2)+'\n')
     run(['plutil','-lint',str(bundle/'Contents/Info.plist')])
     if run(['xcrun','lipo','-archs',str(binary)]) != 'arm64':
         raise ValueError('UNEXPECTED_ARCHITECTURE')
