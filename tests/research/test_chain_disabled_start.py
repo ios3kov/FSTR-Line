@@ -5,6 +5,7 @@ import plistlib
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest import mock
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -55,7 +56,8 @@ class DisabledStartRunnerTests(unittest.TestCase):
         original=gate.run; captured=[]
         try:
             gate.run=lambda args,**kwargs: (captured.append(args) or SimpleNamespace(returncode=1,stdout='',stderr=''))
-            self.assertEqual(gate.ae_pids(),[])
+            with mock.patch.object(gate.platform,'system',return_value='Darwin'):
+                self.assertEqual(gate.ae_pids(),[])
         finally:
             gate.run=original
         self.assertEqual(captured[0][0:2],['/usr/bin/pgrep','-f'])
