@@ -299,7 +299,10 @@ def require_empty_unsaved_project(app_name):
         'if(app.project.file!==null||app.project.numItems!==0) throw new Error("FSTR_NONEMPTY_PROJECT");'
         '"FSTR_EMPTY_UNSAVED";'
     )
-    result=do_script(app_name,script)
+    try:
+        result=do_script(app_name,script)
+    except Exception as error:
+        raise GateError('BLOCKED_PROJECT_NOT_PROVEN_EMPTY:'+str(error)) from error
     if 'FSTR_EMPTY_UNSAVED' not in result:
         raise GateError('BLOCKED_PROJECT_NOT_PROVEN_EMPTY')
 
