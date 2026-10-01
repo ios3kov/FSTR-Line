@@ -118,6 +118,22 @@ lifecycle evidence for the exact build, but does not accept native-UI origin, ot
 plugins, full Timeline field coverage, performance, or complete SYNC-001. Real target
 execution remains required; CI only exercises the runner's safety and parser logic.
 
+### One-command native gate orchestrator
+
+For the real isolated Mac pass, use the orchestrator instead of running both runtime
+phases manually:
+
+```sh
+python3 -B research/ae-notifications/chain-probe/run_native_gates.py \
+  --sdk /path/to/ae25.6_61.64bit.AfterEffectsSDK
+```
+
+It runs disabled-start first and starts the research-opt-in script-origin gate only
+after an exact PASS. The first FAIL/BLOCKED stops the sequence. Child evidence
+paths/hashes, source commit and exact AE version are cross-checked and one aggregate
+`native-gates.json` is written. It adds no LLDB path and does not turn the research
+helper into the FSTR-Line product.
+
 ### No-LLDB evidence validation
 
 The trace parser is fail-closed and does not launch AE. Disabled mode proves only
