@@ -75,6 +75,8 @@ Core не должен зависеть от CEP. Это позволит зам
 
 - [Production Plan](docs/PRODUCTION_PLAN.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [After Effects engineering know-how](docs/AE_ENGINEERING_KNOWHOW.md)
+- [Development Rules](DEVELOPMENT_RULES.md)
 
 ## Статус
 
