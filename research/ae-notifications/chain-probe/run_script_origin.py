@@ -269,6 +269,7 @@ def main():
     evidence={'schemaVersion':1,'kind':'FSTRChainProbeScriptOrigin','runId':run_id,
               'status':'FAIL','AEGP_load':'NOT RUN','SYNC-001':'NOT RUN','handoffApproved':False}
     trace_path=None; installed=False; safe_empty=False; owned_project=False
+    project_ownership_uncertain=False; probe_state='inactive'
     try:
         if base.platform.system()!='Darwin' or base.platform.machine()!='arm64':
             raise GateError('BLOCKED_NATIVE_APPLE_SILICON_REQUIRED')
@@ -287,11 +288,15 @@ def main():
         trace_path=base.new_trace(record['buildId'],before,time.monotonic()+args.timeout)
         base.trace_ready(trace_path,record['buildId'],time.monotonic()+args.timeout)
         require_empty_unsaved_project(app['name']); safe_empty=True
-        layer_id=create_owned_test_project(app['name']); owned_project=True
+        safe_empty=False; project_ownership_uncertain=True
+        layer_id=create_owned_test_project(app['name'])
+        owned_project=True; project_ownership_uncertain=False
         evidence['testLayerId']=layer_id
+        probe_state='unknown'
         toggle_probe(app['name'])
         wait_for_prefix(trace_path,record['buildId'],'REGISTERED_RESEARCH_ONLY_SYNC001_NOT_RUN',
                         time.monotonic()+args.timeout)
+        probe_state='active'
 
         phases=[]; expected_states=[]
         for label,action in (
@@ -312,9 +317,11 @@ def main():
                            'observationsBefore':before_count,'observationsAfter':after_count,
                            'publicState':state})
 
+        probe_state='unknown'
         toggle_probe(app['name'])
         wait_for_prefix(trace_path,record['buildId'],'REMOVED_OWN_ID',time.monotonic()+args.timeout)
-        require_owned_project_and_close(app['name']); owned_project=False
+        probe_state='inactive'
+        require_owned_project_and_close(app['name']); owned_project=False; safe_empty=True
         base.request_quit(app['name']); base.wait_for_ae(time.monotonic()+args.timeout,False)
 
         rows=trace_gate.parse_trace(trace_path,record['buildId'])
@@ -333,23 +340,49 @@ def main():
         raise
     finally:
         ae_running=base.cleanup_ae_running(evidence)
-        if owned_project and ae_running is True:
+
+        if probe_state=='active' and ae_running is True:
+            try:
+                probe_state='unknown'
+                toggle_probe(app['name'])
+                wait_for_prefix(trace_path,record['buildId'],'REMOVED_OWN_ID',
+                                time.monotonic()+args.timeout)
+                probe_state='inactive'
+                evidence['probeStopCleanup']='PASS'
+            except Exception as cleanup_error:
+                evidence['probeStopCleanup']='FAIL:'+str(cleanup_error)
+        elif probe_state=='unknown' and ae_running is True:
+            evidence['probeStopCleanup']='DEFERRED_STATE_UNKNOWN'
+        elif probe_state in ('active','unknown') and ae_running is False:
+            evidence['probeStopCleanup']='AE_ALREADY_EXITED'
+            probe_state='inactive'
+        elif probe_state in ('active','unknown'):
+            evidence['probeStopCleanup']='DEFERRED_AE_STATE_UNKNOWN'
+        else:
+            evidence['probeStopCleanup']='NOT_NEEDED'
+
+        if project_ownership_uncertain:
+            evidence['ownedProjectCleanup']='DEFERRED_OWNERSHIP_UNPROVEN'
+            safe_empty=False
+        elif owned_project and ae_running is True and probe_state=='inactive':
             try:
                 require_owned_project_and_close(app['name'])
                 owned_project=False; evidence['ownedProjectCleanup']='PASS'
                 safe_empty=True
             except Exception as cleanup_error:
                 evidence['ownedProjectCleanup']='FAIL:'+str(cleanup_error)
+                safe_empty=False
         elif owned_project and ae_running is False:
             evidence['ownedProjectCleanup']='AE_ALREADY_EXITED'
         elif owned_project:
-            evidence['ownedProjectCleanup']='DEFERRED_AE_STATE_UNKNOWN'
+            evidence['ownedProjectCleanup']='DEFERRED_UNSAFE_STATE'
+            safe_empty=False
         elif safe_empty:
             evidence['ownedProjectCleanup']='NOT_NEEDED_OR_ALREADY_CLOSED'
         else:
             evidence['ownedProjectCleanup']='NOT_SAFE_TO_TOUCH'
 
-        if safe_empty and not owned_project and ae_running is True:
+        if safe_empty and not owned_project and not project_ownership_uncertain and probe_state=='inactive' and ae_running is True:
             try:
                 base.request_quit(app['name'])
                 base.wait_for_ae(time.monotonic()+args.timeout,False)
