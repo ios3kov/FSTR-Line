@@ -34,7 +34,7 @@ struct State {
     Binding binding{};
     Dispatch dispatch{wake_host,on_main_thread};
     int registration_id=0;
-    bool poisoned=false, closing=false, initialized=false;
+    bool module_pinned=false, poisoned=false, closing=false, initialized=false;
     Sample sample{};
 };
 int wake_host() {
@@ -56,6 +56,14 @@ void release(State& s) noexcept {
     if(s.commands) { s.basic->ReleaseSuite(kAEGPCommandSuite,kAEGPCommandSuiteVersion1); s.commands=nullptr; }
     if(s.registration) { s.basic->ReleaseSuite(kAEGPRegisterSuite,kAEGPRegisterSuiteVersion5); s.registration=nullptr; }
     if(s.utility) { s.basic->ReleaseSuite(kAEGPUtilitySuite,kAEGPUtilitySuiteVersion6); s.utility=nullptr; }
+}
+void discard_before_hooks(State& s) noexcept {
+    // Before the first registered host hook, no host code can retain this refcon.
+    // Clean failures/no-op noninteractive loads completely instead of leaving zombie state.
+    release(s);
+    State* owned=state;
+    state=nullptr;
+    delete owned;
 }
 A_Err read_active_layer(State& s) {
     Sample next{}; AEGP_LayerH layer=nullptr;
@@ -90,6 +98,12 @@ void start(State& s) {
     if(!FSTR_ENABLE_PRIVATE_CHAIN_PROBE) { log(s,"BLOCKED_PRIVATE_PROBE_BUILD_OPT_IN_REQUIRED"); return; }
     const char* reason=nullptr;
     if(!s.binding.insert && !bind_loaded_ae(s.binding,reason)) {s.poisoned=true; log(s,reason); return;}
+    // Pin only after exact host identity is accepted and immediately before the
+    // private registry can observe our callback. Default/blocked loads stay unpinned.
+    if(!s.module_pinned) {
+        if(!pin_probe_module()) {s.poisoned=true; log(s,"PROBE_MODULE_PIN_FAILED_NO_RETRY"); return;}
+        s.module_pinned=true;
+    }
     try {
         // Refcon and module are already pinned before exposing the callback.
         const int id=s.binding.insert(Dispatch::callback,&s.dispatch);
@@ -152,7 +166,6 @@ A_Err EntryPointFunc(SPBasicSuite* basic,A_long major,A_long minor,AEGP_PluginID
     if(!out || !basic || !basic->AcquireSuite || !basic->ReleaseSuite || state || !on_main_thread() ||
        major!=AEGP_INITFUNC_MAJOR_VERSION || minor<AEGP_INITFUNC_MINOR_VERSION) return A_Err_GENERIC;
     *out=nullptr;
-    if(!pin_probe_module()) return A_Err_GENERIC;
     state=new(std::nothrow) State;
     if(!state) return A_Err_ALLOC;
     auto& s=*state; s.basic=basic; s.plugin=id;
@@ -160,7 +173,7 @@ A_Err EntryPointFunc(SPBasicSuite* basic,A_long major,A_long minor,AEGP_PluginID
     if(!err) err=acquire(s,kAEGPRegisterSuite,kAEGPRegisterSuiteVersion5,s.registration);
     if(!err) err=acquire(s,kAEGPCommandSuite,kAEGPCommandSuiteVersion1,s.commands);
     if(!err) err=acquire(s,kAEGPLayerSuite,kAEGPLayerSuiteVersion9,s.layers);
-    if(err) {release(s); return err;}
+    if(err) {discard_before_hooks(s); return err;}
     if(!s.utility->AEGP_GetSuppressInteractiveUI || !s.utility->AEGP_CauseIdleRoutinesToBeCalled ||
        !s.utility->AEGP_WriteToDebugLog || !s.registration->AEGP_RegisterDeathHook ||
        !s.registration->AEGP_RegisterCommandHook || !s.registration->AEGP_RegisterIdleHook ||
@@ -169,15 +182,15 @@ A_Err EntryPointFunc(SPBasicSuite* basic,A_long major,A_long minor,AEGP_PluginID
        !s.commands->AEGP_GetUniqueCommand || !s.commands->AEGP_InsertMenuCommand ||
        !s.layers->AEGP_GetActiveLayer || !s.layers->AEGP_GetLayerID || !s.layers->AEGP_GetLayerOffset ||
        !s.layers->AEGP_GetLayerInPoint || !s.layers->AEGP_GetLayerDuration) {
-        release(s); return A_Err_GENERIC;
+        discard_before_hooks(s); return A_Err_GENERIC;
     }
     A_Boolean suppressed=FALSE;
     err=s.utility->AEGP_GetSuppressInteractiveUI(&suppressed);
-    if(err || suppressed) {release(s); return err;}
+    if(err || suppressed) {discard_before_hooks(s); return err;}
     *out=reinterpret_cast<AEGP_GlobalRefcon>(&s);
     // Once any hook is installed, keep state/code valid even on partial failure.
     err=s.registration->AEGP_RegisterDeathHook(id,death,nullptr);
-    if(err) {release(s); *out=nullptr; return err;}
+    if(err) {discard_before_hooks(s); *out=nullptr; return err;}
     err=s.commands->AEGP_GetUniqueCommand(&s.toggle);
     if(!err && !s.toggle) err=A_Err_GENERIC;
     if(!err) err=s.registration->AEGP_RegisterCommandHook(id,AEGP_HP_BeforeAE,s.toggle,command,nullptr);

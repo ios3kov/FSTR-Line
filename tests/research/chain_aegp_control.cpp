@@ -11,9 +11,9 @@ namespace {
 AEGP_CommandHook host_command=nullptr; AEGP_IdleHook host_idle=nullptr; AEGP_DeathHook host_death=nullptr;
 AEGP_GlobalRefcon global=nullptr;
 Callback callback_slot=nullptr; void* callback_refcon=nullptr;
-bool main_thread=true, suppressed=false, bind_ok=true, idle_fails=false;
+bool main_thread=true, suppressed=false, bind_ok=true, idle_fails=false, death_fails=false, pin_ok=true;
 bool layer_fails=false, invoke_nested_idle=false, throw_downstream=false;
-int inserts=0, removes=0, reads=0, wakes=0, forwarded=0, released=0, bind_calls=0, downstream_result=0, wake_result=0;
+int inserts=0, removes=0, reads=0, wakes=0, forwarded=0, released=0, bind_calls=0, pin_calls=0, downstream_result=0, wake_result=0;
 std::vector<std::string> logs;
 AEGP_RegisterSuite5 reg{}; AEGP_CommandSuite1 cmd{}; AEGP_UtilitySuite6 util{}; AEGP_LayerSuite9 layer{};
 int insert(Callback fn,void* refcon) { ++inserts; assert(!callback_slot); callback_slot=fn;callback_refcon=refcon;return 42; }
@@ -40,7 +40,10 @@ SPErr acquire_suite(const char* name,int32 version,const void** out) {
 void setup() {
     reg.AEGP_RegisterCommandHook=[](AEGP_PluginID,AEGP_HookPriority,AEGP_Command id,AEGP_CommandHook fn,AEGP_CommandRefcon) -> A_Err {assert(id==77);host_command=fn;return A_Err_NONE;};
     reg.AEGP_RegisterIdleHook=[](AEGP_PluginID,AEGP_IdleHook fn,AEGP_IdleRefcon) -> A_Err {if(idle_fails)return A_Err_GENERIC;host_idle=fn;return A_Err_NONE;};
-    reg.AEGP_RegisterDeathHook=[](AEGP_PluginID,AEGP_DeathHook fn,AEGP_DeathRefcon) -> A_Err {host_death=fn;return A_Err_NONE;};
+    reg.AEGP_RegisterDeathHook=[](AEGP_PluginID,AEGP_DeathHook fn,AEGP_DeathRefcon) -> A_Err {
+        if(death_fails) return A_Err_GENERIC;
+        host_death=fn;return A_Err_NONE;
+    };
     reg.AEGP_RegisterUpdateMenuHook=[](AEGP_PluginID,AEGP_UpdateMenuHook,AEGP_UpdateMenuRefcon) -> A_Err {return A_Err_NONE;};
     cmd.AEGP_EnableCommand=[](AEGP_Command) -> A_Err {return A_Err_NONE;};
     cmd.AEGP_DisableCommand=[](AEGP_Command) -> A_Err {return A_Err_NONE;};
@@ -58,7 +61,7 @@ void setup() {
 }
 namespace fstr::research {
 bool on_main_thread() noexcept {return main_thread;}
-bool pin_probe_module() noexcept {return true;} // only the binding is substituted
+bool pin_probe_module() noexcept {++pin_calls;return pin_ok;} // only the binding is substituted
 bool bind_loaded_ae(Binding& out,const char*& reason) noexcept {
     ++bind_calls;reason="FIXTURE_REFUSED";if(!bind_ok)return false;
     out={insert,remove};return true;
@@ -67,42 +70,58 @@ bool bind_loaded_ae(Binding& out,const char*& reason) noexcept {
 int main(int argc,char** argv) {
     assert(argc==2); const std::string scenario=argv[1]; setup();
     suppressed=scenario=="suppressed";idle_fails=scenario=="partial";bind_ok=scenario!="wrong-host";
+    death_fails=scenario=="death-fail";pin_ok=scenario!="pin-fail";
     SPBasicSuite basic{};basic.AcquireSuite=acquire_suite;
     basic.ReleaseSuite=[](const char*,int32) -> A_Err {++released;return SPErr(0);};
-    assert(EntryPointFunc(&basic,1,9,123,&global)==A_Err_NONE);
-    if(suppressed) {assert(!global && !host_command && !inserts && released==4);}
-    else if(idle_fails) {
-        A_Boolean handled=FALSE;host_command(global,nullptr,77,AEGP_HP_BeforeAE,FALSE,&handled);
-        assert(!handled && !inserts);host_death(global,nullptr);assert(released==4);
+    const A_Err init_result=EntryPointFunc(&basic,1,9,123,&global);
+    if(scenario=="death-fail") {
+        assert(init_result==A_Err_GENERIC && !global && !host_death && !inserts && released==4);
+        assert(state==nullptr && pin_calls==0);
     } else {
-        for(int i=0;i<20;++i) idle_once(); assert(reads==0 && inserts==0 && wakes==0);
-        toggle();
-        if(scenario=="disabled") {assert(!inserts && !bind_calls);host_death(global,nullptr);}
-        else if(scenario=="wrong-host") {assert(!inserts && bind_calls==1);toggle();assert(bind_calls==1);host_death(global,nullptr);}
-        else {
-            assert(inserts==1);event();event();assert(wakes==1 && reads==0 && forwarded==2);
-            idle_once();assert(reads==1 && state->dispatch.delivered==2);
-            for(int i=0;i<20;++i)idle_once();assert(reads==1);
-            event();idle_once();assert(reads==2 && state->dispatch.delivered==3);
-            event(999);idle_once();assert(reads==2);
-            downstream_result=-7;event();idle_once();assert(reads==2);downstream_result=0;
-            throw_downstream=true;try {event();assert(false);}catch(const std::runtime_error& e){assert(!strcmp(e.what(),"downstream identity"));}
-            throw_downstream=false;assert(state->dispatch.depth.load()==0);
-            invoke_nested_idle=true;event();invoke_nested_idle=false;assert(reads==2);idle_once();assert(reads==3);
-            layer_fails=true;event();idle_once();assert(reads==4 && state->dispatch.failed_read);
-            for(int i=0;i<20;++i)idle_once();assert(reads==4); // no blind retry/polling
-            layer_fails=false;event();idle_once();assert(reads==5);
-            wake_result=17;event();assert(state->dispatch.wake_errors.load()==1);idle_once();assert(reads==6);wake_result=0;
-            if(scenario=="wrong-thread") {
-                main_thread=false;event();main_thread=true;assert(state->dispatch.thread_fault.load());
-                toggle();assert(removes==0 && callback_slot);host_death(global,nullptr);
-                const auto before=forwarded;event();assert(forwarded==before+1 && released==4);
+        assert(init_result==A_Err_NONE);
+        if(suppressed) {
+            assert(!global && !host_command && !inserts && released==4 && state==nullptr && pin_calls==0);
+        } else if(idle_fails) {
+            A_Boolean handled=FALSE;host_command(global,nullptr,77,AEGP_HP_BeforeAE,FALSE,&handled);
+            assert(!handled && !inserts && pin_calls==0);host_death(global,nullptr);assert(released==4);
+        } else {
+            for(int i=0;i<20;++i) idle_once(); assert(reads==0 && inserts==0 && wakes==0);
+            toggle();
+            if(scenario=="disabled") {
+                assert(!inserts && !bind_calls && pin_calls==0);host_death(global,nullptr);
+            } else if(scenario=="wrong-host") {
+                assert(!inserts && bind_calls==1 && pin_calls==0);
+                toggle();assert(bind_calls==1 && pin_calls==0);host_death(global,nullptr);
+            } else if(scenario=="pin-fail") {
+                assert(!inserts && bind_calls==1 && pin_calls==1);
+                toggle();assert(pin_calls==1);host_death(global,nullptr);
             } else {
-                const auto escaped=callback_slot;void* escaped_refcon=callback_refcon;
-                toggle();assert(removes==1 && !callback_slot);
-                const auto before=forwarded;escaped(&chain,escaped_refcon,0x3b,reinterpret_cast<void*>(1));
-                assert(forwarded==before+1);idle_once();assert(reads==6);
-                host_death(global,nullptr);assert(released==4);
+                assert(inserts==1 && pin_calls==1);event();event();assert(wakes==1 && reads==0 && forwarded==2);
+                idle_once();assert(reads==1 && state->dispatch.delivered==2);
+                for(int i=0;i<20;++i)idle_once();assert(reads==1);
+                event();idle_once();assert(reads==2 && state->dispatch.delivered==3);
+                event(999);idle_once();assert(reads==2);
+                downstream_result=-7;event();idle_once();assert(reads==2);downstream_result=0;
+                throw_downstream=true;try {event();assert(false);}catch(const std::runtime_error& e){assert(!strcmp(e.what(),"downstream identity"));}
+                throw_downstream=false;assert(state->dispatch.depth.load()==0);
+                invoke_nested_idle=true;event();invoke_nested_idle=false;assert(reads==2);idle_once();assert(reads==3);
+                layer_fails=true;event();idle_once();assert(reads==4 && state->dispatch.failed_read);
+                for(int i=0;i<20;++i)idle_once();assert(reads==4);
+                layer_fails=false;event();idle_once();assert(reads==5);
+                wake_result=17;event();assert(state->dispatch.wake_errors.load()==1);idle_once();assert(reads==6);wake_result=0;
+                if(scenario=="wrong-thread") {
+                    main_thread=false;event();main_thread=true;assert(state->dispatch.thread_fault.load());
+                    toggle();assert(removes==0 && callback_slot);host_death(global,nullptr);
+                    const auto before=forwarded;event();assert(forwarded==before+1 && released==4);
+                } else {
+                    const auto escaped=callback_slot;void* escaped_refcon=callback_refcon;
+                    toggle();assert(removes==1 && !callback_slot);
+                    const auto before=forwarded;escaped(&chain,escaped_refcon,0x3b,reinterpret_cast<void*>(1));
+                    assert(forwarded==before+1);idle_once();assert(reads==6);
+                    toggle();assert(inserts==2 && pin_calls==1);
+                    toggle();assert(removes==2 && !callback_slot && pin_calls==1);
+                    host_death(global,nullptr);assert(released==4);
+                }
             }
         }
     }

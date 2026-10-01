@@ -41,7 +41,7 @@ class AegpProbeTests(unittest.TestCase):
             # Linux is a C++/declaration control through the SDK's own Android
             # conditional branch. It is NOT a macOS ABI, plugin, or AE build.
             platform = [] if sys.platform == 'darwin' else ['-D__ANDROID__']
-            for enabled, scenarios in ((1, ['normal','suppressed','partial','wrong-host','wrong-thread']),
+            for enabled, scenarios in ((1, ['normal','suppressed','partial','wrong-host','wrong-thread','pin-fail','death-fail']),
                                        (0, ['disabled'])):
                 run(CXX + ['-std=c++17', '-Wall','-Wextra','-Werror','-O1','-g',
                     '-fsanitize=address,undefined', *platform,
