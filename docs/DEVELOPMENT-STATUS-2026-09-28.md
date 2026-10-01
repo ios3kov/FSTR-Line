@@ -5,7 +5,7 @@
 
 ## Текущий шаг — AEGP helper и автоматизированные no-LLDB runtime gates
 
-Последний implementation HEAD этого шага: `5c2ae20102cfcff9c4893b2b43f98182d11f317f`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Последний implementation HEAD этого шага: `0ff7476a6b95edaea2693f8740ddc6874c8b70df`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
 Архив SDK распакован и его реальные объявления использованы при компиляции.
 SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
@@ -25,6 +25,8 @@ UUID, заголовки/код в памяти и принадлежность 
 Exact HEAD `21a2d05` прошёл Integration gate `36834338257` и Read-only module input `36834338195`. Notification research tools `36834338125` прошёл новый research unit regression и остальные ранние проверки, затем упал в старом LLDB `mac_runtime_attach_smoke`: owned fixture завершился `-9` после detach. Это тот же открытый класс Issue #3; он не чинится и не ретраится в этом этапе. Это Linux/hosted-macOS evidence, **не полная SDK macOS-сборка и не запуск AE**.
 
 Готов рецепт clean macOS bundle build с PiPL, Build ID, embedded ownership receipt и проверкой подписи. Добавлен безопасный disabled-start runner и отдельный research-opt-in `run_script_origin.py`: он отказывается работать при уже запущенном AE или непустом/сохранённом startup-проекте, создаёт только собственную несохранённую test-comp, выполняет два script-origin timing edit, Undo/Redo, Stop/Remove и валидирует no-LLDB trace. При невозможности доказать ownership он не закрывает потенциально пользовательский проект. Исправлена safety-ошибка в regex определения уже запущенного AE; добавлен regression-test на реальный `.app/Contents/MacOS/After Effects` путь.
+
+На `0ff7476a...` script-origin gate усилен: после каждого edit/Undo/Redo он отдельно читает фактический `layer id/startTime/inPoint/duration` через публичный ExtendScript и требует, чтобы AEGP trace содержал ровно ту же последовательность. Времена сравниваются как эквивалентные рациональные значения, а не по внутреннему масштабу `A_Time`. Поэтому четыре произвольных observation больше не могут дать PASS. Exact-commit CI: Integration gate `36843261930` PASS, Notification research tools `36843262065` PASS, Read-only module input `36843262009` PASS. Это всё ещё automated/model/hosted-macOS evidence, не реальный AE runtime.
 
 Implementation HEAD `5c2ae201...`: Integration gate PASS (run 36839331202), macOS Research unit regression PASS в run 36839331191. Остальные legacy LLDB шаги этого workflow не используются как критерий нового gate и могут по-прежнему отражать открытый Issue #3. **Реальная SDK macOS-сборка и запуск этих gates в AE 25.6.0.101 всё ещё NOT RUN.**
 [Реализация, точные проверки и ограничения](TEST_RECORDS/AEGP-SDK-BRIDGE-2026-10-01.md).
