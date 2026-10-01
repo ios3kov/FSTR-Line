@@ -260,6 +260,9 @@ A_Err EntryPointFunc(SPBasicSuite* basic,A_long major,A_long minor,AEGP_PluginID
     if(err) {s.poisoned=true; log(s,"INITIALIZATION_PARTIAL_DISABLED"); return A_Err_NONE;}
     s.initialized=true;
     log(s,"LOADED_DISABLED_BUILD_ID_IN_EVENT_TYPE_NO_PROJECT_READS");
+    char ready[96];
+    std::snprintf(ready,sizeof(ready),"COMMAND_READY id=%ld",static_cast<long>(s.toggle));
+    log(s,ready);
     return A_Err_NONE;
 }
 static_assert(std::is_same_v<decltype(EntryPointFunc),AEGP_PluginInitFuncPrototype>);
