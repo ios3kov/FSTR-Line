@@ -88,6 +88,15 @@ class ScriptOriginRunnerTests(unittest.TestCase):
         finally:
             gate.do_script=original
 
+    def test_project_preflight_blocks_when_query_itself_fails(self):
+        original=gate.do_script
+        try:
+            gate.do_script=lambda *args,**kwargs: (_ for _ in ()).throw(gate.base.GateError('COMMAND_FAILED'))
+            with self.assertRaisesRegex(gate.GateError,'BLOCKED_PROJECT_NOT_PROVEN_EMPTY'):
+                gate.require_empty_unsaved_project('AE')
+        finally:
+            gate.do_script=original
+
     def test_owned_project_cleanup_checks_identity_before_close(self):
         original=gate.do_script; scripts=[]
         try:
