@@ -63,6 +63,24 @@ class ScriptOriginRunnerTests(unittest.TestCase):
         self.assertEqual(gate.fraction_pair('1.5'),[3,2])
         self.assertEqual(gate.fraction_pair('2'),[2,1])
 
+    def test_script_edit_uses_one_explicit_undo_group_per_call(self):
+        original=gate.do_script; scripts=[]
+        try:
+            gate.do_script=lambda app,script,**kwargs: (
+                scripts.append(script) or 'FSTR_START_TIME:1')
+            gate.set_start_time('AE',1.0)
+            gate.set_start_time('AE',2.0)
+        finally:
+            gate.do_script=original
+        self.assertEqual(len(scripts),2)
+        for script in scripts:
+            self.assertEqual(script.count('app.beginUndoGroup('),1)
+            self.assertEqual(script.count('app.endUndoGroup()'),1)
+            self.assertLess(script.index('app.beginUndoGroup('),script.index('l.startTime='))
+            self.assertLess(script.index('l.startTime='),script.index('app.endUndoGroup()'))
+            self.assertIn('try{',script)
+            self.assertIn('}finally{app.endUndoGroup();}',script)
+
     def test_read_layer_state_returns_public_ground_truth(self):
         original=gate.do_script
         try:

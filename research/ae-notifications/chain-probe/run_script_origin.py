@@ -232,7 +232,8 @@ def set_start_time(app_name,value):
         'var c=app.project.activeItem;'
         'if(!(c instanceof CompItem)||c.name!=="FSTR Chain Probe Test") throw new Error("FSTR_COMP_MISMATCH");'
         'var l=c.layer(1); if(l.name!=="FSTR Probe Layer") throw new Error("FSTR_LAYER_MISMATCH");'
-        'l.startTime='+str(float(value))+';'
+        'app.beginUndoGroup("FSTR Chain Probe Script Edit");'
+        'try{l.startTime='+str(float(value))+';}finally{app.endUndoGroup();}'
         '"FSTR_START_TIME:"+l.startTime.toString();'
     )
     result=do_script(app_name,script)
