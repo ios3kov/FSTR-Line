@@ -41,7 +41,7 @@ def parse_trace(path: Path, expected_build_id: str):
                 row=json.loads(line)
             except json.JSONDecodeError as error:
                 raise EvidenceError(f'TRACE_JSON_INVALID:{number}') from error
-            if set(row)!= {'schemaVersion','buildId','sequence','wallTimeNs','event'}:
+            if not isinstance(row,dict) or set(row)!= {'schemaVersion','buildId','sequence','wallTimeNs','event'}:
                 raise EvidenceError(f'TRACE_SCHEMA_INVALID:{number}')
             if row['schemaVersion']!=1 or row['buildId']!=expected_build_id:
                 raise EvidenceError(f'TRACE_IDENTITY_MISMATCH:{number}')
@@ -71,13 +71,15 @@ def verify_disabled(rows):
     forbidden=('REGISTERED_RESEARCH_ONLY_SYNC001_NOT_RUN','OBSERVATION_NOT_COMMIT_PROOF','REMOVED_OWN_ID')
     if any(any(event.startswith(prefix) for prefix in forbidden) for event in events):
         raise EvidenceError('DISABLED_PRIVATE_ACTIVITY_OBSERVED')
-    if any(event.startswith(prefix) for prefix in FATAL_PREFIXES):
+    if any(any(event.startswith(prefix) for prefix in FATAL_PREFIXES) for event in events):
         raise EvidenceError('FATAL_EVENT_OBSERVED')
     if events[-1] != 'HOST_EXIT_NO_REGISTRATION':
         raise EvidenceError('DISABLED_CLEAN_EXIT_MISSING')
     return {'status':'PASS','mode':'disabled','commandId':command_id,'events':len(events),'AEGP_load':'OBSERVED','SYNC-001':'NOT RUN'}
 
 def verify_active(rows,min_observations=2):
+    if min_observations<2:
+        raise EvidenceError('MIN_OBSERVATIONS_TOO_SMALL')
     events=_events(rows)
     if not events or events[0]!='LOADED_DISABLED_BUILD_ID_IN_EVENT_TYPE_NO_PROJECT_READS':
         raise EvidenceError('ACTIVE_LOAD_MARKER_MISSING')
