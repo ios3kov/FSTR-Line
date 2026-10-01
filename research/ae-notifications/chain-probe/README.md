@@ -22,7 +22,9 @@ No installable artifact or real-AE acceptance is supplied by this increment.
   file SHA, loaded UUID/header/text comparison and export-owner validation.
   No absent Adobe library load, absolute text address call or arbitrary CLI override.
 - `build_probe.py` / `Probe_PiPL.r`: clean-source macOS bundle build recipe, PiPL,
-  explicit runtime Build ID, ad-hoc signature verification and external build record.
+  explicit runtime Build ID, fail-closed DeRez verification of the compiled AEGP
+  resource (`Kind=AEGP`, name/category and arm64 `EntryPointFunc`), ad-hoc signature
+  verification and external build record.
 
 The active-layer snapshot is intentionally narrow. Multiple/no selected layers,
 all Timeline fields/origins, true project identity and post-commit completeness
@@ -55,6 +57,8 @@ python3 -B research/ae-notifications/chain-probe/build_probe.py --sdk /path/to/a
 ```
 
 This produces a **private-registration-disabled** bundle, not runtime acceptance.
+Before signing it, the builder recompiles the PiPL with Rez and decompiles the exact
+output with DeRez; any missing/wrong AEGP identity or arm64 entry point blocks the build.
 `--research-opt-in` is a separate unaccepted research build configuration. Neither
 configuration is installed or launched by the script. The output record keeps
 `handoffApproved=false`, `AEGP_load=NOT RUN` and `SYNC-001=NOT RUN`.
