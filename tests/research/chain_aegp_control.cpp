@@ -130,7 +130,7 @@ int main(int argc,char** argv) {
     }
     if(!trace_path.empty()) {
         std::ifstream in(trace_path); const std::string content((std::istreambuf_iterator<char>(in)),{});
-        assert(content.find("\\"schemaVersion\\":1")!=std::string::npos);
+        assert(content.find("\"schemaVersion\":1")!=std::string::npos);
         assert(content.find(FSTR_PROBE_BUILD_ID)!=std::string::npos);
         if(scenario=="normal") {
             assert(content.find("LOADED_DISABLED_BUILD_ID_IN_EVENT_TYPE_NO_PROJECT_READS")!=std::string::npos);
