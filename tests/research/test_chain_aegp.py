@@ -1,4 +1,5 @@
 """Real new sources; SDK/OS boundaries remain explicit. No Adobe code is loaded."""
+import importlib.util
 import json
 import os
 import subprocess
@@ -20,6 +21,19 @@ def run(args, **kw):
 
 
 class AegpProbeTests(unittest.TestCase):
+    def test_bundle_receipt_is_fail_closed_and_identified(self):
+        path = SRC / 'build_probe.py'
+        spec = importlib.util.spec_from_file_location('fstr_chain_build_probe', path)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        row = module.bundle_receipt('abc123', 'fstr-chain-aegp-abc123-disabled', False)
+        self.assertEqual(row['schemaVersion'], 1)
+        self.assertEqual(row['kind'], 'FSTRChainProbeResearch')
+        self.assertEqual(row['sourceCommit'], 'abc123')
+        self.assertFalse(row['privateProbeOptIn'])
+        self.assertEqual(row['AEGP_load'], 'NOT RUN')
+        self.assertEqual(row['SYNC-001'], 'NOT RUN')
+        self.assertFalse(row['handoffApproved'])
+
     def test_event_dispatch_optimized_and_sanitized(self):
         with tempfile.TemporaryDirectory() as td:
             exe = str(Path(td) / 'dispatch')
