@@ -5,6 +5,7 @@ import hashlib
 import json
 import platform
 import plistlib
+import re
 import subprocess
 from pathlib import Path
 
@@ -33,6 +34,21 @@ def bundle_receipt(commit, build_id, research_opt_in):
         'SYNC-001': 'NOT RUN',
         'handoffApproved': False,
     }
+
+
+def validate_pipl_dump(text):
+    checks = {
+        'PIPL_RESOURCE_ID_MISMATCH': r"resource\s+'PiPL'\s*\(\s*16000(?:\s*,[^)]*)?\s*\)",
+        'PIPL_KIND_MISMATCH': r'Kind\s*\{\s*AEGP\s*\}',
+        'PIPL_NAME_MISMATCH': r'Name\s*\{\s*"FSTR Chain Probe"\s*\}',
+        'PIPL_CATEGORY_MISMATCH': r'Category\s*\{\s*"General Plugin"\s*\}',
+        'PIPL_ENTRY_MISMATCH': r'CodeMacARM64\s*\{\s*"EntryPointFunc"\s*\}',
+    }
+    for error, pattern in checks.items():
+        if not re.search(pattern, text, re.MULTILINE | re.DOTALL):
+            raise ValueError(error)
+    if len(re.findall(checks['PIPL_RESOURCE_ID_MISMATCH'], text, re.MULTILINE | re.DOTALL)) != 1:
+        raise ValueError('PIPL_RESOURCE_COUNT_MISMATCH')
 
 
 def build(sdk, research_opt_in=False):
@@ -75,8 +91,12 @@ def build(sdk, research_opt_in=False):
         '-DFSTR_ENABLE_PRIVATE_CHAIN_PROBE=' + str(int(research_opt_in)),
         str(SOURCE/'aegp_probe.cpp'),str(SOURCE/'binding_macos.cpp'),
         '-framework','CoreFoundation','-framework','CoreServices','-o',str(binary)])
+    pipl = res / 'FSTRChainProbe.rsrc'
     run(['xcrun','Rez','-useDF','-i',str(resources),str(SOURCE/'Probe_PiPL.r'),
-         '-o',str(res/'FSTRChainProbe.rsrc')])
+         '-o',str(pipl)])
+    pipl_dump = run(['xcrun','DeRez',str(pipl),str(resources/'AE_General.r'),
+                     '-useDF','-i',str(resources),'-only','PiPL'])
+    validate_pipl_dump(pipl_dump)
     (res/'FSTRChainProbeBuild.json').write_text(
         json.dumps(bundle_receipt(commit,build_id,research_opt_in),indent=2)+'\n')
     run(['plutil','-lint',str(bundle/'Contents/Info.plist')])
