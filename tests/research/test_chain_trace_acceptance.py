@@ -48,6 +48,11 @@ class TraceAcceptanceTests(unittest.TestCase):
         result=trace.verify_disabled(self.parse(DISABLED))
         self.assertEqual((result['status'],result['commandId']),('PASS',77))
 
+    def test_observation_regex_matches_generation(self):
+        match=trace.OBS_RE.match(ACTIVE[3])
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1),'2')
+
     def test_active_pass_requires_two_ordered_observations_and_stop(self):
         result=trace.verify_active(self.parse(ACTIVE))
         self.assertEqual(result['observations'],2)

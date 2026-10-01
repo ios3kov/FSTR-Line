@@ -7,7 +7,7 @@ from pathlib import Path
 MAX_BYTES=1024*1024
 MAX_LINES=10000
 COMMAND_RE=re.compile(r'^COMMAND_READY id=([1-9][0-9]*)$')
-OBS_RE=re.compile(r'^OBSERVATION_NOT_COMMIT_PROOF generation=([0-9]+)\\b')
+OBS_RE=re.compile(r'^OBSERVATION_NOT_COMMIT_PROOF generation=([0-9]+)\b')
 FATAL_PREFIXES=(
     'HOST_EXIT_FORWARDING_RETAINED',
     'REMOVE_BLOCKED_FORWARDING_RETAINED',
