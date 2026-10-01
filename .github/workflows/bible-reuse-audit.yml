@@ -1,0 +1,25 @@
+name: Bible Reuse Audit
+
+on:
+  push:
+    branches:
+      - audit/bible-reuse-2026-10-01
+  workflow_dispatch:
+
+jobs:
+  portable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Pure core and adapter checks
+        run: npm run check
+      - name: CEP build and ExtendScript static checks
+        run: npm run check:cep
+      - name: Whitespace validation
+        run: git diff --check
