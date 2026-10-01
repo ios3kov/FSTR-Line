@@ -280,9 +280,41 @@ def wait_for_ae(deadline,present):
         time.sleep(0.25)
     raise GateError('AE_PROCESS_STATE_TIMEOUT')
 
+def applescript_quote(value):
+    return '"' + str(value).replace('\\','\\\\').replace('"','\\"').replace('\r','\\r').replace('\n','\\n') + '"'
+
+def do_script(app_name,script,timeout=30):
+    apple=(
+        'tell application '+applescript_quote(app_name)+'\n'
+        'set fstrResult to DoScript '+applescript_quote(script)+'\n'
+        'return fstrResult\n'
+        'end tell'
+    )
+    done=run(['/usr/bin/osascript','-e',apple],timeout=timeout)
+    return done.stdout.strip()
+
+def require_empty_unsaved_project(app_name):
+    script=(
+        'if(!app.project) throw new Error("FSTR_NO_PROJECT");'
+        'if(app.project.file!==null||app.project.numItems!==0) throw new Error("FSTR_NONEMPTY_PROJECT");'
+        '"FSTR_EMPTY_UNSAVED";'
+    )
+    result=do_script(app_name,script)
+    if 'FSTR_EMPTY_UNSAVED' not in result:
+        raise GateError('BLOCKED_PROJECT_NOT_PROVEN_EMPTY')
+
 def request_quit(app_name):
     script='const ae=Application('+json.dumps(app_name)+'); ae.quit();'
     run(['/usr/bin/osascript','-l','JavaScript','-e',script],timeout=30)
+
+def cleanup_ae_running(evidence):
+    try:
+        running=bool(ae_pids())
+        evidence['cleanupAeRunning']=running
+        return running
+    except Exception as error:
+        evidence['cleanupAeProcessCheck']='FAIL:'+str(error)
+        return None
 
 def load_trace_module():
     import importlib.util
@@ -330,6 +362,8 @@ def main():
         wait_for_ae(time.monotonic()+args.timeout,True)
         trace_path=new_trace(record['buildId'],before,time.monotonic()+args.timeout)
         trace_ready(trace_path,record['buildId'],time.monotonic()+args.timeout)
+        require_empty_unsaved_project(app['name'])
+        evidence['projectSafety']='EMPTY_UNSAVED'
         request_quit(app['name'])
         wait_for_ae(time.monotonic()+args.timeout,False)
         trace=load_trace_module()
@@ -346,17 +380,22 @@ def main():
             evidence['status']='BLOCKED'
         raise
     finally:
-        if installed_by_run:
+        ae_running=cleanup_ae_running(evidence)
+        if installed_by_run and ae_running is False:
             try:
                 clean_owned_install()
                 evidence['ownedInstallCleanup']='PASS'
             except Exception as cleanup_error:
                 evidence['ownedInstallCleanup']='FAIL:'+str(cleanup_error)
+        elif installed_by_run and ae_running is True:
+            evidence['ownedInstallCleanup']='DEFERRED_AE_RUNNING'
+        elif installed_by_run:
+            evidence['ownedInstallCleanup']='DEFERRED_AE_STATE_UNKNOWN'
         else:
             evidence['ownedInstallCleanup']='NOT_NEEDED'
         evidence_path=write_evidence(run_id,evidence)
         print(json.dumps({'evidence':str(evidence_path),'status':evidence['status']}))
-        if trace_path and trace_path.exists() and not ae_pids():
+        if trace_path and trace_path.exists() and ae_running is False:
             try: trace_path.unlink()
             except OSError: pass
 
