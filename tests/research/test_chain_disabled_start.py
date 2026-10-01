@@ -86,7 +86,7 @@ class DisabledStartRunnerTests(unittest.TestCase):
                   'CFBundleExecutable':'After Effects'}
             (app/'Contents/Info.plist').write_bytes(plistlib.dumps(info))
             found=gate.validate_ae_app(app)
-            self.assertEqual(found['executable'],exe)
+            self.assertEqual(found['executable'],exe.resolve())
             info['CFBundleVersion']='25.6.0.999'
             (app/'Contents/Info.plist').write_bytes(plistlib.dumps(info))
             with self.assertRaisesRegex(gate.GateError,'IDENTITY_MISMATCH'):
