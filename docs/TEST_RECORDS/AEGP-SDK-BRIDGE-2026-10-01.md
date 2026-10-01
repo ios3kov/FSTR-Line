@@ -171,3 +171,13 @@ Commit `865a99810c676a7fff767af5f34e818fecdd39a6` initially added this behavior 
 Exact `5129fcb` evidence: Research unit regression PASS; Integration gate `36870075957` PASS; Read-only module input `36870075731` PASS. Notification research tools `36870075728` reaches the legacy LLDB parent step and then fails in the already-open Issue #3 class; the new unit regression is green and no retry-to-green was used.
 
 This remains runner/evidence hardening only. Full native Apple Silicon SDK bundle build in the user's AE environment, disabled-start load proof and script-origin Undo/Redo runtime proof are still NOT RUN here. SYNC-001 remains open; Phase 0 remains 0/5 accepted.
+
+## Exact-head follow-up — 04d9bbd
+
+A one-command no-LLDB orchestrator now owns the order of the first two real host gates. `run_native_gates.py` runs disabled-start first and launches script-origin only after a PASS. It stops on the first FAIL/BLOCKED, validates that child evidence stays under the owned runtime-evidence root, checks evidence hashes/schema, requires the same source commit and exact AE version across both PASS stages, and writes one aggregate `native-gates.json`. It never turns a partial script-origin result into full SYNC-001 acceptance and never introduces an LLDB path.
+
+Commit `65e98db67a3ee7508b51865826356df06d73600b` exposed a real portability bug in the new evidence-path validation on macOS: temporary paths can canonicalize from `/var/...` to `/private/var/...`. The unit regression failed rather than being waived. Commit `04d9bbd04830e548a13abc6028526b3e0e09f228` fixes the code by canonicalizing the repository root before containment/relative-path checks; the same regression then passes.
+
+Exact `04d9bbd` CI: Integration gate `36871208396` PASS; Notification research tools `36871208585` PASS; Read-only module input `36871208473` PASS. This successful LLDB run does not close intermittent Issue #3; it only records this exact run's result.
+
+The next required evidence is therefore the real Apple Silicon/AE 25.6.0.101 execution of the orchestrator with the external SDK. CI still does not contain the licensed SDK or launch the user's After Effects. SYNC-001 remains open; Phase 0 remains 0/5 accepted.

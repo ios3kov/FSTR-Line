@@ -5,7 +5,7 @@
 
 ## Текущий шаг — AEGP helper и автоматизированные no-LLDB runtime gates
 
-Последний implementation HEAD этого шага: `5129fcb1b8dce99e7c3b21ae99ad8e5e9c7a745a`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Последний implementation HEAD этого шага: `04d9bbd04830e548a13abc6028526b3e0e09f228`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
 Архив SDK распакован и его реальные объявления использованы при компиляции.
 SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
@@ -38,6 +38,8 @@ Callback attribution hardening on the current increment: each edit/Undo/Redo mus
 Undo/Redo determinism hardening on `0436701`: each of the two controlled script timing edits now runs inside its own explicit `app.beginUndoGroup()/app.endUndoGroup()` pair with `try/finally`. This guarantees the runtime gate is asking AE to create two distinct undoable script actions before the separate Undo and Redo phases, instead of depending on implicit script undo behavior. Regression coverage checks one balanced group per edit and ordering around the mutation. Exact-commit CI: Integration gate `36869059679` PASS; Notification research tools `36869059643` PASS; Read-only module input `36869059698` PASS. The successful legacy LLDB path in this run does not close intermittent Issue #3. Real AE 25.6.0.101 runtime remains NOT RUN.
 
 Undo/Redo command dispatch hardening on `5129fcb`: before any project mutation the runner resolves the exact current AE `Undo` and `Redo` menu command IDs while the menu labels are still stable, validates two distinct positive IDs, records them in evidence, and later executes the numeric IDs directly. This avoids depending on dynamic labels such as `Undo FSTR Chain Probe Script Edit`; `findMenuCommandId()` is no longer called during Undo/Redo phases. The first implementation commit `865a998` exposed a test-isolation regression on macOS CI because two failure-path tests accidentally invoked real `osascript`; `5129fcb` fixes only those test mocks. On `5129fcb`, Research unit regression PASS, Integration gate `36870075957` PASS and Read-only module input `36870075731` PASS. Notification research tools `36870075728` fails later only in the existing LLDB owned-fixture parent step (#3); no retry-to-green. Real AE runtime remains NOT RUN.
+
+Native gate automation on `04d9bbd`: added `run_native_gates.py`, which executes disabled-start first and permits script-origin only after an exact PASS. It stops on the first FAIL/BLOCKED, validates scoped child evidence, hashes, exact source commit and AE version, and writes one aggregate `native-gates.json`; no LLDB is added. Initial commit `65e98db` exposed a real macOS canonical-path defect (`/var` vs `/private/var`) in evidence normalization; `04d9bbd` fixes the implementation by resolving the repo root before relative-path validation, while preserving the regression. Exact-commit CI is fully green: Integration gate `36871208396` PASS; Notification research tools `36871208585` PASS; Read-only module input `36871208473` PASS. This still does not substitute for the actual AE runtime gate.
 
 ## Следующий шаг
 
