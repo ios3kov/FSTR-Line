@@ -3,9 +3,9 @@
 Обновлено: 2026-10-01. Ветка `integration/host-safety-notifications`, Draft PR #2.
 Принято **0 из 5 фаз**. SYNC-001 не закрыт. Main/merge/deploy/release не затронуты.
 
-## Текущий шаг — AEGP helper и no-LLDB evidence gate
+## Текущий шаг — AEGP helper и автоматизированные no-LLDB runtime gates
 
-Текущий проверенный HEAD: `21a2d0599d1bdbff6cc6d960a79bc9cf6e0de4d8`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Последний implementation HEAD этого шага: `5c2ae20102cfcff9c4893b2b43f98182d11f317f`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
 Архив SDK распакован и его реальные объявления использованы при компиляции.
 SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
@@ -24,16 +24,14 @@ UUID, заголовки/код в памяти и принадлежность 
 
 Exact HEAD `21a2d05` прошёл Integration gate `36834338257` и Read-only module input `36834338195`. Notification research tools `36834338125` прошёл новый research unit regression и остальные ранние проверки, затем упал в старом LLDB `mac_runtime_attach_smoke`: owned fixture завершился `-9` после detach. Это тот же открытый класс Issue #3; он не чинится и не ретраится в этом этапе. Это Linux/hosted-macOS evidence, **не полная SDK macOS-сборка и не запуск AE**.
 
-Готов рецепт clean macOS bundle build с PiPL, Build ID, embedded ownership receipt и проверкой подписи; полная сборка с SDK на Mac, установка/загрузка и реальные события ещё NOT RUN.
+Готов рецепт clean macOS bundle build с PiPL, Build ID, embedded ownership receipt и проверкой подписи. Добавлен безопасный disabled-start runner и отдельный research-opt-in `run_script_origin.py`: он отказывается работать при уже запущенном AE или непустом/сохранённом startup-проекте, создаёт только собственную несохранённую test-comp, выполняет два script-origin timing edit, Undo/Redo, Stop/Remove и валидирует no-LLDB trace. При невозможности доказать ownership он не закрывает потенциально пользовательский проект. Исправлена safety-ошибка в regex определения уже запущенного AE; добавлен regression-test на реальный `.app/Contents/MacOS/After Effects` путь.
+
+Implementation HEAD `5c2ae201...`: Integration gate PASS (run 36839331202), macOS Research unit regression PASS в run 36839331191. Остальные legacy LLDB шаги этого workflow не используются как критерий нового gate и могут по-прежнему отражать открытый Issue #3. **Реальная SDK macOS-сборка и запуск этих gates в AE 25.6.0.101 всё ещё NOT RUN.**
 [Реализация, точные проверки и ограничения](TEST_RECORDS/AEGP-SDK-BRIDGE-2026-10-01.md).
 
 ## Следующий шаг
 
-Собрать AEGP с предоставленным SDK на Apple Silicon Mac, проверить выключенный
-старт и точный кандидат, затем минимальную подписку на отдельном проекте без LLDB.
-Подтвердить повторные изменения, сохранность цепочки AE и удаление только своего
-подписчика. SDK больше не является отсутствующим входом; не хватает подтверждённой
-полной Mac-сборки и реального host-прогона. Плагин пользователю не передаётся.
+Запустить сначала `run_disabled_start.py`, затем `run_script_origin.py` на авторизованном Apple Silicon Mac с exact AE 25.6.0.101 и предоставленным SDK. Первый gate подтверждает загрузку exact disabled build без private activity; второй — opt-in регистрацию, два script-origin изменения, Undo/Redo, собственный Stop/Remove и чистый exit без LLDB. После этого отдельно остаётся native-UI/plugin-origin/full-field coverage и performance. SDK больше не является отсутствующим входом; не хватает реального host-прогона. Исследовательский helper пользователю как продукт не передаётся.
 
 Полная матрица SYNC-001, post-commit, проекты/контекст и performance не приняты.
 #3 и прежние runtime FAIL остаются открытыми; доработка LLDB не является текущей целью.
