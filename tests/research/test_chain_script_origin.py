@@ -63,6 +63,40 @@ class ScriptOriginRunnerTests(unittest.TestCase):
         self.assertEqual(gate.fraction_pair('1.5'),[3,2])
         self.assertEqual(gate.fraction_pair('2'),[2,1])
 
+    def test_edit_command_ids_are_resolved_before_dynamic_undo_labels(self):
+        original=gate.do_script; scripts=[]
+        try:
+            gate.do_script=lambda app,script,**kwargs: (
+                scripts.append(script) or 'FSTR_EDIT_COMMAND_IDS:16|2035')
+            ids=gate.resolve_edit_command_ids('AE')
+        finally:
+            gate.do_script=original
+        self.assertEqual(ids,{'Undo':16,'Redo':2035})
+        self.assertIn('findMenuCommandId("Undo")',scripts[0])
+        self.assertIn('findMenuCommandId("Redo")',scripts[0])
+
+    def test_edit_command_id_resolution_fails_closed(self):
+        original=gate.do_script
+        try:
+            for result in ('NO_IDS','FSTR_EDIT_COMMAND_IDS:0|2035',
+                           'FSTR_EDIT_COMMAND_IDS:16|16','FSTR_EDIT_COMMAND_IDS:x|17'):
+                gate.do_script=lambda *args,_result=result,**kwargs:_result
+                with self.assertRaises(gate.GateError):
+                    gate.resolve_edit_command_ids('AE')
+        finally:
+            gate.do_script=original
+
+    def test_execute_command_uses_pre_resolved_numeric_id(self):
+        original=gate.do_script; scripts=[]
+        try:
+            gate.do_script=lambda app,script,**kwargs: (
+                scripts.append(script) or 'FSTR_COMMAND:Undo')
+            gate.execute_command_id('AE',16,'Undo')
+        finally:
+            gate.do_script=original
+        self.assertIn('app.executeCommand(16)',scripts[0])
+        self.assertNotIn('findMenuCommandId',scripts[0])
+
     def test_script_edit_uses_one_explicit_undo_group_per_call(self):
         original=gate.do_script; scripts=[]
         try:

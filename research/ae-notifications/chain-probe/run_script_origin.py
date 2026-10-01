@@ -241,16 +241,38 @@ def set_start_time(app_name,value):
         raise GateError('SCRIPT_EDIT_UNCONFIRMED')
     return result
 
-def execute_named_command(app_name,name):
+def resolve_edit_command_ids(app_name):
     script=(
-        'var id=app.findMenuCommandId('+json.dumps(name)+');'
-        'if(!id) throw new Error("FSTR_MENU_COMMAND_NOT_FOUND");'
-        'app.executeCommand(id);'
-        '"FSTR_COMMAND:'+name+'";'
+        'var undoId=app.findMenuCommandId("Undo");'
+        'var redoId=app.findMenuCommandId("Redo");'
+        'if(!undoId||!redoId) throw new Error("FSTR_EDIT_COMMAND_IDS_NOT_FOUND");'
+        '"FSTR_EDIT_COMMAND_IDS:"+undoId.toString()+"|"+redoId.toString();'
     )
     result=do_script(app_name,script)
-    if 'FSTR_COMMAND:'+name not in result:
-        raise GateError('SCRIPT_COMMAND_UNCONFIRMED:'+name)
+    marker='FSTR_EDIT_COMMAND_IDS:'
+    if marker not in result:
+        raise GateError('EDIT_COMMAND_IDS_UNCONFIRMED')
+    fields=result.split(marker,1)[1].strip().split('|')
+    if len(fields)!=2:
+        raise GateError('EDIT_COMMAND_IDS_FORMAT_INVALID')
+    try:
+        undo_id,redo_id=(int(value) for value in fields)
+    except ValueError as error:
+        raise GateError('EDIT_COMMAND_IDS_FORMAT_INVALID') from error
+    if undo_id<=0 or redo_id<=0 or undo_id==redo_id:
+        raise GateError('EDIT_COMMAND_IDS_INVALID')
+    return {'Undo':undo_id,'Redo':redo_id}
+
+def execute_command_id(app_name,command_id,label):
+    if type(command_id) is not int or command_id<=0:
+        raise GateError('SCRIPT_COMMAND_ID_INVALID:'+label)
+    script=(
+        'app.executeCommand('+str(command_id)+');'
+        '"FSTR_COMMAND:'+label+'";'
+    )
+    result=do_script(app_name,script)
+    if 'FSTR_COMMAND:'+label not in result:
+        raise GateError('SCRIPT_COMMAND_UNCONFIRMED:'+label)
 
 def write_evidence(run_id,payload):
     out=ROOT/'dist/chain-probe-runtime'/run_id
@@ -305,6 +327,8 @@ def main():
         trace_path=base.new_trace(record['buildId'],before,time.monotonic()+args.timeout)
         base.trace_ready(trace_path,record['buildId'],time.monotonic()+args.timeout)
         require_empty_unsaved_project(app['name']); safe_empty=True
+        edit_command_ids=resolve_edit_command_ids(app['name'])
+        evidence['editCommandIds']=edit_command_ids
         safe_empty=False; project_ownership_uncertain=True
         layer_id=create_owned_test_project(app['name'])
         owned_project=True; project_ownership_uncertain=False
@@ -319,8 +343,8 @@ def main():
         for label,action in (
             ('script-edit-1',lambda:set_start_time(app['name'],1.0)),
             ('script-edit-2',lambda:set_start_time(app['name'],2.0)),
-            ('undo',lambda:execute_named_command(app['name'],'Undo')),
-            ('redo',lambda:execute_named_command(app['name'],'Redo')),
+            ('undo',lambda:execute_command_id(app['name'],edit_command_ids['Undo'],'Undo')),
+            ('redo',lambda:execute_command_id(app['name'],edit_command_ids['Redo'],'Redo')),
         ):
             phase,state=run_observed_phase(
                 app['name'],trace_path,record['buildId'],args.timeout,layer_id,label,action)
