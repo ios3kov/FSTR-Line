@@ -4,6 +4,7 @@ import json
 import plistlib
 import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -49,6 +50,30 @@ class DisabledStartRunnerTests(unittest.TestCase):
             record={'sourceCommit':receipt['sourceCommit'],'buildId':receipt['buildId'],'files':files}
             with self.assertRaisesRegex(gate.GateError,'RECEIPT_MODE_MISMATCH'):
                 gate.verify_bundle_files(bundle,record)
+
+    def test_ae_process_query_uses_executable_pattern_not_broad_name(self):
+        original=gate.run; captured=[]
+        try:
+            gate.run=lambda args,**kwargs: (captured.append(args) or SimpleNamespace(returncode=1,stdout='',stderr=''))
+            self.assertEqual(gate.ae_pids(),[])
+        finally:
+            gate.run=original
+        self.assertEqual(captured[0][0:2],['/usr/bin/pgrep','-f'])
+        self.assertEqual(captured[0][2],gate.AE_PROCESS_PATTERN)
+        self.assertIn('.app/Contents/MacOS/After Effects',gate.AE_PROCESS_PATTERN)
+
+    def test_owned_cleanup_refuses_symlink_target(self):
+        with tempfile.TemporaryDirectory() as td:
+            original_root,original_target=gate.OWNED_ROOT,gate.TARGET
+            root=Path(td)/'owned'; root.mkdir()
+            elsewhere=Path(td)/'elsewhere'; elsewhere.mkdir()
+            target=root/'FSTRChainProbe.plugin'; target.symlink_to(elsewhere,target_is_directory=True)
+            try:
+                gate.OWNED_ROOT=root; gate.TARGET=target
+                with self.assertRaisesRegex(gate.GateError,'SYMLINK_REFUSED'):
+                    gate.clean_owned_install()
+            finally:
+                gate.OWNED_ROOT=original_root; gate.TARGET=original_target
 
     def test_validate_ae_app_requires_exact_25_6_0_101(self):
         with tempfile.TemporaryDirectory(suffix='.app') as td:
