@@ -100,6 +100,29 @@ class DisabledStartRunnerTests(unittest.TestCase):
             finally:
                 gate.OWNED_ROOT=original_root; gate.TARGET=original_target; gate.run=original_run
 
+    def test_startup_project_must_be_proven_empty_and_unsaved(self):
+        original=gate.do_script
+        try:
+            gate.do_script=lambda *args,**kwargs:'NOT_EMPTY'
+            with self.assertRaisesRegex(gate.GateError,'BLOCKED_PROJECT_NOT_PROVEN_EMPTY'):
+                gate.require_empty_unsaved_project('AE')
+            gate.do_script=lambda *args,**kwargs: (_ for _ in ()).throw(gate.GateError('COMMAND_FAILED'))
+            with self.assertRaisesRegex(gate.GateError,'BLOCKED_PROJECT_NOT_PROVEN_EMPTY'):
+                gate.require_empty_unsaved_project('AE')
+        finally:
+            gate.do_script=original
+
+    def test_cleanup_process_query_failure_is_unknown_not_safe(self):
+        original=gate.ae_pids
+        evidence={}
+        try:
+            gate.ae_pids=lambda: (_ for _ in ()).throw(gate.GateError('QUERY_FAIL'))
+            self.assertIsNone(gate.cleanup_ae_running(evidence))
+        finally:
+            gate.ae_pids=original
+        self.assertIn('cleanupAeProcessCheck',evidence)
+        self.assertNotIn('cleanupAeRunning',evidence)
+
     def test_validate_ae_app_requires_exact_25_6_0_101(self):
         with tempfile.TemporaryDirectory(suffix='.app') as td:
             app=Path(td); mac=app/'Contents/MacOS'; mac.mkdir(parents=True)
