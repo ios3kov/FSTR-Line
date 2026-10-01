@@ -20,7 +20,7 @@ def write_trace(events,mutate=None):
     path=Path(temp.name)/'trace.jsonl'
     data=rows(events)
     if mutate: mutate(data)
-    path.write_text(''.join(json.dumps(row,separators=(',',':'))+'\\n' for row in data),encoding='utf-8')
+    path.write_text(''.join(json.dumps(row,separators=(',',':'))+'\n' for row in data),encoding='utf-8')
     return temp,path
 
 DISABLED=[
@@ -87,7 +87,7 @@ class TraceAcceptanceTests(unittest.TestCase):
     def test_parser_rejects_non_object_json(self):
         temp=tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         path=Path(temp.name)/'trace.jsonl'
-        path.write_text('[]\\n',encoding='utf-8')
+        path.write_text('[]\n',encoding='utf-8')
         with self.assertRaisesRegex(trace.EvidenceError,'SCHEMA_INVALID'):
             trace.parse_trace(path,BUILD)
 
