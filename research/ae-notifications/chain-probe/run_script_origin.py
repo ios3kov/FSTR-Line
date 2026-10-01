@@ -329,39 +329,50 @@ def main():
             evidence['status']='BLOCKED'
         raise
     finally:
-        if owned_project and base.ae_pids():
+        ae_running=base.cleanup_ae_running(evidence)
+        if owned_project and ae_running is True:
             try:
                 require_owned_project_and_close(app['name'])
                 owned_project=False; evidence['ownedProjectCleanup']='PASS'
                 safe_empty=True
             except Exception as cleanup_error:
                 evidence['ownedProjectCleanup']='FAIL:'+str(cleanup_error)
+        elif owned_project and ae_running is False:
+            evidence['ownedProjectCleanup']='AE_ALREADY_EXITED'
+        elif owned_project:
+            evidence['ownedProjectCleanup']='DEFERRED_AE_STATE_UNKNOWN'
         elif safe_empty:
             evidence['ownedProjectCleanup']='NOT_NEEDED_OR_ALREADY_CLOSED'
         else:
             evidence['ownedProjectCleanup']='NOT_SAFE_TO_TOUCH'
 
-        if safe_empty and not owned_project and base.ae_pids():
+        if safe_empty and not owned_project and ae_running is True:
             try:
                 base.request_quit(app['name'])
                 base.wait_for_ae(time.monotonic()+args.timeout,False)
                 evidence['aeQuitCleanup']='PASS'
+                ae_running=False
             except Exception as cleanup_error:
                 evidence['aeQuitCleanup']='FAIL:'+str(cleanup_error)
+                ae_running=base.cleanup_ae_running(evidence)
         else:
             evidence['aeQuitCleanup']='NOT_SAFE_OR_NOT_NEEDED'
 
-        if installed:
+        if installed and ae_running is False:
             try:
                 base.clean_owned_install(); evidence['ownedInstallCleanup']='PASS'
             except Exception as cleanup_error:
                 evidence['ownedInstallCleanup']='FAIL:'+str(cleanup_error)
+        elif installed and ae_running is True:
+            evidence['ownedInstallCleanup']='DEFERRED_AE_RUNNING'
+        elif installed:
+            evidence['ownedInstallCleanup']='DEFERRED_AE_STATE_UNKNOWN'
         else:
             evidence['ownedInstallCleanup']='NOT_NEEDED'
 
         evidence_path=write_evidence(run_id,evidence)
         print(json.dumps({'evidence':str(evidence_path),'status':evidence['status']}))
-        if trace_path and trace_path.exists() and not base.ae_pids():
+        if trace_path and trace_path.exists() and ae_running is False:
             try: trace_path.unlink()
             except OSError: pass
 
