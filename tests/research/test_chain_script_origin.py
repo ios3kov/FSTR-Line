@@ -82,6 +82,19 @@ class ScriptOriginRunnerTests(unittest.TestCase):
         finally:
             gate.do_script=original
 
+    def test_observed_phase_waits_for_callback_before_public_read(self):
+        order=[]
+        action=lambda: order.append('action')
+        with mock.patch.object(gate,'observation_count',side_effect=lambda *args: (order.append('count') or 4)), \
+             mock.patch.object(gate,'wait_for_new_observation',side_effect=lambda *args,**kwargs: (order.append('wait') or 5)), \
+             mock.patch.object(gate,'read_layer_state',side_effect=lambda *args,**kwargs: (order.append('read') or {
+                 'label':'edit','id':12,'offset':[1,1],'in':[1,1],'duration':[10,1]})):
+            phase,state=gate.run_observed_phase('AE','trace','build',2,12,'edit',action)
+        self.assertEqual(order,['count','action','wait','read'])
+        self.assertEqual(phase['observationsBefore'],4)
+        self.assertEqual(phase['observationsAfter'],5)
+        self.assertEqual(state['id'],12)
+
     def test_project_preflight_blocks_unproven_empty_state(self):
         original=gate.do_script
         try:
