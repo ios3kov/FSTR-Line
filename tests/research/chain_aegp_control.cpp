@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstring>
 #include <stdexcept>
+#include <fstream>
 #include <string>
 #include <vector>
 using namespace fstr::research;
@@ -69,6 +70,7 @@ bool bind_loaded_ae(Binding& out,const char*& reason) noexcept {
 }
 int main(int argc,char** argv) {
     assert(argc==2); const std::string scenario=argv[1]; setup();
+    std::string trace_path;
     suppressed=scenario=="suppressed";idle_fails=scenario=="partial";bind_ok=scenario!="wrong-host";
     death_fails=scenario=="death-fail";pin_ok=scenario!="pin-fail";
     SPBasicSuite basic{};basic.AcquireSuite=acquire_suite;
@@ -79,6 +81,7 @@ int main(int argc,char** argv) {
         assert(state==nullptr && pin_calls==0);
     } else {
         assert(init_result==A_Err_NONE);
+        if(state && state->trace_path[0]) trace_path=state->trace_path;
         if(suppressed) {
             assert(!global && !host_command && !inserts && released==4 && state==nullptr && pin_calls==0);
         } else if(idle_fails) {
@@ -124,6 +127,18 @@ int main(int argc,char** argv) {
                 }
             }
         }
+    }
+    if(!trace_path.empty()) {
+        std::ifstream in(trace_path); const std::string content((std::istreambuf_iterator<char>(in)),{});
+        assert(content.find("\\"schemaVersion\\":1")!=std::string::npos);
+        assert(content.find(FSTR_PROBE_BUILD_ID)!=std::string::npos);
+        if(scenario=="normal") {
+            assert(content.find("LOADED_DISABLED_BUILD_ID_IN_EVENT_TYPE_NO_PROJECT_READS")!=std::string::npos);
+            assert(content.find("REGISTERED_RESEARCH_ONLY_SYNC001_NOT_RUN")!=std::string::npos);
+            assert(content.find("OBSERVATION_NOT_COMMIT_PROOF")!=std::string::npos);
+            assert(content.find("REMOVED_OWN_ID")!=std::string::npos);
+        }
+        (void)unlink(trace_path.c_str());
     }
     std::printf("{\"status\":\"PASS\",\"scenario\":\"%s\",\"AdobeRuntime\":\"NOT RUN\"}\n",argv[1]);
 }

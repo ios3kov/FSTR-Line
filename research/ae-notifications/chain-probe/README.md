@@ -13,8 +13,11 @@ No installable artifact or real-AE acceptance is supplied by this increment.
   permits another attempt. Nested/overlapping observations are not published as stable.
 - `aegp_probe.cpp`: actual SDK entry/hook declarations, own Start/Stop menu command,
   noninteractive refusal, event-triggered fresh active-layer timing reads and
-  debug-log observations. It never mutates/saves/closes a project. Callback payloads
-  are neither dereferenced nor retained as handles.
+  debug-log observations. Interactive research loads also create a private 0600
+  `/tmp/FSTRChainProbe-<pid>-<buildId>-*` JSONL trace for no-LLDB acceptance.
+  Trace I/O happens only on the main-thread AEGP path, never inside the BEE callback.
+  It never mutates/saves/closes a project. Callback payloads are neither dereferenced
+  nor retained as handles.
 - `binding_macos.cpp`: only already-loaded expected libraries, exact bundle version,
   file SHA, loaded UUID/header/text comparison and export-owner validation.
   No absent Adobe library load, absolute text address call or arbitrary CLI override.
@@ -28,6 +31,10 @@ are NOT accepted by this sample. Numeric event mappings remain research evidence
 ## Lifecycle limits
 
 Recording is off at load. Default builds also refuse private registration entirely.
+Opening the diagnostic trace does not read project state or register the private
+callback; pre-hook failures remove their trace. A clean host death retains a bounded
+trace as runtime evidence. Trace failure blocks the interactive research helper
+rather than silently producing unverifiable acceptance evidence.
 The research opt-in is not permission to deploy this code in a user's working AE.
 Use only after the isolated runtime protocol and applicable gates are satisfied.
 All chain callbacks continue exactly once, preserving the downstream result and

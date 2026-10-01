@@ -7,9 +7,13 @@
 #include "AE_GeneralPlug.h"
 #include "dispatch.hpp"
 #include "binding.hpp"
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <new>
 #include <type_traits>
+#include <unistd.h>
 #ifndef FSTR_PROBE_BUILD_ID
 #error "Build identity must be supplied by the checked build script"
 #endif
@@ -35,14 +39,62 @@ struct State {
     Dispatch dispatch{wake_host,on_main_thread};
     int registration_id=0;
     bool module_pinned=false, poisoned=false, closing=false, initialized=false;
+    FILE* trace=nullptr;
+    unsigned long long trace_sequence=0;
+    char trace_path[384]{};
     Sample sample{};
 };
 int wake_host() {
     return state && state->utility ? state->utility->AEGP_CauseIdleRoutinesToBeCalled() : -1;
 }
+bool safe_build_id() noexcept {
+    const char* p=FSTR_PROBE_BUILD_ID;
+    if(!p || !*p) return false;
+    size_t n=0;
+    for(;p[n];++n) {
+        if(n>=96) return false;
+        const unsigned char c=static_cast<unsigned char>(p[n]);
+        if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='-'||c=='_'||c=='.')) return false;
+    }
+    return true;
+}
+bool open_trace(State& s) noexcept {
+    if(!safe_build_id()) return false;
+    const int n=std::snprintf(s.trace_path,sizeof(s.trace_path),
+        "/tmp/FSTRChainProbe-%ld-%s-XXXXXX",static_cast<long>(getpid()),FSTR_PROBE_BUILD_ID);
+    if(n<=0 || static_cast<size_t>(n)>=sizeof(s.trace_path)) return false;
+    const int fd=mkstemp(s.trace_path);
+    if(fd<0) {s.trace_path[0]='\0'; return false;}
+    s.trace=fdopen(fd,"w");
+    if(!s.trace) {close(fd);unlink(s.trace_path);s.trace_path[0]='\0';return false;}
+    return true;
+}
+void close_trace(State& s,bool remove_file) noexcept {
+    if(s.trace) {std::fflush(s.trace);std::fclose(s.trace);s.trace=nullptr;}
+    if(remove_file && s.trace_path[0]) (void)unlink(s.trace_path);
+}
+void write_trace(State& s,const char* text) noexcept {
+    if(!s.trace || !text) return;
+    char safe[512]; size_t n=0;
+    for(;text[n] && n+1<sizeof(safe);++n) {
+        const unsigned char c=static_cast<unsigned char>(text[n]);
+        safe[n]=(c>=0x20 && c<=0x7e && c!='"' && c!='\\')?static_cast<char>(c):'_';
+    }
+    safe[n]='\0';
+    const auto wall=std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    if(std::fprintf(s.trace,
+        "{\"schemaVersion\":1,\"buildId\":\"%s\",\"sequence\":%llu,\"wallTimeNs\":%lld,\"event\":\"%s\"}\n",
+        FSTR_PROBE_BUILD_ID,++s.trace_sequence,static_cast<long long>(wall),safe)<0 ||
+       std::fflush(s.trace)!=0) {
+        std::fclose(s.trace);s.trace=nullptr;
+    }
+}
 void log(State& s, const char* text) noexcept {
-    if(s.utility && on_main_thread())
+    if(s.utility && on_main_thread()) {
         (void)s.utility->AEGP_WriteToDebugLog("FSTRChainProbe",FSTR_PROBE_BUILD_ID,text);
+        write_trace(s,text);
+    }
 }
 template<class Suite> A_Err acquire(State& s,const char* name,A_long version,const Suite*& out) {
     const void* raw=nullptr; const A_Err err=s.basic->AcquireSuite(name,version,&raw);
@@ -51,6 +103,7 @@ template<class Suite> A_Err acquire(State& s,const char* name,A_long version,con
     out=static_cast<const Suite*>(raw); return A_Err_NONE;
 }
 void release(State& s) noexcept {
+    close_trace(s,false);
     // No later callback may use SDK pointers; the inactive forwarding core remains resident.
     if(s.layers) { s.basic->ReleaseSuite(kAEGPLayerSuite,kAEGPLayerSuiteVersion9); s.layers=nullptr; }
     if(s.commands) { s.basic->ReleaseSuite(kAEGPCommandSuite,kAEGPCommandSuiteVersion1); s.commands=nullptr; }
@@ -60,6 +113,7 @@ void release(State& s) noexcept {
 void discard_before_hooks(State& s) noexcept {
     // Before the first registered host hook, no host code can retain this refcon.
     // Clean failures/no-op noninteractive loads completely instead of leaving zombie state.
+    close_trace(s,true);
     release(s);
     State* owned=state;
     state=nullptr;
@@ -134,12 +188,14 @@ A_Err idle(AEGP_GlobalRefcon global,AEGP_IdleRefcon,A_long*) {
         if(result==Dispatch::Drain::failed) log(s,"SNAPSHOT_FAILED_PENDING_RETAINED_NO_IDLE_RETRY");
         else if(result==Dispatch::Drain::superseded) log(s,"SNAPSHOT_SUPERSEDED_NOT_ACCEPTED");
         else if(result==Dispatch::Drain::observed) {
-            char buffer[384]; const auto& v=s.sample;
+            char buffer[512]; const auto& v=s.sample; const auto observed=s.dispatch.observer.snapshot();
             std::snprintf(buffer,sizeof(buffer),
-                "OBSERVATION_NOT_COMMIT_PROOF generation=%llu active=%d id=%ld offset=%ld/%lu in=%ld/%lu duration=%ld/%lu",
+                "OBSERVATION_NOT_COMMIT_PROOF generation=%llu active=%d id=%ld offset=%ld/%lu in=%ld/%lu duration=%ld/%lu entered=%llu zero=%llu error=%llu unwound=%llu",
                 static_cast<unsigned long long>(s.dispatch.delivered),int(v.has_layer),long(v.id),
                 long(v.offset.value),static_cast<unsigned long>(v.offset.scale),long(v.in.value),
-                static_cast<unsigned long>(v.in.scale),long(v.duration.value),static_cast<unsigned long>(v.duration.scale));
+                static_cast<unsigned long>(v.in.scale),long(v.duration.value),static_cast<unsigned long>(v.duration.scale),
+                static_cast<unsigned long long>(observed.entered),static_cast<unsigned long long>(observed.returned_zero),
+                static_cast<unsigned long long>(observed.returned_error),static_cast<unsigned long long>(observed.unwound));
             log(s,buffer);
         }
     } catch(...) {log(s,"SNAPSHOT_EXCEPTION_PENDING_RETAINED");}
@@ -187,6 +243,9 @@ A_Err EntryPointFunc(SPBasicSuite* basic,A_long major,A_long minor,AEGP_PluginID
     A_Boolean suppressed=FALSE;
     err=s.utility->AEGP_GetSuppressInteractiveUI(&suppressed);
     if(err || suppressed) {discard_before_hooks(s); return err;}
+    // The research trace is mandatory for an interactive acceptance run, but no
+    // project state is read and no private callback is registered by opening it.
+    if(!open_trace(s)) {discard_before_hooks(s); return A_Err_GENERIC;}
     *out=reinterpret_cast<AEGP_GlobalRefcon>(&s);
     // Once any hook is installed, keep state/code valid even on partial failure.
     err=s.registration->AEGP_RegisterDeathHook(id,death,nullptr);
