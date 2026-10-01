@@ -3,10 +3,9 @@
 Обновлено: 2026-10-01. Ветка `integration/host-safety-notifications`, Draft PR #2.
 Принято **0 из 5 фаз**. SYNC-001 не закрыт. Main/merge/deploy/release не затронуты.
 
-## Текущий шаг — SDK получен, реализован вход AEGP и доставка событий
+## Текущий шаг — AEGP helper и no-LLDB evidence gate
 
-База: `adf3ec85e4bf11a7f63bc157b61a9453eda587e3`. Правила main перечитаны,
-blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
+Текущий проверенный HEAD: `35c2c5d77cd3cba0ac1bdacb6d9320f22182851e`; checkpoint: `6bef1e475ef944cdd471a84041d7d4035b732d8c`. Правила main перечитаны, blob `701a8c1ae3acb4dbfe1d7eda94acbf8095b88608`.
 Архив SDK распакован и его реальные объявления использованы при компиляции.
 SDK и ранее полученные библиотеки остаются вне Git/CI; повторно присылать их не нужно.
 
@@ -19,16 +18,13 @@ pending; без события idle не читает проект. Повтор
 Добавлена macOS-проверка уже загруженных BEE/AfterFXLib: точная версия, hash,
 UUID, заголовки/код в памяти и принадлежность экспортов. Отсутствующая библиотека
 не загружается. Частная подписка выключена в обычной сборке; исследовательское
-включение отдельно разрешается при сборке. Неизвестный результат регистрации/
-удаления блокирует повторы, память обработчика и код сохраняются до конца процесса.
-Окончательная безопасность lifecycle внутри AE пока не доказана.
+включение отдельно разрешается при сборке. Неизвестный результат регистрации/удаления блокирует повторы. Модуль pin-ится только после точной проверки host identity непосредственно перед private Insert; default/отклонённый старт его не pin-ит. Ошибки до первого зарегистрированного host hook полностью освобождают локальный State. После возможной регистрации callback/refcon и код остаются resident. Окончательная безопасность lifecycle внутри AE пока не доказана.
 
-Локально выполнены две группы тестов: шесть сценариев AEGP с настоящими SDK-
-объявлениями и собственным host-окружением; dispatcher в optimized и ASan/UBSan.
-Это Linux-проверка C++ через условную ветку SDK, **не macOS-сборка и не запуск AE**.
-macOS loader проверяется отдельно в CI. Полного Git checkout локально нет из-за DNS.
-Готов рецепт clean macOS bundle build с PiPL, Build ID и проверкой подписи;
-полная сборка с SDK на Mac, установка/загрузка и реальные события ещё NOT RUN.
+Локальный SDK-control покрывает восемь fresh-process сценариев AEGP с настоящими SDK-объявлениями и собственным host-окружением; dispatcher проверяется в optimized и ASan/UBSan. Добавлены no-LLDB JSONL trace и fail-closed parser: disabled-start запрещает private activity, active proof требует регистрацию, минимум две последовательные stable observation, собственный Stop/Remove и чистый host exit. В bundle recipe добавлен подписываемый `FSTRChainProbeBuild.json` с commit/Build ID и явными `AEGP_load=NOT RUN`, `SYNC-001=NOT RUN`, `handoffApproved=false`.
+
+Exact HEAD `35c2c5d` прошёл Integration gate `36833726253` и Read-only module input `36833726379`. Notification research tools `36833726281` дошёл через новые unit/research checks, но упал в старом LLDB `mac_runtime_attach_smoke`: третий owned-fixture run завершился `-9` после detach. Это тот же открытый класс Issue #3; он не чинится и не ретраится в этом этапе. Это Linux/hosted-macOS evidence, **не полная SDK macOS-сборка и не запуск AE**.
+
+Готов рецепт clean macOS bundle build с PiPL, Build ID, embedded ownership receipt и проверкой подписи; полная сборка с SDK на Mac, установка/загрузка и реальные события ещё NOT RUN.
 [Реализация, точные проверки и ограничения](TEST_RECORDS/AEGP-SDK-BRIDGE-2026-10-01.md).
 
 ## Следующий шаг

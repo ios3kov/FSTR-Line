@@ -61,6 +61,23 @@ is never freed under a possible remaining subscription. SDK death disables recor
 and releases acquired suites but deliberately does not mutate a tearing-down BEE
 registry. Native registration/removal concurrency remains an unaccepted runtime gate.
 
+## Post-checkpoint hardening and evidence gate
+
+Current reviewed HEAD: `35c2c5d77cd3cba0ac1bdacb6d9320f22182851e`; checkpoint ancestor: `6bef1e475ef944cdd471a84041d7d4035b732d8c`.
+
+The helper was hardened without changing the product architecture (FSTR Line remains CEP + ExtendScript; this AEGP bundle is research-only):
+
+- module pinning is deferred until exact host identity is accepted and immediately before private Insert; clean pre-hook failures delete local State and do not pin the module;
+- a unique private JSONL trace records Build ID, sequence, wall time and bounded diagnostic events on the AEGP main-thread path only; the BEE callback itself still performs no file I/O or project read;
+- a strict trace parser rejects wrong identity/schema/order, private activity in the disabled build, missing own-ID removal, retained forwarding at exit, fewer than two active observations and non-increasing generations;
+- the build embeds `Contents/Resources/FSTRChainProbeBuild.json` before signing, tying the research bundle to source commit/Build ID while keeping `AEGP_load=NOT RUN`, `SYNC-001=NOT RUN` and `handoffApproved=false` until real runtime evidence exists.
+
+During implementation the trace tests exposed and preserved two actual failures before fix: literal JSONL newline handling and an over-escaped observation-generation regex. The final regex behavior has an explicit regression test. These were evidence-tool defects, not AE runtime results.
+
+Exact-head CI: Integration gate `36833726253` PASS; Read-only module input `36833726379` PASS. Notification research tools `36833726281` completed the new research unit regression successfully, then failed in the unrelated existing LLDB owned-fixture test: two attach runs passed and the third ended with fixture cleanup exit `-9` after detach. This remains Issue #3 and is neither retried-to-green nor treated as a new SYNC-001 blocker.
+
+The no-LLDB parser currently proves evidence shape/order only. It does not prove that observations correspond to the intended native/script/Undo/Redo operations or their post-commit state. That correlation is part of the real-AE gate and must not be inferred from two increasing generations.
+
 ## Checks defined and executed
 
 Required for this increment: actual supplied SDK declaration compilation, execution
@@ -71,10 +88,7 @@ PiPL/signing/host load and repeated edits are separate mandatory gates before ha
 
 Local environment: Linux x86_64; Clang 17.0.0; source subset (GitHub clone failed DNS).
 The unchanged observer and chain ABI files match their original Git blob hashes.
-Two unittest methods PASS, one macOS-only loader method NOT RUN locally. The actual
-SDK control executes six fresh-process scenarios: normal repeated/coalesced events,
-noninteractive host, partial hook registration, wrong-host bind, unexpected callback
-thread and private-registration-disabled build. It also covers downstream errors,
+Two unittest methods PASS, one macOS-only loader method NOT RUN locally. The actual SDK control executes eight fresh-process scenarios: normal repeated/coalesced events, noninteractive host, partial hook registration, wrong-host bind, unexpected callback thread, module-pin failure, death-hook registration failure and private-registration-disabled build. It also covers downstream errors,
 exception identity, nested idle, failed-read backoff, wake errors, explicit own-ID
 removal and late forwarding after deactivation. Actual C++ implementation is used;
 the SDK suites, registry and OS binder around it are explicitly owned substitutes.
@@ -88,9 +102,7 @@ ASan leak detection is off for the deliberately process-resident refcon fixture;
 ASan memory errors and UBSan remain fatal. No performance claim follows.
 
 Python AST and whitespace checks PASS. The build script refuses Linux before
-creating output. A native SDK bundle was NOT built locally. The recipe fixes the
-SDK header hash, records all SDK header inputs and final signed payload hashes,
-requires clean Git and does not install/launch AE or modify security preferences.
+creating output. A native SDK bundle was NOT built locally. The recipe fixes the SDK header hash, records all SDK header inputs and final signed payload hashes, embeds the fail-closed research ownership receipt before signing, requires clean Git and does not install/launch AE or modify security preferences.
 macOS exact-commit results are recorded in PR #2; previous successes are not reused.
 The separate existing LLDB #3 FAIL is not repaired or waived by this work.
 
